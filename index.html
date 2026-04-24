@@ -1,0 +1,797 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+    <title>Roteiro de Thompson - MVP</title>
+    <link rel="stylesheet" href="./style.css?v=20260423l" />
+  </head>
+  <body>
+    <!-- TELA 0: LOGIN DO SISTEMA -->
+    <div id="screenLogin" class="app app--login hidden">
+      <div class="login-card">
+        <div class="login-header">
+          <h2>FisioFlow</h2>
+          <p>Acesse seus módulos de avaliação</p>
+        </div>
+        <form id="formLogin" class="login-form">
+          <div class="input-group">
+            <label class="label">E-mail</label>
+            <input type="email" id="loginEmail" class="input-text" placeholder="Seu e-mail de acesso" required />
+          </div>
+          <div class="input-group">
+            <label class="label">Senha</label>
+            <input type="password" id="loginPassword" class="input-text" placeholder="Sua senha" required />
+          </div>
+          <button type="submit" class="btn btn--start" style="width: 100%; margin-top: 10px;">Entrar no Sistema</button>
+        </form>
+        <div class="login-footer">
+          <p id="loginError" style="color: red; font-size: 14px; display: none; margin-top: 10px;">E-mail ou senha incorretos.</p>
+          <small class="muted" style="display: block; margin-top: 20px;">Dica: Use <b>admin@admin.com</b> para gerenciar o sistema.</small>
+        </div>
+      </div>
+    </div>
+
+    <!-- PAINEL ADMINISTRATIVO E DO FISIOTERAPEUTA -->
+    <div id="appContainer" class="app app--admin">
+      <!-- SIDEBAR LATERAL (Painel do Denis) -->
+      <aside class="sidebar">
+        <div class="sidebar__brand">
+          <h2>FisioFlow</h2>
+          <span>Admin</span>
+        </div>
+        <nav class="sidebar__nav">
+          <button id="navDashboard" class="sidebar__link active">📊 Dashboard</button>
+          <button id="navFisios" class="sidebar__link">👥 Fisioterapeutas</button>
+          <button id="navModulos" class="sidebar__link">🧩 Meus Módulos</button>
+        </nav>
+        <div class="sidebar__footer">
+          <div class="sidebar__user">
+            <div class="avatar">D</div>
+            <span>Denis Tosta</span>
+          </div>
+        </div>
+      </aside>
+
+      <!-- ÁREA PRINCIPAL -->
+      <main id="mainAdmin" class="main main--admin">
+        
+        <!-- TELA 1: DASHBOARD GERAL -->
+        <section id="screenAdminDashboard" class="screen">
+          <div class="dash-header">
+            <h1 class="h1">Visão Geral</h1>
+            <p class="muted">Acompanhe os acessos e módulos da sua plataforma.</p>
+          </div>
+          
+          <div class="dash-grid">
+            <div class="dash-stat-card">
+              <h3>Fisioterapeutas Ativos</h3>
+              <div class="stat-number">24</div>
+            </div>
+            <div class="dash-stat-card">
+              <h3>Módulos Criados</h3>
+              <div class="stat-number">3</div>
+            </div>
+            <div class="dash-stat-card">
+              <h3>Acessos no Mês</h3>
+              <div class="stat-number">142</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- TELA 2: GERENCIAR FISIOTERAPEUTAS -->
+        <section id="screenAdminFisios" class="screen hidden">
+          <div class="dash-header row row--between">
+            <div>
+              <h1 class="h1">Fisioterapeutas (Clientes)</h1>
+              <p class="muted">Gerencie os logins e permissões de módulos para os assinantes.</p>
+            </div>
+            <button id="btnNewFisio" class="btn btn--start-sm" style="flex: 0; white-space: nowrap;">+ Novo Fisio</button>
+          </div>
+
+          <div class="tabs">
+            <button class="tab-btn active">Ativos (2)</button>
+            <button class="tab-btn">Inativos (1)</button>
+          </div>
+
+          <div class="card table-card">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>Nome / CREFITO</th>
+                  <th>E-mail (Login)</th>
+                  <th>Módulos Liberados</th>
+                  <th>Status</th>
+                  <th>Ações</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><strong>João Silva</strong><br><small class="muted">CREFITO: 123456-F</small></td>
+                  <td>joao@clinica.com</td>
+                  <td><span class="pill-sm">Roteiro de Thompson</span></td>
+                  <td><span class="status-badge status-active">Ativo</span></td>
+                  <td><button class="btn btn--ghost btn--sm">Editar</button></td>
+                </tr>
+                <tr>
+                  <td><strong>Maria Souza</strong><br><small class="muted">CREFITO: 654321-F</small></td>
+                  <td>maria@reabilitar.com</td>
+                  <td><span class="pill-sm">Thompson</span> <span class="pill-sm">Limpeza</span></td>
+                  <td><span class="status-badge status-active">Ativo</span></td>
+                  <td><button class="btn btn--ghost btn--sm">Editar</button></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- TELA 2.1: CADASTRAR/EDITAR FISIOTERAPEUTA -->
+        <section id="screenAdminFisiosForm" class="screen hidden">
+          <div class="dash-header row row--between">
+            <div>
+              <h1 class="h1">Cadastrar Fisioterapeuta</h1>
+              <p class="muted">Crie um acesso para o cliente e libere módulos.</p>
+            </div>
+            <button id="btnBackFisios" class="btn btn--ghost btn--sm" style="flex: 0;">Voltar</button>
+          </div>
+
+          <form id="formFisio" class="form-grid">
+            <div class="card form-card">
+              <h2 class="h2" style="margin-bottom: 20px;">Dados Pessoais & Acesso</h2>
+              
+              <div class="input-group">
+                <label class="label">Nome Completo</label>
+                <input type="text" id="nomeFisioInput" class="input-text" placeholder="Ex: Carlos Mendes" required />
+              </div>
+
+              <div class="row-inputs">
+                <div class="input-group">
+                  <label class="label">E-mail (Login)</label>
+                  <input type="email" class="input-text" placeholder="Ex: carlos@email.com" required />
+                </div>
+                <div class="input-group">
+                  <label class="label">CREFITO</label>
+                  <div style="display: flex; gap: 8px;">
+                    <input type="text" id="crefitoInput" class="input-text" placeholder="Ex: 12345-F" required style="flex: 1;" />
+                    <button type="button" id="btnValidateCrefito" class="btn btn--ghost" style="padding: 0 15px; font-size: 14px; min-height: 44px;">Validar</button>
+                  </div>
+                  <small id="crefitoStatus" class="muted" style="margin-top: 5px; font-weight: bold;"></small>
+                </div>
+              </div>
+
+              <div class="input-group">
+                <label class="label">Senha de Acesso</label>
+                <input type="password" class="input-text" placeholder="Crie uma senha inicial" required />
+              </div>
+            </div>
+
+            <div class="card form-card">
+              <h2 class="h2" style="margin-bottom: 20px;">Endereço (CEP Inteligente)</h2>
+              
+              <div class="row-inputs">
+                <div class="input-group">
+                  <label class="label">CEP</label>
+                  <input type="text" id="cepInput" class="input-text" placeholder="00000-000" maxlength="9" />
+                </div>
+                <div class="input-group" style="flex: 2;">
+                  <label class="label">Rua / Logradouro</label>
+                  <input type="text" id="ruaInput" class="input-text" placeholder="Rua preenchida automaticamente" />
+                </div>
+              </div>
+
+              <div class="row-inputs">
+                <div class="input-group">
+                  <label class="label">Número</label>
+                  <input type="text" class="input-text" placeholder="123" />
+                </div>
+                <div class="input-group" style="flex: 2;">
+                  <label class="label">Complemento</label>
+                  <input type="text" class="input-text" placeholder="Sala, Apto, Bloco..." />
+                </div>
+              </div>
+
+              <div class="row-inputs">
+                <div class="input-group">
+                  <label class="label">Bairro</label>
+                  <input type="text" id="bairroInput" class="input-text" />
+                </div>
+                <div class="input-group">
+                  <label class="label">Cidade</label>
+                  <input type="text" id="cidadeInput" class="input-text" />
+                </div>
+                <div class="input-group" style="flex: 0.5;">
+                  <label class="label">UF</label>
+                  <input type="text" id="ufInput" class="input-text" />
+                </div>
+              </div>
+            </div>
+
+            <div class="card form-card">
+              <h2 class="h2" style="margin-bottom: 20px;">Módulos Liberados</h2>
+              <label class="checkbox-label">
+                <input type="checkbox" checked> Roteiro de Thompson
+              </label>
+              <label class="checkbox-label">
+                <input type="checkbox"> Módulo Avançado (Exemplo)
+              </label>
+            </div>
+
+            <div class="row row--right" style="margin-top: 10px;">
+              <button type="submit" class="btn btn--start-sm" style="flex: 0; min-width: 200px;">Salvar Cadastro</button>
+            </div>
+          </form>
+        </section>
+
+        <!-- TELA 3: GERENCIAR MÓDULOS (O que era o dashboard antigo) -->
+        <section id="screenAdminModulos" class="screen hidden">
+          <div class="dash-header">
+            <h1 class="h1">Gerenciar Módulos</h1>
+            <p class="muted">Crie ou edite os roteiros clínicos que serão disponibilizados aos fisioterapeutas.</p>
+          </div>
+
+          <div id="modulesList" class="dash-grid"></div>
+
+          <div class="dash-grid">
+            <div class="dash-card dash-card--new">
+              <div class="dash-card-icon">+</div>
+              <h3 class="dash-card-title">Criar Novo Módulo</h3>
+              <p class="dash-card-desc">Monte um roteiro novo com perguntas e respostas, passo a passo.</p>
+              <button id="btnCreateNew" class="btn btn--ghost" type="button" style="margin-top:auto;">Criar Passo a Passo</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- TELA 4: EDITOR DE ROTEIROS -->
+        <section id="screenEditor" class="screen screen--editor hidden">
+          <div class="row row--between">
+            <h1 id="editorTitle" class="h1">Construtor de Módulo</h1>
+            <button id="btnSaveEditor" class="btn btn--start-sm" style="flex: 0;" type="button">Salvar Módulo</button>
+          </div>
+          <p id="editorSubtitle" class="muted">Monte o roteiro visualmente: clique nos blocos, edite o texto, crie ramificações e conecte as etapas como um fluxograma clínico.</p>
+
+          <div class="card form-card">
+            <div class="row-inputs">
+              <div class="input-group" style="margin-bottom: 0;">
+                <label class="label">Nome do roteiro</label>
+                <input type="text" id="builderModuleNameMain" class="input-text" placeholder="Ex: Avaliação de Thompson" />
+              </div>
+            </div>
+          </div>
+
+          <div id="flowBuilderSection" class="card form-card flow-editor-card">
+            <div class="row row--between">
+              <div>
+                <h2 class="h2">Editor Visual do Fluxo</h2>
+                <p class="muted">Organize o roteiro em etapas clínicas, uma abaixo da outra. Clique no card para editar e clique na resposta para definir o próximo passo.</p>
+              </div>
+              <div class="builder-actions">
+                <button id="btnOpenModuleConfig" class="btn btn--ghost btn--sm" type="button" style="flex: 0;">Config do Módulo</button>
+                <button id="btnTestBuilderFlow" class="btn btn--ghost btn--sm" type="button" style="flex: 0;">Testar Módulo</button>
+                <button id="btnImportBuilderFlow" class="btn btn--ghost btn--sm" type="button" style="flex: 0;">Importar Roteiro</button>
+                <button id="btnAddBuilderQuestion" class="btn btn--ghost btn--sm" type="button" style="flex: 0;">Nova Pergunta</button>
+                <button id="btnAddBuilderDiagnosis" class="btn btn--ghost btn--sm" type="button" style="flex: 0;">Novo Resultado</button>
+                <button id="btnToggleLegacyBuilder" class="btn btn--ghost btn--sm" type="button" style="flex: 0;">Modo Avançado</button>
+              </div>
+            </div>
+
+            <div id="flowBuilderStatus" class="muted">Clique em um bloco para editar. O fluxo é salvo como módulo ao finalizar.</div>
+            <div id="builderValidationList" class="builder-validation hidden"></div>
+            <div class="flow-editor-insights">
+              <div class="flow-editor-insights__header">
+                <h3 class="flow-editor-panel__title">Ver Caminho</h3>
+                <span class="muted">Exemplos de jornadas até um resultado final</span>
+              </div>
+              <div id="builderPathPreview" class="builder-path-preview"></div>
+            </div>
+
+            <div class="flow-editor-layout">
+              <div class="flow-editor-stage">
+                <div id="builderFlowCanvas" class="flow-editor-canvas"></div>
+              </div>
+
+              <aside id="builderSidebar" class="flow-editor-sidebar hidden">
+                <div class="flow-editor-sidebar__header">
+                  <div>
+                    <h3 class="flow-editor-panel__title">Editar Etapa</h3>
+                    <p class="flow-editor-sidebar__subtitle">Ajuste o conteúdo clínico e os próximos passos sem sair do fluxo.</p>
+                  </div>
+                  <button id="btnCloseBuilderSidebar" class="btn btn--ghost btn--sm" type="button" style="flex: 0;">Fechar</button>
+                </div>
+                <div class="flow-editor-sidebar__body">
+                  <div class="flow-editor-panel">
+                    <h3 class="flow-editor-panel__title">Configuração do módulo</h3>
+                    <div class="input-group">
+                      <label class="label">Nome do Módulo</label>
+                      <input type="text" id="builderModuleName" class="input-text" placeholder="Ex: Avaliação de Thompson" />
+                    </div>
+                    <div class="input-group" data-builder-advanced>
+                      <label class="label">Identificador</label>
+                      <input type="text" id="builderModuleId" class="input-text" placeholder="Ex: avaliacao_thompson" />
+                    </div>
+                    <div class="input-group" style="margin-bottom: 0;">
+                      <label class="label">Etapa inicial</label>
+                      <select id="builderStartNodeId" class="input-text"></select>
+                    </div>
+                  </div>
+
+                  <div id="builderInspectorEmpty" class="flow-editor-panel flow-editor-panel--empty">
+                    <h3 class="flow-editor-panel__title">Selecione uma etapa</h3>
+                    <p class="muted">Escolha uma pergunta ou resultado no fluxo para editar título, descrição, respostas e próximo passo.</p>
+                  </div>
+
+                  <div id="builderInspectorPanel" class="flow-editor-panel flow-editor-panel--selected hidden">
+                    <div class="flow-editor-selected-top">
+                      <div class="flow-editor-selected-top__copy">
+                        <div class="flow-editor-panel__eyebrow">Etapa Selecionada</div>
+                        <h3 class="flow-editor-panel__title">Detalhes da Etapa</h3>
+                      </div>
+                      <button id="btnDeleteSelectedNode" class="btn btn--danger btn--sm" type="button" style="flex: 0;">Excluir</button>
+                    </div>
+
+                    <div class="input-group" data-builder-advanced>
+                      <label class="label">Identificador interno</label>
+                      <input type="text" id="builderSelectedNodeId" class="input-text" readonly />
+                    </div>
+
+                    <div class="row-inputs">
+                      <div class="input-group">
+                        <label class="label">Tipo</label>
+                        <select id="builderSelectedNodeType" class="input-text">
+                          <option value="pergunta">Pergunta</option>
+                          <option value="interpretacao">Resultado</option>
+                        </select>
+                      </div>
+                      <div class="input-group">
+                        <label class="label">Fluxo</label>
+                        <button id="btnSetSelectedAsStart" class="btn btn--ghost btn--sm" type="button">Definir como Início</button>
+                      </div>
+                    </div>
+
+                    <div class="input-group">
+                      <label class="label">Título</label>
+                      <input type="text" id="builderSelectedNodeTitle" class="input-text" placeholder="Ex: Leg checking inicial" />
+                    </div>
+
+                    <div id="builderNodeImageControls" class="row-inputs">
+                      <div class="input-group">
+                        <label class="label">Formato do conteúdo</label>
+                        <select id="builderSelectedContentType" class="input-text">
+                          <option value="text">Texto</option>
+                          <option value="image">Imagem</option>
+                          <option value="mixed">Imagem + texto</option>
+                        </select>
+                      </div>
+                      <div class="input-group">
+                        <label class="label">Imagem da etapa</label>
+                        <button id="btnUploadNodeImage" class="btn btn--ghost btn--sm" type="button">Enviar Imagem</button>
+                        <input id="builderSelectedNodeImageFile" type="file" accept="image/*" class="hidden" />
+                      </div>
+                    </div>
+
+                    <div id="builderNodeImageUrlGroup" class="input-group">
+                      <label class="label">URL da imagem</label>
+                      <input type="text" id="builderSelectedNodeImageUrl" class="input-text" placeholder="Cole a URL ou envie uma imagem" />
+                    </div>
+
+                    <div id="builderNodeImagePreviewWrap" class="builder-image-preview hidden">
+                      <img id="builderNodeImagePreview" class="builder-image-preview__img" alt="Preview da etapa" />
+                      <div class="builder-actions">
+                        <button id="btnRemoveNodeImage" class="btn btn--ghost btn--sm" type="button" style="flex: 0;">Remover Imagem</button>
+                        <button id="btnGenerateNodeImage" class="btn btn--ghost btn--sm" type="button" style="flex: 0;">Gerar Imagem com IA</button>
+                      </div>
+                    </div>
+
+                    <div id="builderNodeBodyGroup" class="input-group">
+                      <label class="label">Descrição / conduta</label>
+                      <textarea id="builderSelectedNodeBody" class="textarea" style="min-height: 140px;"></textarea>
+                    </div>
+
+                    <div id="builderSelectedAnswersSection" class="flow-editor-answers">
+                      <div class="row row--between">
+                        <h4 class="flow-editor-panel__subtitle">Próximos Passos</h4>
+                        <button id="btnSidebarAddAnswer" class="btn btn--ghost btn--sm" type="button" style="flex: 0;">Adicionar Resposta</button>
+                      </div>
+                      <div id="builderSelectedAnswersList" class="flow-editor-answer-list"></div>
+                    </div>
+                  </div>
+                </div>
+              </aside>
+            </div>
+          </div>
+
+          <div id="simpleBuilderSection" class="card form-card builder-card hidden">
+            <div class="row row--between">
+              <h2 class="h2">Modo Avançado</h2>
+              <span class="muted">Visualização técnica para IDs, estrutura interna e ajustes finos.</span>
+            </div>
+            <div id="builderNodesList" class="builder-nodes"></div>
+          </div>
+
+          <div id="visualEditorSection" class="card form-card visual-editor-card">
+            <div class="row row--between">
+              <div>
+                <h2 class="h2">Editor Visual PDF</h2>
+                <p class="muted">Ajuste fundo, imagem, fonte, cores e estilo do módulo com preview ao vivo.</p>
+              </div>
+              <div class="visual-editor-toolbar">
+                <button id="btnOpenVisualFullscreen" class="btn btn--ghost btn--sm" type="button" style="flex: 0;">Abrir Tela Grande</button>
+                <button id="btnCloseVisualFullscreen" class="btn btn--ghost btn--sm hidden" type="button" style="flex: 0;">Fechar Tela Grande</button>
+              </div>
+            </div>
+
+            <div class="visual-editor-layout">
+              <div class="visual-editor-controls">
+                <div class="row-inputs">
+                  <div class="input-group">
+                    <label class="label">Cor de Fundo</label>
+                    <input type="color" id="visualBackgroundColor" class="input-text visual-color-input" />
+                  </div>
+                  <div class="input-group">
+                    <label class="label">Fonte Principal</label>
+                    <select id="visualFontFamily" class="input-text">
+                      <option value="Arial, sans-serif">Arial</option>
+                      <option value="Georgia, serif">Georgia</option>
+                      <option value="'Trebuchet MS', sans-serif">Trebuchet MS</option>
+                      <option value="'Times New Roman', serif">Times New Roman</option>
+                      <option value="'Verdana', sans-serif">Verdana</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div class="row-inputs">
+                  <div class="input-group">
+                    <label class="label">Imagem de Fundo</label>
+                    <input type="text" id="visualBackgroundImage" class="input-text" placeholder="Cole a URL ou envie uma imagem" />
+                  </div>
+                  <div class="input-group">
+                    <label class="label">Ajuste da Imagem</label>
+                    <select id="visualBackgroundSize" class="input-text">
+                      <option value="cover">Cobrir</option>
+                      <option value="contain">Conter</option>
+                      <option value="auto">Original</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div class="builder-actions">
+                  <button id="btnUploadVisualBackground" class="btn btn--ghost btn--sm" type="button" style="flex: 0;">Enviar Fundo</button>
+                  <input id="visualBackgroundFile" type="file" accept="image/*" class="hidden" />
+                  <button id="btnClearVisualBackground" class="btn btn--ghost btn--sm" type="button" style="flex: 0;">Limpar Fundo</button>
+                </div>
+
+                <div class="row-inputs">
+                  <div class="input-group">
+                    <label class="label">URL do Icone/Imagem</label>
+                    <input type="text" id="visualIconUrl" class="input-text" placeholder="Ex: logo, casinha, maca, imagem do PDF" />
+                  </div>
+                  <div class="input-group">
+                    <label class="label">Cor Base do Texto</label>
+                    <input type="color" id="visualTextColor" class="input-text visual-color-input" />
+                  </div>
+                </div>
+
+                <div class="builder-actions">
+                  <button id="btnUploadVisualIcon" class="btn btn--ghost btn--sm" type="button" style="flex: 0;">Enviar Icone</button>
+                  <input id="visualIconFile" type="file" accept="image/*" class="hidden" />
+                  <button id="btnClearVisualIcon" class="btn btn--ghost btn--sm" type="button" style="flex: 0;">Limpar Icone</button>
+                </div>
+
+                <div class="visual-editor-palette">
+                  <div class="visual-editor-palette__group">
+                    <div class="visual-editor-palette__title">Pergunta</div>
+                    <div class="row-inputs">
+                      <div class="input-group">
+                        <label class="label">Fundo</label>
+                        <input type="color" id="visualQuestionBg" class="input-text visual-color-input" />
+                      </div>
+                      <div class="input-group">
+                        <label class="label">Texto</label>
+                        <input type="color" id="visualQuestionText" class="input-text visual-color-input" />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="visual-editor-palette__group">
+                    <div class="visual-editor-palette__title">Resposta</div>
+                    <div class="row-inputs">
+                      <div class="input-group">
+                        <label class="label">Fundo</label>
+                        <input type="color" id="visualAnswerBg" class="input-text visual-color-input" />
+                      </div>
+                      <div class="input-group">
+                        <label class="label">Texto</label>
+                        <input type="color" id="visualAnswerText" class="input-text visual-color-input" />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="visual-editor-palette__group">
+                    <div class="visual-editor-palette__title">Diagnostico</div>
+                    <div class="row-inputs">
+                      <div class="input-group">
+                        <label class="label">Fundo</label>
+                        <input type="color" id="visualDiagnosisBg" class="input-text visual-color-input" />
+                      </div>
+                      <div class="input-group">
+                        <label class="label">Texto</label>
+                        <input type="color" id="visualDiagnosisText" class="input-text visual-color-input" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="visual-editor-preview-wrap">
+                <div id="visualPreviewCanvas" class="visual-preview" role="button" tabindex="0" aria-label="Abrir editor visual em tela grande">
+                  <div class="visual-preview__topline">Preview visual do modulo</div>
+                  <div class="visual-preview__hero">
+                    <div class="visual-preview__art">
+                      <img id="visualPreviewIcon" class="visual-preview__icon hidden" alt="Icone do modulo" />
+                    </div>
+                    <div class="visual-preview__copy">
+                      <div id="visualPreviewModuleName" class="visual-preview__module-name">Novo Modulo</div>
+                      <div class="visual-preview__subtitle">Como esse modulo vai aparecer de forma visual</div>
+                    </div>
+                  </div>
+                  <div id="visualPreviewQuestion" class="visual-preview__question">
+                    <div class="visual-preview__label">Pergunta</div>
+                    <img id="visualPreviewQuestionImage" class="visual-preview__media hidden" alt="Preview da pergunta" />
+                    <div class="visual-preview__text">Rotacao cervical para direita e esquerda</div>
+                  </div>
+                  <div class="visual-preview__answers">
+                    <div id="visualPreviewAnswerA" class="visual-preview__answer">Resposta 1</div>
+                    <div id="visualPreviewAnswerB" class="visual-preview__answer">Resposta 2</div>
+                  </div>
+                  <div id="visualPreviewDiagnosis" class="visual-preview__diagnosis">
+                    <div class="visual-preview__label">Diagnostico</div>
+                    <img id="visualPreviewDiagnosisImage" class="visual-preview__media hidden" alt="Preview do diagnostico" />
+                    <div class="visual-preview__diagnosis-text">Exemplo de tela final do modulo</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div id="advancedJsonSection" class="card form-card">
+            <div class="row row--between">
+              <h2 class="h2">JSON gerado automaticamente</h2>
+              <button id="btnToggleAdvanced" class="btn btn--ghost btn--sm" type="button" style="flex: 0;">Mostrar JSON</button>
+            </div>
+            <textarea id="editorTextarea" class="textarea hidden" style="height: 300px; font-size: 14px;"></textarea>
+          </div>
+
+          <div id="builderRouteModal" class="builder-modal hidden" aria-hidden="true">
+            <div class="builder-modal__backdrop" data-action="close-builder-route-modal"></div>
+            <div class="builder-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="builderRouteModalTitle">
+              <div class="row row--between">
+                <div>
+                  <h3 id="builderRouteModalTitle" class="flow-editor-panel__title">Para onde essa resposta vai?</h3>
+                  <p id="builderRouteModalSubtitle" class="muted">Escolha se deseja criar uma nova etapa ou ligar a uma etapa existente.</p>
+                </div>
+                <button id="btnCloseBuilderRouteModal" class="btn btn--ghost btn--sm" type="button" style="flex: 0;">Fechar</button>
+              </div>
+
+              <div class="builder-modal__options">
+                <label class="builder-modal__choice">
+                  <input type="radio" name="builderRouteMode" value="create" checked />
+                  <span>Criar nova etapa</span>
+                </label>
+                <label class="builder-modal__choice">
+                  <input type="radio" name="builderRouteMode" value="connect" />
+                  <span>Conectar a existente</span>
+                </label>
+              </div>
+
+              <div id="builderRouteCreateFields" class="builder-modal__fields">
+                <div class="row-inputs">
+                  <div class="input-group">
+                    <label class="label">Tipo da nova etapa</label>
+                    <select id="builderRouteCreateType" class="input-text">
+                      <option value="pergunta">Pergunta</option>
+                      <option value="interpretacao">Resultado</option>
+                    </select>
+                  </div>
+                  <div class="input-group">
+                    <label class="label">Título sugerido</label>
+                    <input id="builderRouteCreateTitle" type="text" class="input-text" placeholder="Ex: Avaliar rotação cervical" />
+                  </div>
+                </div>
+              </div>
+
+              <div id="builderRouteConnectFields" class="builder-modal__fields hidden">
+                <div class="input-group" style="margin-bottom: 0;">
+                  <label class="label">Escolha a etapa existente</label>
+                  <select id="builderRouteExistingTarget" class="input-text"></select>
+                </div>
+              </div>
+
+              <div class="builder-actions">
+                <button id="btnConfirmBuilderRoute" class="btn btn--start-sm" type="button" style="flex: 0;">Confirmar Próximo Passo</button>
+              </div>
+            </div>
+          </div>
+
+        </section>
+
+        <!-- TELA 5: PREVIEW/TESTE DO FLUXO (O APP EM SI) -->
+        <!-- O container do app do fisio vai renderizar aqui dentro para o Denis testar -->
+        <section id="screenProtocolIntro" class="screen hidden">
+          <div class="home-cover">
+            <div class="home-topline">Denis Kaua Martins Tosta, denistostafisio@gmail.com</div>
+            <div class="home-welcome">Seja bem vindo ao</div>
+            <div class="home-hero">
+              <h1 class="home-title">ROTEIRO DE<br>THOMPSOM</h1>
+              <div class="home-apple" aria-hidden="true">🍎</div>
+            </div>
+
+            <h2 class="home-subtitle">Como utilizar</h2>
+            
+            <div class="legend-list">
+              <div class="legend-item">
+                <div class="legend-color legend-verde">VERDE</div>
+                <div class="legend-text"><strong>PERGUNTA</strong>, mostra o que você deve perguntar para o corpo do paciente. Qual posição avaliar, ou movimento.</div>
+              </div>
+              
+              <div class="legend-item">
+                <div class="legend-color legend-laranja">LARANJA</div>
+                <div class="legend-text"><strong>RESPOSTA</strong>, <u>clicando</u> nele você irá para o próximo passo.</div>
+              </div>
+              
+              <div class="legend-item">
+                <div class="legend-color legend-branco">BRANCO</div>
+                <div class="legend-text"><strong>ORIENTAÇÃO</strong>, indica o que deve ser feito.</div>
+              </div>
+              
+              <div class="legend-item">
+                <div class="legend-color legend-cinza">CINZA</div>
+                <div class="legend-text"><strong>INTERPRETAÇÃO</strong>, revela a síndrome que foi encontrada. Usado também para orientar o MOVIMENTO DE LIMPEZA.</div>
+              </div>
+              
+              <div class="legend-item">
+                <div class="legend-color legend-preto">PRETO</div>
+                <div class="legend-text"><strong>ÁREAS</strong>, <u>clicando aqui</u> você irá para a área correspondente: Área Secundária, Área Terciária e Movimento de Limpeza.</div>
+              </div>
+              
+              <div class="legend-item">
+                <div class="legend-icon">🏠</div>
+                <div class="legend-text"><strong>AVALIAÇÃO INICIAL</strong>, sempre que quiser voltar para a avaliação inicial <u>clique aqui</u>.</div>
+              </div>
+            </div>
+
+            <div class="home-tips">
+              <p>🍎 Na parte superior ficará salvo para você o caminho que você percorreu para chegar até ali.</p>
+              <p>🍎 Após a correção, volte para a avaliação inicial. Recomece até chegar na opção de alta.</p>
+            </div>
+
+            <div class="home-footer">
+              <div class="home-greetings">BOM<br>ATENDIMENTO</div>
+              <button id="btnStart" class="btn btn--start" type="button">START</button>
+            </div>
+            
+            <div class="home-credits">@DENISTOSTA.FISIO</div>
+          </div>
+
+          <!-- Mantido escondido apenas para debug/funcionalidade se precisar -->
+          <div class="hidden">
+            <button id="btnContinue" type="button">Continuar</button>
+            <select id="flowSelect"></select>
+            <div id="jsonStatus"></div>
+          </div>
+        </section>
+
+        <section id="screenNode" class="screen hidden">
+          <div class="breadcrumbWrap">
+            <div id="breadcrumb" class="breadcrumb"></div>
+          </div>
+
+          <!-- Apenas a caixa de pergunta/orientação/interpretação terá a cor -->
+          <div id="nodeCard" class="node-box">
+            <div id="nodeType" class="pill"></div>
+            <img id="nodeImage" class="node-box__image hidden" alt="Imagem da etapa" />
+            <h1 id="nodeTitle" class="h1"></h1>
+            <div id="nodeBody" class="body"></div>
+          </div>
+
+          <div id="finalizerView" class="finalizer hidden">
+            <div class="finalizer__topbar">
+              <button id="btnHome" class="btn-home btn-home--final" type="button" aria-label="Voltar para o início do roteiro">
+                <span class="btn-home__icon">🏠</span>
+              </button>
+            </div>
+            <div id="finalizerPath" class="finalizer__path"></div>
+            <div class="finalizer__hero">
+              <div class="finalizer__side">
+                <div class="finalizer__art" aria-hidden="true">
+                  <svg viewBox="0 0 220 180" class="finalizer__svg">
+                    <circle cx="110" cy="90" r="82" fill="#eef7fb"/>
+                    <path d="M54 146h112" stroke="#2b6cb0" stroke-width="6" stroke-linecap="round"/>
+                    <path d="M66 70h76c14 0 26 12 26 26v40H40V96c0-14 12-26 26-26z" fill="#ffffff" stroke="#2d3748" stroke-width="4"/>
+                    <path d="M40 136h128" stroke="#2d3748" stroke-width="4"/>
+                    <path d="M54 136v24M154 136v24" stroke="#2b6cb0" stroke-width="6" stroke-linecap="round"/>
+                    <path d="M100 47c14 0 26 12 26 26v9H74v-9c0-14 12-26 26-26z" fill="#4a5568"/>
+                    <circle cx="100" cy="38" r="16" fill="#4a5568"/>
+                    <path d="M88 90h24v50H88z" fill="#4a5568"/>
+                    <path d="M74 86l22 20M126 86l-22 20" stroke="#4a5568" stroke-width="10" stroke-linecap="round"/>
+                    <path d="M92 140v26M108 140v26" stroke="#4a5568" stroke-width="9" stroke-linecap="round"/>
+                    <circle cx="54" cy="166" r="7" fill="#3182ce"/>
+                    <circle cx="154" cy="166" r="7" fill="#3182ce"/>
+                    <path d="M174 46c18-26 48-10 34 15-12 22-38 35-38 35s-26-13-38-35c-14-25 16-41 34-15l4 6 4-6z" fill="#e53e3e"/>
+                    <path d="M172 53c-8-14-25-5-19 8 6 12 18 19 18 19" fill="none" stroke="#fff5f5" stroke-width="4" stroke-linecap="round"/>
+                    <path d="M175 37c5-10 15-13 24-9-1 10-10 17-20 20" fill="#2f855a"/>
+                  </svg>
+                </div>
+              </div>
+              <div class="finalizer__copy">
+                <div class="finalizer__badge">Alta</div>
+                <div class="finalizer__subtitle">Fim da sessão</div>
+              </div>
+            </div>
+          </div>
+
+          <div id="diagnosisView" class="diagnosis hidden">
+            <div class="diagnosis__topbar">
+              <button id="btnDiagnosisHome" class="btn-home btn-home--final" type="button" aria-label="Voltar para o início do roteiro">
+                <span class="btn-home__icon">🏠</span>
+              </button>
+            </div>
+            <div id="diagnosisPath" class="diagnosis__path"></div>
+            <div class="diagnosis__card">
+              <img id="diagnosisImage" class="diagnosis__image hidden" alt="Imagem do diagnostico" />
+              <div class="diagnosis__icon" aria-hidden="true">
+                <svg viewBox="0 0 140 140" class="diagnosis__svg">
+                  <circle cx="70" cy="70" r="48" fill="none" stroke="#222" stroke-width="3"/>
+                  <circle cx="70" cy="70" r="31" fill="none" stroke="#222" stroke-width="2.5"/>
+                  <circle cx="70" cy="70" r="14" fill="none" stroke="#222" stroke-width="2"/>
+                  <path d="M70 14v112M14 70h112" stroke="#222" stroke-width="2"/>
+                  <path d="M45 45l50 50M95 45L45 95" stroke="#777" stroke-width="1.5" opacity="0.6"/>
+                  <path d="M71 66c9-18 29-7 21 10-7 14-22 23-22 23s-15-9-22-23c-8-17 12-28 21-10l1 3 1-3z" fill="#e53e3e"/>
+                  <path d="M74 58c5-7 11-10 18-8-1 7-7 12-15 14" fill="#2f855a"/>
+                </svg>
+              </div>
+              <div id="diagnosisTitle" class="diagnosis__title"></div>
+            </div>
+            <div id="diagnosisActions" class="diagnosis__actions"></div>
+          </div>
+
+          <div id="triggerQuestionView" class="trigger-question hidden">
+            <div class="trigger-question__columns">
+              <div class="trigger-question__findings">
+                <div class="trigger-question__heading">Procurar</div>
+                <div id="triggerQuestionList" class="trigger-question__list"></div>
+              </div>
+              <div class="trigger-question__answers">
+                <div class="trigger-question__heading">Resposta</div>
+                <div id="triggerQuestionActions" class="trigger-question__buttons"></div>
+              </div>
+            </div>
+          </div>
+
+          <div id="checkpointList" class="hidden"></div>
+
+          <!-- Respostas em Laranja (em lista) -->
+          <div id="options" class="options"></div>
+          
+          <!-- Áreas em Preto (quadrados lado a lado) -->
+          <div id="areaOptions" class="areas-container"></div>
+
+          <!-- Botões de ação primária (como Corrigir/Reavaliar) -->
+          <div id="primaryActions" class="options"></div>
+
+          <div class="row row--between" style="margin-top: 20px;">
+            <button id="btnBack" class="btn btn--ghost" type="button">Voltar 1 passo</button>
+            <button id="btnReavaliar" class="btn btn--ghost" type="button">Reavaliar</button>
+          </div>
+        </section>
+      </main>
+
+      <footer class="footer">
+        <div id="footerHint" class="muted"></div>
+      </footer>
+    </div>
+
+    <script type="module" src="./app.js?v=20260423k"></script>
+  </body>
+</html>

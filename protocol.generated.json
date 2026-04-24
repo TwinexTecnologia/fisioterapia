@@ -1,0 +1,1873 @@
+{
+  "defaultFlowId": "principal",
+  "flowsById": {
+    "principal": {
+      "name": "Principal",
+      "startNodeId": "leg_checking_inicial",
+      "nodesById": {
+        "dx_occipital_posterior": {
+          "id": "dx_occipital_posterior",
+          "type": "interpretation",
+          "title": "Occipital Posterior",
+          "body": "Leg Checking\ninicial\nResposta\nPerna Neutra\n1. Pergunta Rotação Cervical Dir e\nEsq. com extensão de\njoelhos\nResposta\nPerna curta\nCONTRALATERAL\na rotação cervical\n2. Pergunta\n1 - CORRIGIR\n2- REAVALIAÇÃO",
+          "options": []
+        },
+        "page_09": {
+          "id": "page_09",
+          "type": "question",
+          "title": "1. Pergunta",
+          "body": "1. Pergunta\nLeg Checking\ninicial\nResposta\nPerna Curta\nRotação cervical para Direita e para a Esqueda\ncom o joelho em EXTENSÃO\n2. Pergunta\nResposta\nPerna Neutra ao rodar a cervical para a Direita\nPerna Neutra ao rodar a cervical para a Esquerda\nPerna Neutra ao rodar a cervical para os dois lados\nPerna Curta ao rodar a cervical para os dois lados",
+          "options": [
+            {
+              "label": "Perna Curta",
+              "nextNodeId": "leg_checking_inicial"
+            },
+            {
+              "label": "Perna Neutra ao rodar a cervical para a Direita",
+              "nextNodeId": "dx_derifield_x_direita"
+            },
+            {
+              "label": "Perna Neutra ao rodar a cervical para a Esquerda",
+              "nextNodeId": "dx_derifield_x_esquerda"
+            },
+            {
+              "label": "Perna Neutra ao rodar a cervical para os dois lados",
+              "nextNodeId": "page_12"
+            },
+            {
+              "label": "Perna Curta ao rodar a cervical para os dois lados",
+              "nextNodeId": "dx_bloqueio_cervical_duplo"
+            },
+            {
+              "label": "Ir para página 11",
+              "nextNodeId": "page_11"
+            }
+          ]
+        },
+        "page_11": {
+          "id": "page_11",
+          "type": "question",
+          "title": "Leg Checking",
+          "body": "Leg Checking\ninicial\nResposta\n1. Pergunta Rotação cervical para\nDireita e Esquerda com\njoelhos em EXTENSÃO\n2. Pergunta\nRealizar a FLEXÃO do joelho\nResposta\n3. Pergunta\nPerna Curta Resposta\nPermasse Perna Curta\nao rodar a cervical para os\ndois lados\nPerna Curta IPSILATERAL a perna curta em extensão\nPERNA CURTA CURTA\nPerna Curta CONTRALATERAL a perna curta em extensão\nPERNA CURTA LONGA",
+          "options": [
+            {
+              "label": "Perna Curta Curta",
+              "nextNodeId": "leg_checking_inicial"
+            },
+            {
+              "label": "Perna Curta Longa",
+              "nextNodeId": "pontos_gatilho_perna_curta"
+            },
+            {
+              "label": "Perna Curta Resposta",
+              "nextNodeId": "page_24"
+            }
+          ]
+        },
+        "page_16": {
+          "id": "page_16",
+          "type": "interpretation",
+          "title": "Leg Checking",
+          "body": "Leg Checking\ninicial\nResposta\nPerna Neutra\n1. Pergunta Rotação Cervical Dir e\nEsq. com extensão de\njoelhos\nResposta\nPerna Neutra\n2. Pergunta\nFlexão de joelho\nResposta\nPerna Curta\n3. Pergunta Rotação Cervical Dir e\nEsq. com flexão de\njoelhos\nResposta\nPerna Neutra com Rotação\ncervical a ESQUERDA\n4. Pergunta\nPontos Gatilhos\nResposta\nNão\n5. Pergunta\n1 - CORRIGIR\n2- REAVALIAÇÃO",
+          "options": []
+        },
+        "mov_caixa_toracica_elevada": {
+          "id": "mov_caixa_toracica_elevada",
+          "type": "interpretation",
+          "title": "Caixa torácica elevada",
+          "body": "1. Pergunta 2. Pergunta\nResultado\nLeg Checkinginicial\nResposta\nPerna Curta\nPerna curta\nCervical\nApós correção de:\nPelve\nL5 Área Secundária\nÁrea Terciária\nMOVIMENTO\nLIMPEZA\nAvaliação\nAlterações Respiratória\nToda a regiao Torácica em\nFlexão\n2- REAVALIAÇÃO\nOmbro elevado",
+          "options": []
+        },
+        "leg_checking_inicial": {
+          "id": "leg_checking_inicial",
+          "type": "question",
+          "title": "Leg checking inicial",
+          "body": "1. PERGUNTA:\nLEG CHECKING INICIAL\nÁREA\nSECUNDÁRIA\nÁREA\nTERCIÁRIA\nMOVIMENTO\nLIMPEZA\nPERNA NEUTRA\nPERNA CURTA\nINÍCIO",
+          "options": [
+            {
+              "label": "Perna neutra",
+              "nextNodeId": "page_04"
+            },
+            {
+              "label": "Perna curta",
+              "nextNodeId": "page_09"
+            },
+            {
+              "label": "Área secundária",
+              "nextNodeId": "dx_espondilolistese"
+            },
+            {
+              "label": "Área terciária",
+              "nextNodeId": "dx_beijo_espinhoso"
+            },
+            {
+              "label": "Movimento de limpeza",
+              "nextNodeId": "movimento_limpeza_menu"
+            }
+          ]
+        },
+        "page_10": {
+          "id": "page_10",
+          "type": "question",
+          "title": "Leg Checking",
+          "body": "Leg Checking\ninicial\nResposta\n1. Pergunta Rotação cervical para\nDireita e Esquerda com\njoelhos em FLEXÃO\n2. Pergunta\nRealizar a FLEXÃO do joelho\nPerna Neutra\nResposta\n3. Pergunta\nPerna Neutra Resposta\nPerna Neutra\nPerna Curta",
+          "options": [
+            {
+              "label": "Perna Neutra",
+              "nextNodeId": "leg_checking_inicial"
+            },
+            {
+              "label": "Perna Neutra Resposta",
+              "nextNodeId": "page_05"
+            },
+            {
+              "label": "Perna Curta",
+              "nextNodeId": "page_12"
+            }
+          ]
+        },
+        "page_24": {
+          "id": "page_24",
+          "type": "question",
+          "title": "Leg Checking",
+          "body": "Leg Checking\ninicial\nResposta\nPerna Curta\n1. Pergunta Rotação Cervical Dir e\nEsq. com extensão de\njoelhos\nResposta\nPermasse Perna Curta\n2. Pergunta\nArm Foss Test\nResposta\n4. Pergunta\nEIAS até Meio\nMeio até Púbis\nFlexão de joelho\nResposta\n3. Pergunta\nPERNA CURTA LONGA\nPerna Curta CONTRALATERAL",
+          "options": [
+            {
+              "label": "Perna Curta",
+              "nextNodeId": "leg_checking_inicial"
+            },
+            {
+              "label": "Permasse Perna Curta",
+              "nextNodeId": "page_25"
+            },
+            {
+              "label": "Perna Curta Longa",
+              "nextNodeId": "page_26"
+            }
+          ]
+        },
+        "dx_sindrome_cervical_unilateral": {
+          "id": "dx_sindrome_cervical_unilateral",
+          "type": "interpretation",
+          "title": "Síndrome Cervical Unilateral",
+          "body": "1 - CORRIGIR\n2- REAVALIAÇÃO\nLeg Checking\ninicial\nResposta\nPerna Neutra\n1. Pergunta Rotação Cervical Dir e\nEsq. com extensão de\njoelhos\nResposta\nPerna curta IPSILATERAL\na rotação cervical\n2. Pergunta",
+          "options": []
+        },
+        "page_12": {
+          "id": "page_12",
+          "type": "question",
+          "title": "Leg Checking",
+          "body": "Leg Checking\ninicial\nResposta\n1. Pergunta Rotação cervical para\nDireita e Esquerda com\njoelhos em EXTENSÃO\n2. Pergunta\nRealizar a rotação cervical para Direita e Esquer\ncom o joelho em FLEXÃO\nResposta\n4. Pergunta\nPerna Neutra Resposta\nPerna Neutra\nPerna Neutra com rotação cervical para DIREITA\nJoelho em\nFlexão\nResposta\n3. Pergunta\nPerna Curta\nPerna Neutra com rotação cervical para ESQUERDA\nPerna Curta ao rodar cervical para os dois lados",
+          "options": [
+            {
+              "label": "Perna Neutra Resposta",
+              "nextNodeId": "leg_checking_inicial"
+            },
+            {
+              "label": "Perna Neutra",
+              "nextNodeId": "page_13"
+            },
+            {
+              "label": "Perna Neutra com rotação cervical para DIREITA",
+              "nextNodeId": "page_14"
+            },
+            {
+              "label": "Perna Curta",
+              "nextNodeId": "pontos_gatilho_perna_neutra"
+            }
+          ]
+        },
+        "mov_isquio_posterior": {
+          "id": "mov_isquio_posterior",
+          "type": "interpretation",
+          "title": "Ísquio posterior",
+          "body": "quio Posterior\n1. Pergunta 2. Pergunta\nResultado\nLeg Checkinginicial\nResposta\nPerna Curta\nPerna curta\nCervical\nApós correção de:\nPelve\nL5 Área Secundária\nÁrea Terciária\nMOVIMENTO\nLIMPEZA\nAvaliação\nPalpação em\nGastrocnêmios\nDor na palpação\n2- REAVALIAÇÃO",
+          "options": []
+        },
+        "mov_iliaco_in": {
+          "id": "mov_iliaco_in",
+          "type": "interpretation",
+          "title": "Ilíaco IN",
+          "body": "1. Pergunta 2. Pergunta\nResultado\nLeg Checkinginicial\nResposta\nPerna Curta\nPerna curta\nCervical\nApós correção de:\nPelve\nL5 Área Secundária\nÁrea Terciária\nMOVIMENTO\nLIMPEZA\nAvaliação\nPosicionamento do\nCalcanhar\nCalcanhar medializado\n2- REAVALIAÇÃO\nAchatamento do M. Glúteo",
+          "options": []
+        },
+        "dx_derifield_x_direita": {
+          "id": "dx_derifield_x_direita",
+          "type": "interpretation",
+          "title": "Derifield X (Direita)",
+          "body": "Leg Checking\ninicial\nResposta\nPerna Curta\n1. Pergunta Rotação Cervical Dir e\nEsq. com extensão de\njoelhos\nResposta\nPerna Neutra ao rodar a\ncervical para a DIREITA\n2. Pergunta\n1 - Nódulo à Esq.\n3- REAVALIAÇÃO\n2 - Correção\nAtlas C7-C2",
+          "options": []
+        },
+        "page_14": {
+          "id": "page_14",
+          "type": "interpretation",
+          "title": "Leg Checking",
+          "body": "Leg Checking\ninicial\nResposta\nPerna Neutra\n1. Pergunta Rotação Cervical Dir e\nEsq. com extensão de\njoelhos\nResposta\nPerna Neutra\n2. Pergunta\nFlexão de joelho\nResposta\nPerna Curta\n3. Pergunta Rotação Cervical Dir e\nEsq. com flexão de\njoelhos\nResposta\nPerna Neutra com Rotação\ncervical a ESQUERDA\n4. Pergunta\n1 - CORRIGIR\n2- REAVALIAÇÃO",
+          "options": []
+        },
+        "movimento_limpeza_menu": {
+          "id": "movimento_limpeza_menu",
+          "type": "question",
+          "title": "1. Pergunta 2. Pergunta",
+          "body": "1. Pergunta 2. Pergunta\nLeg Checking\ninicial\nResposta\nPerna Curta\nPerna curta\nCervical\nApós correção de:\nPelve\nL5 Área Secundária\nÁrea Terciária\n2- REAVALIAÇÃO\nMOVIMENTO\nLIMPEZA",
+          "options": [
+            {
+              "label": "Perna Curta",
+              "nextNodeId": "mov_rotacao_sacral"
+            },
+            {
+              "label": "2- REAVALIAÇÃO",
+              "nextNodeId": "mov_apice_sacral_posterior"
+            },
+            {
+              "label": "2- Reavaliação",
+              "nextNodeId": "leg_checking_inicial"
+            },
+            {
+              "label": "Movimento",
+              "nextNodeId": "mov_isquio_posterior"
+            },
+            {
+              "label": "Limpeza",
+              "nextNodeId": "mov_iliaco_in"
+            },
+            {
+              "label": "Ilíaco EX",
+              "nextNodeId": "mov_iliaco_ex"
+            },
+            {
+              "label": "Costela rodada",
+              "nextNodeId": "mov_costela_rodada"
+            },
+            {
+              "label": "Caixa torácica elevada",
+              "nextNodeId": "mov_caixa_toracica_elevada"
+            }
+          ]
+        },
+        "mov_costela_rodada": {
+          "id": "mov_costela_rodada",
+          "type": "interpretation",
+          "title": "Costela rodada",
+          "body": "1. Pergunta 2. Pergunta\nResultado\nLeg Checkinginicial\nResposta\nPerna Curta\nPerna curta\nCervical\nApós correção de:\nPelve\nL5 Área Secundária\nÁrea Terciária\nMOVIMENTO\nLIMPEZA\nAvaliação\nDor aguda\nPalpação das costelas,\nbuscando subluxações\n2- REAVALIAÇÃO\nPontada no peito",
+          "options": []
+        },
+        "mov_rotacao_sacral": {
+          "id": "mov_rotacao_sacral",
+          "type": "interpretation",
+          "title": "Rotação sacral",
+          "body": "1. Pergunta 2. Pergunta\nResultado\nLeg Checkinginicial\nResposta\nPerna Curta\nPerna curta\nCervical\nApós correção de:\nPelve\nL5 Área Secundária\nÁrea Terciária\nMOVIMENTO\nLIMPEZA\nAvaliação\nEstabiliza Sacro\nExtensão de quadril\nÁpice para o lado de MI\nque subiu mais\n2- REAVALIAÇÃO",
+          "options": []
+        },
+        "page_23": {
+          "id": "page_23",
+          "type": "interpretation",
+          "title": "Leg Checking",
+          "body": "Leg Checking\ninicial\nResposta\nPerna Curta\n1. Pergunta Rotação Cervical Dir e\nEsq. com extensão de\njoelhos\nResposta\n2. Pergunta\nPontos Gatilhos\nResposta\nNão\n4. Pergunta\n1 - CORRIGIR\n2- REAVALIAÇÃO\nFlexão de joelho\nResposta\n3. Pergunta\nPERNA CURTA CURTA\nPerna Curta IPSILATERAL\nPermanesse Curta",
+          "options": []
+        },
+        "dx_espondilolistese": {
+          "id": "dx_espondilolistese",
+          "type": "interpretation",
+          "title": "Espondilolistese",
+          "body": "ÁREA\nSECUNDÁRIA\nLeg Checking\ninicial\nResposta\nPerna Curta\n1. Pergunta\nPerna curta\nCervical\n2. Pergunta\nApós correção de:\nPelve\nL5\n2- REAVALIAÇÃO\nPaciente Sintomático Espondileste grau 2 ou >\n1 - CORRIGIR",
+          "options": []
+        },
+        "page_25": {
+          "id": "page_25",
+          "type": "interpretation",
+          "title": "Leg Checking",
+          "body": "Leg Checking\ninicial\nResposta\nPerna Curta\n1. Pergunta Rotação Cervical Dir e\nEsq. com extensão de\njoelhos\nResposta\nPermasse Perna Curta\n2. Pergunta\nFlexão de joelho\nResposta\n3. Pergunta\nPERNA CURTA LONGA\nPerna Curta CONTRALATERAL\nArm Foss Test\nResposta\nEIAS ATÉ MEIO\n4. Pergunta\n1 - CORRIGIR\n2- REAVALIAÇÃO",
+          "options": []
+        },
+        "page_05": {
+          "id": "page_05",
+          "type": "question",
+          "title": "Leg Checking",
+          "body": "Leg Checking\ninicial\nResposta\nPerna Neutra\n1. Pergunta Rotação Cervical Dir e\nEsq. com extensão de\njoelhos\nResposta\nPerna Neutra\n2. Pergunta\nFlexão de\nJoelhos\nResposta\nPerna Neutra\n3. Pergunta\nRotação Cervical para direita e para esquerda\ncom os joelhos em FLEXÃO\n4. Pergunta\nPerna Neutra\nResposta\nPerna Curta",
+          "options": [
+            {
+              "label": "Perna Neutra",
+              "nextNodeId": "leg_checking_inicial"
+            },
+            {
+              "label": "Perna Curta",
+              "nextNodeId": "page_03"
+            },
+            {
+              "label": "Ir para página 12",
+              "nextNodeId": "page_12"
+            }
+          ]
+        },
+        "pontos_gatilho_perna_curta": {
+          "id": "pontos_gatilho_perna_curta",
+          "type": "checkpoint",
+          "title": "Tendão de Aquiles",
+          "body": "Tendão de Aquiles\nAspecto proximal da tíbia medial\nEIPS\nEretores da espinha T6-T2 (contralateral)\nTuberosidade isquiática\nÁrea do osso púbico\nLeg Checking\ninicial\nResposta\nPerna Curta\n1. Pergunta Rotação Cervical Dir e\nEsq. com extensão de\njoelhos\nResposta\nPermasse Perna Curta\n2. Pergunta\nFlexão de joelho\nResposta\n3. Pergunta\nPontos Gatilhos\nResposta\n4. Pergunta\nSim\nProcurar\nNão\nPERNA CURTA CURTA\nPerna Curta IPSILATERAL",
+          "items": [
+            "Tendão de Aquiles",
+            "Tíbia medial",
+            "Tuberosidade isquiática",
+            "EIPS",
+            "Osso púbico",
+            "Eretores da espinha"
+          ],
+          "options": [
+            {
+              "label": "Perna Curta",
+              "nextNodeId": "leg_checking_inicial"
+            },
+            {
+              "label": "Permasse Perna Curta",
+              "nextNodeId": "page_22"
+            },
+            {
+              "label": "Eips",
+              "nextNodeId": "page_23"
+            }
+          ]
+        },
+        "pontos_gatilho_perna_neutra": {
+          "id": "pontos_gatilho_perna_neutra",
+          "type": "checkpoint",
+          "title": "Tendão de Aquiles",
+          "body": "Tendão de Aquiles\nAspecto proximal da tíbia medial\nEIPS\nEretores da espinha T6-T2 (contralateral)\nTuberosidade isquiática\nÁrea do osso púbico\nLeg Checking\ninicial\nResposta\nPerna Neutra\n1. Pergunta Rotação Cervical Dir e\nEsq. com extensão de\njoelhos\nResposta\nPerna Neutra\n2. Pergunta\nFlexão de joelho\nResposta\nPerna Curta\n3. Pergunta Rotação Cervical Dir e\nEsq. com flexão de\njoelhos\nResposta\nPerna Curta\n4. Pergunta\nPontos Gatilhos\nResposta\n5. Pergunta\nSim\nProcurar\nNão",
+          "items": [
+            "Tendão de Aquiles",
+            "Tíbia medial",
+            "Tuberosidade isquiática",
+            "EIPS",
+            "Osso púbico",
+            "Eretores da espinha"
+          ],
+          "options": [
+            {
+              "label": "Perna Neutra",
+              "nextNodeId": "leg_checking_inicial"
+            },
+            {
+              "label": "Perna Curta",
+              "nextNodeId": "page_15"
+            },
+            {
+              "label": "Eips",
+              "nextNodeId": "page_16"
+            }
+          ]
+        },
+        "page_03": {
+          "id": "page_03",
+          "type": "question",
+          "title": "Leg Checking inicial",
+          "body": "Leg Checking inicial\nResposta\nPerna Neutra\n1. Pergunta\nRotação cervical para\nDireita e para Esquerda\nResposta\nPerna Neutra\n2. Pergunta\nRealizar\nFlexão de joelho\nResposta\nPerna Neutra\n3. Pergunta\nRotação cervical para\nDireita e para Esquerda\nResposta\nPerna Neutra\n4. Pergunta\nCom os joelhos em flexão",
+          "options": [
+            {
+              "label": "Perna Neutra",
+              "nextNodeId": "leg_checking_inicial"
+            }
+          ]
+        },
+        "page_04": {
+          "id": "page_04",
+          "type": "question",
+          "title": "Rotação Cervical para Direita e para a Esquerda",
+          "body": "Rotação Cervical para Direita e para a Esquerda\ncom o joelho em EXTENSÃO\nLeg Checking\ninicial\nResposta\nPerna Neutra\n1. Pergunta\n2. Pergunta\nPerna Neutra\nResposta\nPerna curta para os dois lados\nPerna Curta ipsilateral a cervical\nPerna Curta contralateral a cervical",
+          "options": [
+            {
+              "label": "Perna Neutra",
+              "nextNodeId": "leg_checking_inicial"
+            },
+            {
+              "label": "Perna curta para os dois lados",
+              "nextNodeId": "page_10"
+            },
+            {
+              "label": "Perna Curta ipsilateral a cervical",
+              "nextNodeId": "dx_sindrome_cervical_bilateral"
+            },
+            {
+              "label": "Perna Curta contralateral a cervical",
+              "nextNodeId": "dx_sindrome_cervical_unilateral"
+            },
+            {
+              "label": "Occipital Posterior",
+              "nextNodeId": "dx_occipital_posterior"
+            }
+          ]
+        },
+        "mov_iliaco_ex": {
+          "id": "mov_iliaco_ex",
+          "type": "interpretation",
+          "title": "Ilíaco EX",
+          "body": "1. Pergunta 2. Pergunta\nResultado\nLeg Checkinginicial\nResposta\nPerna Curta\nPerna curta\nCervical\nApós correção de:\nPelve\nL5 Área Secundária\nÁrea Terciária\nMOVIMENTO\nLIMPEZA\nAvaliação\nPosicionamento do\nCalcanhar\nCalcanhar Lateralizado\n2- REAVALIAÇÃO\nAumento do M. Glúteo",
+          "options": []
+        },
+        "dx_beijo_espinhoso": {
+          "id": "dx_beijo_espinhoso",
+          "type": "interpretation",
+          "title": "Beijo espinhoso",
+          "body": "Leg Checking\ninicial\nResposta\nPerna Curta\n1. Pergunta\nPerna curta\nCervical\n2. Pergunta\nApós correção de:\nPelve\nL5\nÁrea Secundária\n2- REAVALIAÇÃO\nConcavidade entre os espaços interespinhosos\nÁREA\nTERCIÁRIA\n1 - CORRIGIR",
+          "options": []
+        },
+        "page_13": {
+          "id": "page_13",
+          "type": "interpretation",
+          "title": "Leg Checking",
+          "body": "Leg Checking\ninicial\nResposta\nPerna Neutra\n1. Pergunta Rotação Cervical Dir e\nEsq. com extensão de\njoelhos\nResposta\nPerna Neutra\n2. Pergunta\nFlexão de joelho\nResposta\nPerna Curta\n3. Pergunta Rotação Cervical Dir e\nEsq. com flexão de\njoelhos\nResposta\nPerna Neutra com Rotação\ncervical a DIREITA\n4. Pergunta\n1 - CORRIGIR\n2- REAVALIAÇÃO",
+          "options": []
+        },
+        "page_15": {
+          "id": "page_15",
+          "type": "interpretation",
+          "title": "Leg Checking",
+          "body": "Leg Checking\ninicial\nResposta\nPerna Neutra\n1. Pergunta Rotação Cervical Dir e\nEsq. com extensão de\njoelhos\nResposta\nPerna Neutra\n2. Pergunta\nFlexão de joelho\nResposta\nPerna Curta\n3. Pergunta Rotação Cervical Dir e\nEsq. com flexão de\njoelhos\nResposta\nPerna Neutra com Rotação\ncervical a ESQUERDA\n4. Pergunta\nPontos Gatilhos\nResposta\nSim\n5. Pergunta\n1 - CORRIGIR\n2- REAVALIAÇÃO",
+          "options": []
+        },
+        "dx_derifield_x_esquerda": {
+          "id": "dx_derifield_x_esquerda",
+          "type": "interpretation",
+          "title": "Derifield X (Esquerda)",
+          "body": "Leg Checking\ninicial\nResposta\nPerna Curta\n1. Pergunta Rotação Cervical Dir e\nEsq. com extensão de\njoelhos\nResposta\nPerna Neutra ao rodar a\ncervical para a ESQUERDA\n2. Pergunta\n1 - Nódulo à Dir.\n3- REAVALIAÇÃO\n2 - Correção\nAtlas C7-C2",
+          "options": []
+        },
+        "dx_sindrome_cervical_bilateral": {
+          "id": "dx_sindrome_cervical_bilateral",
+          "type": "interpretation",
+          "title": "Síndrome Cervical Bilateral",
+          "body": "Leg Checking\ninicial\nResposta\nPerna Neutra\n1. Pergunta Rotação Cervical Dir e\nEsq. com extensão de\njoelhos\nResposta\nPerna curta para os dois\nlados\n2. Pergunta\n1 - CORRIGIR\n2- REAVALIAÇÃO",
+          "options": []
+        },
+        "dx_bloqueio_cervical_duplo": {
+          "id": "dx_bloqueio_cervical_duplo",
+          "type": "interpretation",
+          "title": "Bloqueio Cervical Duplo",
+          "body": "Leg Checking\ninicial\nResposta\nPerna Curta\n1. Pergunta Rotação Cervical Dir e\nEsq. com extensão de\njoelhos\nResposta\nPerna Neutra ao rodar a\ncervical para a\nDIREITA e ESQUERDA\n2. Pergunta\n1 - Nódulo Dir e Esq\n3- REAVALIAÇÃO\n2 - Correção\nAtlas C7-C2",
+          "options": []
+        },
+        "page_26": {
+          "id": "page_26",
+          "type": "interpretation",
+          "title": "Leg Checking",
+          "body": "Leg Checking\ninicial\nResposta\nPerna Curta\n1. Pergunta Rotação Cervical Dir e\nEsq. com extensão de\njoelhos\nResposta\nPermasse Perna Curta\n2. Pergunta\nFlexão de joelho\nResposta\n3. Pergunta\nPERNA CURTA LONGA\nPerna Curta CONTRALATERAL\nArm Foss Test\nResposta\nMEIO Até PÚBIS\n4. Pergunta\n2- REAVALIAÇÃO\n1 - CORRIGIR",
+          "options": []
+        },
+        "mov_apice_sacral_posterior": {
+          "id": "mov_apice_sacral_posterior",
+          "type": "interpretation",
+          "title": "Ápice sacral posterior",
+          "body": "1. Pergunta 2. Pergunta\nResultado\nLeg Checkinginicial\nResposta\nPerna Curta\nPerna curta\nCervical\nApós correção de:\nPelve\nL5 Área Secundária\nÁrea Terciária\nMOVIMENTO\nLIMPEZA\nAvaliação\nEstabiliza Sacro\nExtensão de quadril\nPouca Extensão de MMII\n(Bilateral)\n2- REAVALIAÇÃO",
+          "options": []
+        },
+        "page_22": {
+          "id": "page_22",
+          "type": "interpretation",
+          "title": "Leg Checking",
+          "body": "Leg Checking\ninicial\nResposta\nPerna Curta\n1. Pergunta Rotação Cervical Dir e\nEsq. com extensão de\njoelhos\nResposta\nPermanesse Curta\n2. Pergunta\nPontos Gatilhos\nResposta\nSim\n4. Pergunta\n1 - CORRIGIR\n2- REAVALIAÇÃO\nFlexão de joelho\nResposta\n3. Pergunta\nPERNA CURTA CURTA\nPerna Curta IPSILATERAL",
+          "options": []
+        }
+      }
+    },
+    "area_secundaria": {
+      "name": "Área Secundária",
+      "startNodeId": "dx_espondilolistese",
+      "nodesById": {
+        "dx_occipital_posterior": {
+          "id": "dx_occipital_posterior",
+          "type": "interpretation",
+          "title": "Occipital Posterior",
+          "body": "Leg Checking\ninicial\nResposta\nPerna Neutra\n1. Pergunta Rotação Cervical Dir e\nEsq. com extensão de\njoelhos\nResposta\nPerna curta\nCONTRALATERAL\na rotação cervical\n2. Pergunta\n1 - CORRIGIR\n2- REAVALIAÇÃO",
+          "options": []
+        },
+        "page_09": {
+          "id": "page_09",
+          "type": "question",
+          "title": "1. Pergunta",
+          "body": "1. Pergunta\nLeg Checking\ninicial\nResposta\nPerna Curta\nRotação cervical para Direita e para a Esqueda\ncom o joelho em EXTENSÃO\n2. Pergunta\nResposta\nPerna Neutra ao rodar a cervical para a Direita\nPerna Neutra ao rodar a cervical para a Esquerda\nPerna Neutra ao rodar a cervical para os dois lados\nPerna Curta ao rodar a cervical para os dois lados",
+          "options": [
+            {
+              "label": "Perna Curta",
+              "nextNodeId": "leg_checking_inicial"
+            },
+            {
+              "label": "Perna Neutra ao rodar a cervical para a Direita",
+              "nextNodeId": "dx_derifield_x_direita"
+            },
+            {
+              "label": "Perna Neutra ao rodar a cervical para a Esquerda",
+              "nextNodeId": "dx_derifield_x_esquerda"
+            },
+            {
+              "label": "Perna Neutra ao rodar a cervical para os dois lados",
+              "nextNodeId": "page_12"
+            },
+            {
+              "label": "Perna Curta ao rodar a cervical para os dois lados",
+              "nextNodeId": "dx_bloqueio_cervical_duplo"
+            },
+            {
+              "label": "Ir para página 11",
+              "nextNodeId": "page_11"
+            }
+          ]
+        },
+        "page_11": {
+          "id": "page_11",
+          "type": "question",
+          "title": "Leg Checking",
+          "body": "Leg Checking\ninicial\nResposta\n1. Pergunta Rotação cervical para\nDireita e Esquerda com\njoelhos em EXTENSÃO\n2. Pergunta\nRealizar a FLEXÃO do joelho\nResposta\n3. Pergunta\nPerna Curta Resposta\nPermasse Perna Curta\nao rodar a cervical para os\ndois lados\nPerna Curta IPSILATERAL a perna curta em extensão\nPERNA CURTA CURTA\nPerna Curta CONTRALATERAL a perna curta em extensão\nPERNA CURTA LONGA",
+          "options": [
+            {
+              "label": "Perna Curta Curta",
+              "nextNodeId": "leg_checking_inicial"
+            },
+            {
+              "label": "Perna Curta Longa",
+              "nextNodeId": "pontos_gatilho_perna_curta"
+            },
+            {
+              "label": "Perna Curta Resposta",
+              "nextNodeId": "page_24"
+            }
+          ]
+        },
+        "page_16": {
+          "id": "page_16",
+          "type": "interpretation",
+          "title": "Leg Checking",
+          "body": "Leg Checking\ninicial\nResposta\nPerna Neutra\n1. Pergunta Rotação Cervical Dir e\nEsq. com extensão de\njoelhos\nResposta\nPerna Neutra\n2. Pergunta\nFlexão de joelho\nResposta\nPerna Curta\n3. Pergunta Rotação Cervical Dir e\nEsq. com flexão de\njoelhos\nResposta\nPerna Neutra com Rotação\ncervical a ESQUERDA\n4. Pergunta\nPontos Gatilhos\nResposta\nNão\n5. Pergunta\n1 - CORRIGIR\n2- REAVALIAÇÃO",
+          "options": []
+        },
+        "mov_caixa_toracica_elevada": {
+          "id": "mov_caixa_toracica_elevada",
+          "type": "interpretation",
+          "title": "Caixa torácica elevada",
+          "body": "1. Pergunta 2. Pergunta\nResultado\nLeg Checkinginicial\nResposta\nPerna Curta\nPerna curta\nCervical\nApós correção de:\nPelve\nL5 Área Secundária\nÁrea Terciária\nMOVIMENTO\nLIMPEZA\nAvaliação\nAlterações Respiratória\nToda a regiao Torácica em\nFlexão\n2- REAVALIAÇÃO\nOmbro elevado",
+          "options": []
+        },
+        "leg_checking_inicial": {
+          "id": "leg_checking_inicial",
+          "type": "question",
+          "title": "Leg checking inicial",
+          "body": "1. PERGUNTA:\nLEG CHECKING INICIAL\nÁREA\nSECUNDÁRIA\nÁREA\nTERCIÁRIA\nMOVIMENTO\nLIMPEZA\nPERNA NEUTRA\nPERNA CURTA\nINÍCIO",
+          "options": [
+            {
+              "label": "Perna neutra",
+              "nextNodeId": "page_04"
+            },
+            {
+              "label": "Perna curta",
+              "nextNodeId": "page_09"
+            },
+            {
+              "label": "Área secundária",
+              "nextNodeId": "dx_espondilolistese"
+            },
+            {
+              "label": "Área terciária",
+              "nextNodeId": "dx_beijo_espinhoso"
+            },
+            {
+              "label": "Movimento de limpeza",
+              "nextNodeId": "movimento_limpeza_menu"
+            }
+          ]
+        },
+        "page_10": {
+          "id": "page_10",
+          "type": "question",
+          "title": "Leg Checking",
+          "body": "Leg Checking\ninicial\nResposta\n1. Pergunta Rotação cervical para\nDireita e Esquerda com\njoelhos em FLEXÃO\n2. Pergunta\nRealizar a FLEXÃO do joelho\nPerna Neutra\nResposta\n3. Pergunta\nPerna Neutra Resposta\nPerna Neutra\nPerna Curta",
+          "options": [
+            {
+              "label": "Perna Neutra",
+              "nextNodeId": "leg_checking_inicial"
+            },
+            {
+              "label": "Perna Neutra Resposta",
+              "nextNodeId": "page_05"
+            },
+            {
+              "label": "Perna Curta",
+              "nextNodeId": "page_12"
+            }
+          ]
+        },
+        "page_24": {
+          "id": "page_24",
+          "type": "question",
+          "title": "Leg Checking",
+          "body": "Leg Checking\ninicial\nResposta\nPerna Curta\n1. Pergunta Rotação Cervical Dir e\nEsq. com extensão de\njoelhos\nResposta\nPermasse Perna Curta\n2. Pergunta\nArm Foss Test\nResposta\n4. Pergunta\nEIAS até Meio\nMeio até Púbis\nFlexão de joelho\nResposta\n3. Pergunta\nPERNA CURTA LONGA\nPerna Curta CONTRALATERAL",
+          "options": [
+            {
+              "label": "Perna Curta",
+              "nextNodeId": "leg_checking_inicial"
+            },
+            {
+              "label": "Permasse Perna Curta",
+              "nextNodeId": "page_25"
+            },
+            {
+              "label": "Perna Curta Longa",
+              "nextNodeId": "page_26"
+            }
+          ]
+        },
+        "dx_sindrome_cervical_unilateral": {
+          "id": "dx_sindrome_cervical_unilateral",
+          "type": "interpretation",
+          "title": "Síndrome Cervical Unilateral",
+          "body": "1 - CORRIGIR\n2- REAVALIAÇÃO\nLeg Checking\ninicial\nResposta\nPerna Neutra\n1. Pergunta Rotação Cervical Dir e\nEsq. com extensão de\njoelhos\nResposta\nPerna curta IPSILATERAL\na rotação cervical\n2. Pergunta",
+          "options": []
+        },
+        "page_12": {
+          "id": "page_12",
+          "type": "question",
+          "title": "Leg Checking",
+          "body": "Leg Checking\ninicial\nResposta\n1. Pergunta Rotação cervical para\nDireita e Esquerda com\njoelhos em EXTENSÃO\n2. Pergunta\nRealizar a rotação cervical para Direita e Esquer\ncom o joelho em FLEXÃO\nResposta\n4. Pergunta\nPerna Neutra Resposta\nPerna Neutra\nPerna Neutra com rotação cervical para DIREITA\nJoelho em\nFlexão\nResposta\n3. Pergunta\nPerna Curta\nPerna Neutra com rotação cervical para ESQUERDA\nPerna Curta ao rodar cervical para os dois lados",
+          "options": [
+            {
+              "label": "Perna Neutra Resposta",
+              "nextNodeId": "leg_checking_inicial"
+            },
+            {
+              "label": "Perna Neutra",
+              "nextNodeId": "page_13"
+            },
+            {
+              "label": "Perna Neutra com rotação cervical para DIREITA",
+              "nextNodeId": "page_14"
+            },
+            {
+              "label": "Perna Curta",
+              "nextNodeId": "pontos_gatilho_perna_neutra"
+            }
+          ]
+        },
+        "mov_isquio_posterior": {
+          "id": "mov_isquio_posterior",
+          "type": "interpretation",
+          "title": "Ísquio posterior",
+          "body": "quio Posterior\n1. Pergunta 2. Pergunta\nResultado\nLeg Checkinginicial\nResposta\nPerna Curta\nPerna curta\nCervical\nApós correção de:\nPelve\nL5 Área Secundária\nÁrea Terciária\nMOVIMENTO\nLIMPEZA\nAvaliação\nPalpação em\nGastrocnêmios\nDor na palpação\n2- REAVALIAÇÃO",
+          "options": []
+        },
+        "mov_iliaco_in": {
+          "id": "mov_iliaco_in",
+          "type": "interpretation",
+          "title": "Ilíaco IN",
+          "body": "1. Pergunta 2. Pergunta\nResultado\nLeg Checkinginicial\nResposta\nPerna Curta\nPerna curta\nCervical\nApós correção de:\nPelve\nL5 Área Secundária\nÁrea Terciária\nMOVIMENTO\nLIMPEZA\nAvaliação\nPosicionamento do\nCalcanhar\nCalcanhar medializado\n2- REAVALIAÇÃO\nAchatamento do M. Glúteo",
+          "options": []
+        },
+        "dx_derifield_x_direita": {
+          "id": "dx_derifield_x_direita",
+          "type": "interpretation",
+          "title": "Derifield X (Direita)",
+          "body": "Leg Checking\ninicial\nResposta\nPerna Curta\n1. Pergunta Rotação Cervical Dir e\nEsq. com extensão de\njoelhos\nResposta\nPerna Neutra ao rodar a\ncervical para a DIREITA\n2. Pergunta\n1 - Nódulo à Esq.\n3- REAVALIAÇÃO\n2 - Correção\nAtlas C7-C2",
+          "options": []
+        },
+        "page_14": {
+          "id": "page_14",
+          "type": "interpretation",
+          "title": "Leg Checking",
+          "body": "Leg Checking\ninicial\nResposta\nPerna Neutra\n1. Pergunta Rotação Cervical Dir e\nEsq. com extensão de\njoelhos\nResposta\nPerna Neutra\n2. Pergunta\nFlexão de joelho\nResposta\nPerna Curta\n3. Pergunta Rotação Cervical Dir e\nEsq. com flexão de\njoelhos\nResposta\nPerna Neutra com Rotação\ncervical a ESQUERDA\n4. Pergunta\n1 - CORRIGIR\n2- REAVALIAÇÃO",
+          "options": []
+        },
+        "movimento_limpeza_menu": {
+          "id": "movimento_limpeza_menu",
+          "type": "question",
+          "title": "1. Pergunta 2. Pergunta",
+          "body": "1. Pergunta 2. Pergunta\nLeg Checking\ninicial\nResposta\nPerna Curta\nPerna curta\nCervical\nApós correção de:\nPelve\nL5 Área Secundária\nÁrea Terciária\n2- REAVALIAÇÃO\nMOVIMENTO\nLIMPEZA",
+          "options": [
+            {
+              "label": "Perna Curta",
+              "nextNodeId": "mov_rotacao_sacral"
+            },
+            {
+              "label": "2- REAVALIAÇÃO",
+              "nextNodeId": "mov_apice_sacral_posterior"
+            },
+            {
+              "label": "2- Reavaliação",
+              "nextNodeId": "leg_checking_inicial"
+            },
+            {
+              "label": "Movimento",
+              "nextNodeId": "mov_isquio_posterior"
+            },
+            {
+              "label": "Limpeza",
+              "nextNodeId": "mov_iliaco_in"
+            },
+            {
+              "label": "Ilíaco EX",
+              "nextNodeId": "mov_iliaco_ex"
+            },
+            {
+              "label": "Costela rodada",
+              "nextNodeId": "mov_costela_rodada"
+            },
+            {
+              "label": "Caixa torácica elevada",
+              "nextNodeId": "mov_caixa_toracica_elevada"
+            }
+          ]
+        },
+        "mov_costela_rodada": {
+          "id": "mov_costela_rodada",
+          "type": "interpretation",
+          "title": "Costela rodada",
+          "body": "1. Pergunta 2. Pergunta\nResultado\nLeg Checkinginicial\nResposta\nPerna Curta\nPerna curta\nCervical\nApós correção de:\nPelve\nL5 Área Secundária\nÁrea Terciária\nMOVIMENTO\nLIMPEZA\nAvaliação\nDor aguda\nPalpação das costelas,\nbuscando subluxações\n2- REAVALIAÇÃO\nPontada no peito",
+          "options": []
+        },
+        "dx_espondilolistese": {
+          "id": "dx_espondilolistese",
+          "type": "interpretation",
+          "title": "Espondilolistese",
+          "body": "ÁREA\nSECUNDÁRIA\nLeg Checking\ninicial\nResposta\nPerna Curta\n1. Pergunta\nPerna curta\nCervical\n2. Pergunta\nApós correção de:\nPelve\nL5\n2- REAVALIAÇÃO\nPaciente Sintomático Espondileste grau 2 ou >\n1 - CORRIGIR",
+          "options": []
+        },
+        "mov_rotacao_sacral": {
+          "id": "mov_rotacao_sacral",
+          "type": "interpretation",
+          "title": "Rotação sacral",
+          "body": "1. Pergunta 2. Pergunta\nResultado\nLeg Checkinginicial\nResposta\nPerna Curta\nPerna curta\nCervical\nApós correção de:\nPelve\nL5 Área Secundária\nÁrea Terciária\nMOVIMENTO\nLIMPEZA\nAvaliação\nEstabiliza Sacro\nExtensão de quadril\nÁpice para o lado de MI\nque subiu mais\n2- REAVALIAÇÃO",
+          "options": []
+        },
+        "page_23": {
+          "id": "page_23",
+          "type": "interpretation",
+          "title": "Leg Checking",
+          "body": "Leg Checking\ninicial\nResposta\nPerna Curta\n1. Pergunta Rotação Cervical Dir e\nEsq. com extensão de\njoelhos\nResposta\n2. Pergunta\nPontos Gatilhos\nResposta\nNão\n4. Pergunta\n1 - CORRIGIR\n2- REAVALIAÇÃO\nFlexão de joelho\nResposta\n3. Pergunta\nPERNA CURTA CURTA\nPerna Curta IPSILATERAL\nPermanesse Curta",
+          "options": []
+        },
+        "page_25": {
+          "id": "page_25",
+          "type": "interpretation",
+          "title": "Leg Checking",
+          "body": "Leg Checking\ninicial\nResposta\nPerna Curta\n1. Pergunta Rotação Cervical Dir e\nEsq. com extensão de\njoelhos\nResposta\nPermasse Perna Curta\n2. Pergunta\nFlexão de joelho\nResposta\n3. Pergunta\nPERNA CURTA LONGA\nPerna Curta CONTRALATERAL\nArm Foss Test\nResposta\nEIAS ATÉ MEIO\n4. Pergunta\n1 - CORRIGIR\n2- REAVALIAÇÃO",
+          "options": []
+        },
+        "page_05": {
+          "id": "page_05",
+          "type": "question",
+          "title": "Leg Checking",
+          "body": "Leg Checking\ninicial\nResposta\nPerna Neutra\n1. Pergunta Rotação Cervical Dir e\nEsq. com extensão de\njoelhos\nResposta\nPerna Neutra\n2. Pergunta\nFlexão de\nJoelhos\nResposta\nPerna Neutra\n3. Pergunta\nRotação Cervical para direita e para esquerda\ncom os joelhos em FLEXÃO\n4. Pergunta\nPerna Neutra\nResposta\nPerna Curta",
+          "options": [
+            {
+              "label": "Perna Neutra",
+              "nextNodeId": "leg_checking_inicial"
+            },
+            {
+              "label": "Perna Curta",
+              "nextNodeId": "page_03"
+            },
+            {
+              "label": "Ir para página 12",
+              "nextNodeId": "page_12"
+            }
+          ]
+        },
+        "pontos_gatilho_perna_curta": {
+          "id": "pontos_gatilho_perna_curta",
+          "type": "checkpoint",
+          "title": "Tendão de Aquiles",
+          "body": "Tendão de Aquiles\nAspecto proximal da tíbia medial\nEIPS\nEretores da espinha T6-T2 (contralateral)\nTuberosidade isquiática\nÁrea do osso púbico\nLeg Checking\ninicial\nResposta\nPerna Curta\n1. Pergunta Rotação Cervical Dir e\nEsq. com extensão de\njoelhos\nResposta\nPermasse Perna Curta\n2. Pergunta\nFlexão de joelho\nResposta\n3. Pergunta\nPontos Gatilhos\nResposta\n4. Pergunta\nSim\nProcurar\nNão\nPERNA CURTA CURTA\nPerna Curta IPSILATERAL",
+          "items": [
+            "Tendão de Aquiles",
+            "Tíbia medial",
+            "Tuberosidade isquiática",
+            "EIPS",
+            "Osso púbico",
+            "Eretores da espinha"
+          ],
+          "options": [
+            {
+              "label": "Perna Curta",
+              "nextNodeId": "leg_checking_inicial"
+            },
+            {
+              "label": "Permasse Perna Curta",
+              "nextNodeId": "page_22"
+            },
+            {
+              "label": "Eips",
+              "nextNodeId": "page_23"
+            }
+          ]
+        },
+        "pontos_gatilho_perna_neutra": {
+          "id": "pontos_gatilho_perna_neutra",
+          "type": "checkpoint",
+          "title": "Tendão de Aquiles",
+          "body": "Tendão de Aquiles\nAspecto proximal da tíbia medial\nEIPS\nEretores da espinha T6-T2 (contralateral)\nTuberosidade isquiática\nÁrea do osso púbico\nLeg Checking\ninicial\nResposta\nPerna Neutra\n1. Pergunta Rotação Cervical Dir e\nEsq. com extensão de\njoelhos\nResposta\nPerna Neutra\n2. Pergunta\nFlexão de joelho\nResposta\nPerna Curta\n3. Pergunta Rotação Cervical Dir e\nEsq. com flexão de\njoelhos\nResposta\nPerna Curta\n4. Pergunta\nPontos Gatilhos\nResposta\n5. Pergunta\nSim\nProcurar\nNão",
+          "items": [
+            "Tendão de Aquiles",
+            "Tíbia medial",
+            "Tuberosidade isquiática",
+            "EIPS",
+            "Osso púbico",
+            "Eretores da espinha"
+          ],
+          "options": [
+            {
+              "label": "Perna Neutra",
+              "nextNodeId": "leg_checking_inicial"
+            },
+            {
+              "label": "Perna Curta",
+              "nextNodeId": "page_15"
+            },
+            {
+              "label": "Eips",
+              "nextNodeId": "page_16"
+            }
+          ]
+        },
+        "page_03": {
+          "id": "page_03",
+          "type": "question",
+          "title": "Leg Checking inicial",
+          "body": "Leg Checking inicial\nResposta\nPerna Neutra\n1. Pergunta\nRotação cervical para\nDireita e para Esquerda\nResposta\nPerna Neutra\n2. Pergunta\nRealizar\nFlexão de joelho\nResposta\nPerna Neutra\n3. Pergunta\nRotação cervical para\nDireita e para Esquerda\nResposta\nPerna Neutra\n4. Pergunta\nCom os joelhos em flexão",
+          "options": [
+            {
+              "label": "Perna Neutra",
+              "nextNodeId": "leg_checking_inicial"
+            }
+          ]
+        },
+        "page_04": {
+          "id": "page_04",
+          "type": "question",
+          "title": "Rotação Cervical para Direita e para a Esquerda",
+          "body": "Rotação Cervical para Direita e para a Esquerda\ncom o joelho em EXTENSÃO\nLeg Checking\ninicial\nResposta\nPerna Neutra\n1. Pergunta\n2. Pergunta\nPerna Neutra\nResposta\nPerna curta para os dois lados\nPerna Curta ipsilateral a cervical\nPerna Curta contralateral a cervical",
+          "options": [
+            {
+              "label": "Perna Neutra",
+              "nextNodeId": "leg_checking_inicial"
+            },
+            {
+              "label": "Perna curta para os dois lados",
+              "nextNodeId": "page_10"
+            },
+            {
+              "label": "Perna Curta ipsilateral a cervical",
+              "nextNodeId": "dx_sindrome_cervical_bilateral"
+            },
+            {
+              "label": "Perna Curta contralateral a cervical",
+              "nextNodeId": "dx_sindrome_cervical_unilateral"
+            },
+            {
+              "label": "Occipital Posterior",
+              "nextNodeId": "dx_occipital_posterior"
+            }
+          ]
+        },
+        "mov_iliaco_ex": {
+          "id": "mov_iliaco_ex",
+          "type": "interpretation",
+          "title": "Ilíaco EX",
+          "body": "1. Pergunta 2. Pergunta\nResultado\nLeg Checkinginicial\nResposta\nPerna Curta\nPerna curta\nCervical\nApós correção de:\nPelve\nL5 Área Secundária\nÁrea Terciária\nMOVIMENTO\nLIMPEZA\nAvaliação\nPosicionamento do\nCalcanhar\nCalcanhar Lateralizado\n2- REAVALIAÇÃO\nAumento do M. Glúteo",
+          "options": []
+        },
+        "dx_beijo_espinhoso": {
+          "id": "dx_beijo_espinhoso",
+          "type": "interpretation",
+          "title": "Beijo espinhoso",
+          "body": "Leg Checking\ninicial\nResposta\nPerna Curta\n1. Pergunta\nPerna curta\nCervical\n2. Pergunta\nApós correção de:\nPelve\nL5\nÁrea Secundária\n2- REAVALIAÇÃO\nConcavidade entre os espaços interespinhosos\nÁREA\nTERCIÁRIA\n1 - CORRIGIR",
+          "options": []
+        },
+        "page_13": {
+          "id": "page_13",
+          "type": "interpretation",
+          "title": "Leg Checking",
+          "body": "Leg Checking\ninicial\nResposta\nPerna Neutra\n1. Pergunta Rotação Cervical Dir e\nEsq. com extensão de\njoelhos\nResposta\nPerna Neutra\n2. Pergunta\nFlexão de joelho\nResposta\nPerna Curta\n3. Pergunta Rotação Cervical Dir e\nEsq. com flexão de\njoelhos\nResposta\nPerna Neutra com Rotação\ncervical a DIREITA\n4. Pergunta\n1 - CORRIGIR\n2- REAVALIAÇÃO",
+          "options": []
+        },
+        "page_15": {
+          "id": "page_15",
+          "type": "interpretation",
+          "title": "Leg Checking",
+          "body": "Leg Checking\ninicial\nResposta\nPerna Neutra\n1. Pergunta Rotação Cervical Dir e\nEsq. com extensão de\njoelhos\nResposta\nPerna Neutra\n2. Pergunta\nFlexão de joelho\nResposta\nPerna Curta\n3. Pergunta Rotação Cervical Dir e\nEsq. com flexão de\njoelhos\nResposta\nPerna Neutra com Rotação\ncervical a ESQUERDA\n4. Pergunta\nPontos Gatilhos\nResposta\nSim\n5. Pergunta\n1 - CORRIGIR\n2- REAVALIAÇÃO",
+          "options": []
+        },
+        "dx_derifield_x_esquerda": {
+          "id": "dx_derifield_x_esquerda",
+          "type": "interpretation",
+          "title": "Derifield X (Esquerda)",
+          "body": "Leg Checking\ninicial\nResposta\nPerna Curta\n1. Pergunta Rotação Cervical Dir e\nEsq. com extensão de\njoelhos\nResposta\nPerna Neutra ao rodar a\ncervical para a ESQUERDA\n2. Pergunta\n1 - Nódulo à Dir.\n3- REAVALIAÇÃO\n2 - Correção\nAtlas C7-C2",
+          "options": []
+        },
+        "dx_sindrome_cervical_bilateral": {
+          "id": "dx_sindrome_cervical_bilateral",
+          "type": "interpretation",
+          "title": "Síndrome Cervical Bilateral",
+          "body": "Leg Checking\ninicial\nResposta\nPerna Neutra\n1. Pergunta Rotação Cervical Dir e\nEsq. com extensão de\njoelhos\nResposta\nPerna curta para os dois\nlados\n2. Pergunta\n1 - CORRIGIR\n2- REAVALIAÇÃO",
+          "options": []
+        },
+        "dx_bloqueio_cervical_duplo": {
+          "id": "dx_bloqueio_cervical_duplo",
+          "type": "interpretation",
+          "title": "Bloqueio Cervical Duplo",
+          "body": "Leg Checking\ninicial\nResposta\nPerna Curta\n1. Pergunta Rotação Cervical Dir e\nEsq. com extensão de\njoelhos\nResposta\nPerna Neutra ao rodar a\ncervical para a\nDIREITA e ESQUERDA\n2. Pergunta\n1 - Nódulo Dir e Esq\n3- REAVALIAÇÃO\n2 - Correção\nAtlas C7-C2",
+          "options": []
+        },
+        "page_26": {
+          "id": "page_26",
+          "type": "interpretation",
+          "title": "Leg Checking",
+          "body": "Leg Checking\ninicial\nResposta\nPerna Curta\n1. Pergunta Rotação Cervical Dir e\nEsq. com extensão de\njoelhos\nResposta\nPermasse Perna Curta\n2. Pergunta\nFlexão de joelho\nResposta\n3. Pergunta\nPERNA CURTA LONGA\nPerna Curta CONTRALATERAL\nArm Foss Test\nResposta\nMEIO Até PÚBIS\n4. Pergunta\n2- REAVALIAÇÃO\n1 - CORRIGIR",
+          "options": []
+        },
+        "mov_apice_sacral_posterior": {
+          "id": "mov_apice_sacral_posterior",
+          "type": "interpretation",
+          "title": "Ápice sacral posterior",
+          "body": "1. Pergunta 2. Pergunta\nResultado\nLeg Checkinginicial\nResposta\nPerna Curta\nPerna curta\nCervical\nApós correção de:\nPelve\nL5 Área Secundária\nÁrea Terciária\nMOVIMENTO\nLIMPEZA\nAvaliação\nEstabiliza Sacro\nExtensão de quadril\nPouca Extensão de MMII\n(Bilateral)\n2- REAVALIAÇÃO",
+          "options": []
+        },
+        "page_22": {
+          "id": "page_22",
+          "type": "interpretation",
+          "title": "Leg Checking",
+          "body": "Leg Checking\ninicial\nResposta\nPerna Curta\n1. Pergunta Rotação Cervical Dir e\nEsq. com extensão de\njoelhos\nResposta\nPermanesse Curta\n2. Pergunta\nPontos Gatilhos\nResposta\nSim\n4. Pergunta\n1 - CORRIGIR\n2- REAVALIAÇÃO\nFlexão de joelho\nResposta\n3. Pergunta\nPERNA CURTA CURTA\nPerna Curta IPSILATERAL",
+          "options": []
+        }
+      }
+    },
+    "area_terciaria": {
+      "name": "Área Terciária",
+      "startNodeId": "dx_beijo_espinhoso",
+      "nodesById": {
+        "dx_occipital_posterior": {
+          "id": "dx_occipital_posterior",
+          "type": "interpretation",
+          "title": "Occipital Posterior",
+          "body": "Leg Checking\ninicial\nResposta\nPerna Neutra\n1. Pergunta Rotação Cervical Dir e\nEsq. com extensão de\njoelhos\nResposta\nPerna curta\nCONTRALATERAL\na rotação cervical\n2. Pergunta\n1 - CORRIGIR\n2- REAVALIAÇÃO",
+          "options": []
+        },
+        "page_09": {
+          "id": "page_09",
+          "type": "question",
+          "title": "1. Pergunta",
+          "body": "1. Pergunta\nLeg Checking\ninicial\nResposta\nPerna Curta\nRotação cervical para Direita e para a Esqueda\ncom o joelho em EXTENSÃO\n2. Pergunta\nResposta\nPerna Neutra ao rodar a cervical para a Direita\nPerna Neutra ao rodar a cervical para a Esquerda\nPerna Neutra ao rodar a cervical para os dois lados\nPerna Curta ao rodar a cervical para os dois lados",
+          "options": [
+            {
+              "label": "Perna Curta",
+              "nextNodeId": "leg_checking_inicial"
+            },
+            {
+              "label": "Perna Neutra ao rodar a cervical para a Direita",
+              "nextNodeId": "dx_derifield_x_direita"
+            },
+            {
+              "label": "Perna Neutra ao rodar a cervical para a Esquerda",
+              "nextNodeId": "dx_derifield_x_esquerda"
+            },
+            {
+              "label": "Perna Neutra ao rodar a cervical para os dois lados",
+              "nextNodeId": "page_12"
+            },
+            {
+              "label": "Perna Curta ao rodar a cervical para os dois lados",
+              "nextNodeId": "dx_bloqueio_cervical_duplo"
+            },
+            {
+              "label": "Ir para página 11",
+              "nextNodeId": "page_11"
+            }
+          ]
+        },
+        "page_11": {
+          "id": "page_11",
+          "type": "question",
+          "title": "Leg Checking",
+          "body": "Leg Checking\ninicial\nResposta\n1. Pergunta Rotação cervical para\nDireita e Esquerda com\njoelhos em EXTENSÃO\n2. Pergunta\nRealizar a FLEXÃO do joelho\nResposta\n3. Pergunta\nPerna Curta Resposta\nPermasse Perna Curta\nao rodar a cervical para os\ndois lados\nPerna Curta IPSILATERAL a perna curta em extensão\nPERNA CURTA CURTA\nPerna Curta CONTRALATERAL a perna curta em extensão\nPERNA CURTA LONGA",
+          "options": [
+            {
+              "label": "Perna Curta Curta",
+              "nextNodeId": "leg_checking_inicial"
+            },
+            {
+              "label": "Perna Curta Longa",
+              "nextNodeId": "pontos_gatilho_perna_curta"
+            },
+            {
+              "label": "Perna Curta Resposta",
+              "nextNodeId": "page_24"
+            }
+          ]
+        },
+        "page_16": {
+          "id": "page_16",
+          "type": "interpretation",
+          "title": "Leg Checking",
+          "body": "Leg Checking\ninicial\nResposta\nPerna Neutra\n1. Pergunta Rotação Cervical Dir e\nEsq. com extensão de\njoelhos\nResposta\nPerna Neutra\n2. Pergunta\nFlexão de joelho\nResposta\nPerna Curta\n3. Pergunta Rotação Cervical Dir e\nEsq. com flexão de\njoelhos\nResposta\nPerna Neutra com Rotação\ncervical a ESQUERDA\n4. Pergunta\nPontos Gatilhos\nResposta\nNão\n5. Pergunta\n1 - CORRIGIR\n2- REAVALIAÇÃO",
+          "options": []
+        },
+        "mov_caixa_toracica_elevada": {
+          "id": "mov_caixa_toracica_elevada",
+          "type": "interpretation",
+          "title": "Caixa torácica elevada",
+          "body": "1. Pergunta 2. Pergunta\nResultado\nLeg Checkinginicial\nResposta\nPerna Curta\nPerna curta\nCervical\nApós correção de:\nPelve\nL5 Área Secundária\nÁrea Terciária\nMOVIMENTO\nLIMPEZA\nAvaliação\nAlterações Respiratória\nToda a regiao Torácica em\nFlexão\n2- REAVALIAÇÃO\nOmbro elevado",
+          "options": []
+        },
+        "leg_checking_inicial": {
+          "id": "leg_checking_inicial",
+          "type": "question",
+          "title": "Leg checking inicial",
+          "body": "1. PERGUNTA:\nLEG CHECKING INICIAL\nÁREA\nSECUNDÁRIA\nÁREA\nTERCIÁRIA\nMOVIMENTO\nLIMPEZA\nPERNA NEUTRA\nPERNA CURTA\nINÍCIO",
+          "options": [
+            {
+              "label": "Perna neutra",
+              "nextNodeId": "page_04"
+            },
+            {
+              "label": "Perna curta",
+              "nextNodeId": "page_09"
+            },
+            {
+              "label": "Área secundária",
+              "nextNodeId": "dx_espondilolistese"
+            },
+            {
+              "label": "Área terciária",
+              "nextNodeId": "dx_beijo_espinhoso"
+            },
+            {
+              "label": "Movimento de limpeza",
+              "nextNodeId": "movimento_limpeza_menu"
+            }
+          ]
+        },
+        "page_10": {
+          "id": "page_10",
+          "type": "question",
+          "title": "Leg Checking",
+          "body": "Leg Checking\ninicial\nResposta\n1. Pergunta Rotação cervical para\nDireita e Esquerda com\njoelhos em FLEXÃO\n2. Pergunta\nRealizar a FLEXÃO do joelho\nPerna Neutra\nResposta\n3. Pergunta\nPerna Neutra Resposta\nPerna Neutra\nPerna Curta",
+          "options": [
+            {
+              "label": "Perna Neutra",
+              "nextNodeId": "leg_checking_inicial"
+            },
+            {
+              "label": "Perna Neutra Resposta",
+              "nextNodeId": "page_05"
+            },
+            {
+              "label": "Perna Curta",
+              "nextNodeId": "page_12"
+            }
+          ]
+        },
+        "page_24": {
+          "id": "page_24",
+          "type": "question",
+          "title": "Leg Checking",
+          "body": "Leg Checking\ninicial\nResposta\nPerna Curta\n1. Pergunta Rotação Cervical Dir e\nEsq. com extensão de\njoelhos\nResposta\nPermasse Perna Curta\n2. Pergunta\nArm Foss Test\nResposta\n4. Pergunta\nEIAS até Meio\nMeio até Púbis\nFlexão de joelho\nResposta\n3. Pergunta\nPERNA CURTA LONGA\nPerna Curta CONTRALATERAL",
+          "options": [
+            {
+              "label": "Perna Curta",
+              "nextNodeId": "leg_checking_inicial"
+            },
+            {
+              "label": "Permasse Perna Curta",
+              "nextNodeId": "page_25"
+            },
+            {
+              "label": "Perna Curta Longa",
+              "nextNodeId": "page_26"
+            }
+          ]
+        },
+        "dx_sindrome_cervical_unilateral": {
+          "id": "dx_sindrome_cervical_unilateral",
+          "type": "interpretation",
+          "title": "Síndrome Cervical Unilateral",
+          "body": "1 - CORRIGIR\n2- REAVALIAÇÃO\nLeg Checking\ninicial\nResposta\nPerna Neutra\n1. Pergunta Rotação Cervical Dir e\nEsq. com extensão de\njoelhos\nResposta\nPerna curta IPSILATERAL\na rotação cervical\n2. Pergunta",
+          "options": []
+        },
+        "page_12": {
+          "id": "page_12",
+          "type": "question",
+          "title": "Leg Checking",
+          "body": "Leg Checking\ninicial\nResposta\n1. Pergunta Rotação cervical para\nDireita e Esquerda com\njoelhos em EXTENSÃO\n2. Pergunta\nRealizar a rotação cervical para Direita e Esquer\ncom o joelho em FLEXÃO\nResposta\n4. Pergunta\nPerna Neutra Resposta\nPerna Neutra\nPerna Neutra com rotação cervical para DIREITA\nJoelho em\nFlexão\nResposta\n3. Pergunta\nPerna Curta\nPerna Neutra com rotação cervical para ESQUERDA\nPerna Curta ao rodar cervical para os dois lados",
+          "options": [
+            {
+              "label": "Perna Neutra Resposta",
+              "nextNodeId": "leg_checking_inicial"
+            },
+            {
+              "label": "Perna Neutra",
+              "nextNodeId": "page_13"
+            },
+            {
+              "label": "Perna Neutra com rotação cervical para DIREITA",
+              "nextNodeId": "page_14"
+            },
+            {
+              "label": "Perna Curta",
+              "nextNodeId": "pontos_gatilho_perna_neutra"
+            }
+          ]
+        },
+        "mov_isquio_posterior": {
+          "id": "mov_isquio_posterior",
+          "type": "interpretation",
+          "title": "Ísquio posterior",
+          "body": "quio Posterior\n1. Pergunta 2. Pergunta\nResultado\nLeg Checkinginicial\nResposta\nPerna Curta\nPerna curta\nCervical\nApós correção de:\nPelve\nL5 Área Secundária\nÁrea Terciária\nMOVIMENTO\nLIMPEZA\nAvaliação\nPalpação em\nGastrocnêmios\nDor na palpação\n2- REAVALIAÇÃO",
+          "options": []
+        },
+        "mov_iliaco_in": {
+          "id": "mov_iliaco_in",
+          "type": "interpretation",
+          "title": "Ilíaco IN",
+          "body": "1. Pergunta 2. Pergunta\nResultado\nLeg Checkinginicial\nResposta\nPerna Curta\nPerna curta\nCervical\nApós correção de:\nPelve\nL5 Área Secundária\nÁrea Terciária\nMOVIMENTO\nLIMPEZA\nAvaliação\nPosicionamento do\nCalcanhar\nCalcanhar medializado\n2- REAVALIAÇÃO\nAchatamento do M. Glúteo",
+          "options": []
+        },
+        "dx_derifield_x_direita": {
+          "id": "dx_derifield_x_direita",
+          "type": "interpretation",
+          "title": "Derifield X (Direita)",
+          "body": "Leg Checking\ninicial\nResposta\nPerna Curta\n1. Pergunta Rotação Cervical Dir e\nEsq. com extensão de\njoelhos\nResposta\nPerna Neutra ao rodar a\ncervical para a DIREITA\n2. Pergunta\n1 - Nódulo à Esq.\n3- REAVALIAÇÃO\n2 - Correção\nAtlas C7-C2",
+          "options": []
+        },
+        "page_14": {
+          "id": "page_14",
+          "type": "interpretation",
+          "title": "Leg Checking",
+          "body": "Leg Checking\ninicial\nResposta\nPerna Neutra\n1. Pergunta Rotação Cervical Dir e\nEsq. com extensão de\njoelhos\nResposta\nPerna Neutra\n2. Pergunta\nFlexão de joelho\nResposta\nPerna Curta\n3. Pergunta Rotação Cervical Dir e\nEsq. com flexão de\njoelhos\nResposta\nPerna Neutra com Rotação\ncervical a ESQUERDA\n4. Pergunta\n1 - CORRIGIR\n2- REAVALIAÇÃO",
+          "options": []
+        },
+        "movimento_limpeza_menu": {
+          "id": "movimento_limpeza_menu",
+          "type": "question",
+          "title": "1. Pergunta 2. Pergunta",
+          "body": "1. Pergunta 2. Pergunta\nLeg Checking\ninicial\nResposta\nPerna Curta\nPerna curta\nCervical\nApós correção de:\nPelve\nL5 Área Secundária\nÁrea Terciária\n2- REAVALIAÇÃO\nMOVIMENTO\nLIMPEZA",
+          "options": [
+            {
+              "label": "Perna Curta",
+              "nextNodeId": "mov_rotacao_sacral"
+            },
+            {
+              "label": "2- REAVALIAÇÃO",
+              "nextNodeId": "mov_apice_sacral_posterior"
+            },
+            {
+              "label": "2- Reavaliação",
+              "nextNodeId": "leg_checking_inicial"
+            },
+            {
+              "label": "Movimento",
+              "nextNodeId": "mov_isquio_posterior"
+            },
+            {
+              "label": "Limpeza",
+              "nextNodeId": "mov_iliaco_in"
+            },
+            {
+              "label": "Ilíaco EX",
+              "nextNodeId": "mov_iliaco_ex"
+            },
+            {
+              "label": "Costela rodada",
+              "nextNodeId": "mov_costela_rodada"
+            },
+            {
+              "label": "Caixa torácica elevada",
+              "nextNodeId": "mov_caixa_toracica_elevada"
+            }
+          ]
+        },
+        "mov_costela_rodada": {
+          "id": "mov_costela_rodada",
+          "type": "interpretation",
+          "title": "Costela rodada",
+          "body": "1. Pergunta 2. Pergunta\nResultado\nLeg Checkinginicial\nResposta\nPerna Curta\nPerna curta\nCervical\nApós correção de:\nPelve\nL5 Área Secundária\nÁrea Terciária\nMOVIMENTO\nLIMPEZA\nAvaliação\nDor aguda\nPalpação das costelas,\nbuscando subluxações\n2- REAVALIAÇÃO\nPontada no peito",
+          "options": []
+        },
+        "mov_rotacao_sacral": {
+          "id": "mov_rotacao_sacral",
+          "type": "interpretation",
+          "title": "Rotação sacral",
+          "body": "1. Pergunta 2. Pergunta\nResultado\nLeg Checkinginicial\nResposta\nPerna Curta\nPerna curta\nCervical\nApós correção de:\nPelve\nL5 Área Secundária\nÁrea Terciária\nMOVIMENTO\nLIMPEZA\nAvaliação\nEstabiliza Sacro\nExtensão de quadril\nÁpice para o lado de MI\nque subiu mais\n2- REAVALIAÇÃO",
+          "options": []
+        },
+        "page_23": {
+          "id": "page_23",
+          "type": "interpretation",
+          "title": "Leg Checking",
+          "body": "Leg Checking\ninicial\nResposta\nPerna Curta\n1. Pergunta Rotação Cervical Dir e\nEsq. com extensão de\njoelhos\nResposta\n2. Pergunta\nPontos Gatilhos\nResposta\nNão\n4. Pergunta\n1 - CORRIGIR\n2- REAVALIAÇÃO\nFlexão de joelho\nResposta\n3. Pergunta\nPERNA CURTA CURTA\nPerna Curta IPSILATERAL\nPermanesse Curta",
+          "options": []
+        },
+        "dx_espondilolistese": {
+          "id": "dx_espondilolistese",
+          "type": "interpretation",
+          "title": "Espondilolistese",
+          "body": "ÁREA\nSECUNDÁRIA\nLeg Checking\ninicial\nResposta\nPerna Curta\n1. Pergunta\nPerna curta\nCervical\n2. Pergunta\nApós correção de:\nPelve\nL5\n2- REAVALIAÇÃO\nPaciente Sintomático Espondileste grau 2 ou >\n1 - CORRIGIR",
+          "options": []
+        },
+        "page_25": {
+          "id": "page_25",
+          "type": "interpretation",
+          "title": "Leg Checking",
+          "body": "Leg Checking\ninicial\nResposta\nPerna Curta\n1. Pergunta Rotação Cervical Dir e\nEsq. com extensão de\njoelhos\nResposta\nPermasse Perna Curta\n2. Pergunta\nFlexão de joelho\nResposta\n3. Pergunta\nPERNA CURTA LONGA\nPerna Curta CONTRALATERAL\nArm Foss Test\nResposta\nEIAS ATÉ MEIO\n4. Pergunta\n1 - CORRIGIR\n2- REAVALIAÇÃO",
+          "options": []
+        },
+        "page_05": {
+          "id": "page_05",
+          "type": "question",
+          "title": "Leg Checking",
+          "body": "Leg Checking\ninicial\nResposta\nPerna Neutra\n1. Pergunta Rotação Cervical Dir e\nEsq. com extensão de\njoelhos\nResposta\nPerna Neutra\n2. Pergunta\nFlexão de\nJoelhos\nResposta\nPerna Neutra\n3. Pergunta\nRotação Cervical para direita e para esquerda\ncom os joelhos em FLEXÃO\n4. Pergunta\nPerna Neutra\nResposta\nPerna Curta",
+          "options": [
+            {
+              "label": "Perna Neutra",
+              "nextNodeId": "leg_checking_inicial"
+            },
+            {
+              "label": "Perna Curta",
+              "nextNodeId": "page_03"
+            },
+            {
+              "label": "Ir para página 12",
+              "nextNodeId": "page_12"
+            }
+          ]
+        },
+        "pontos_gatilho_perna_curta": {
+          "id": "pontos_gatilho_perna_curta",
+          "type": "checkpoint",
+          "title": "Tendão de Aquiles",
+          "body": "Tendão de Aquiles\nAspecto proximal da tíbia medial\nEIPS\nEretores da espinha T6-T2 (contralateral)\nTuberosidade isquiática\nÁrea do osso púbico\nLeg Checking\ninicial\nResposta\nPerna Curta\n1. Pergunta Rotação Cervical Dir e\nEsq. com extensão de\njoelhos\nResposta\nPermasse Perna Curta\n2. Pergunta\nFlexão de joelho\nResposta\n3. Pergunta\nPontos Gatilhos\nResposta\n4. Pergunta\nSim\nProcurar\nNão\nPERNA CURTA CURTA\nPerna Curta IPSILATERAL",
+          "items": [
+            "Tendão de Aquiles",
+            "Tíbia medial",
+            "Tuberosidade isquiática",
+            "EIPS",
+            "Osso púbico",
+            "Eretores da espinha"
+          ],
+          "options": [
+            {
+              "label": "Perna Curta",
+              "nextNodeId": "leg_checking_inicial"
+            },
+            {
+              "label": "Permasse Perna Curta",
+              "nextNodeId": "page_22"
+            },
+            {
+              "label": "Eips",
+              "nextNodeId": "page_23"
+            }
+          ]
+        },
+        "pontos_gatilho_perna_neutra": {
+          "id": "pontos_gatilho_perna_neutra",
+          "type": "checkpoint",
+          "title": "Tendão de Aquiles",
+          "body": "Tendão de Aquiles\nAspecto proximal da tíbia medial\nEIPS\nEretores da espinha T6-T2 (contralateral)\nTuberosidade isquiática\nÁrea do osso púbico\nLeg Checking\ninicial\nResposta\nPerna Neutra\n1. Pergunta Rotação Cervical Dir e\nEsq. com extensão de\njoelhos\nResposta\nPerna Neutra\n2. Pergunta\nFlexão de joelho\nResposta\nPerna Curta\n3. Pergunta Rotação Cervical Dir e\nEsq. com flexão de\njoelhos\nResposta\nPerna Curta\n4. Pergunta\nPontos Gatilhos\nResposta\n5. Pergunta\nSim\nProcurar\nNão",
+          "items": [
+            "Tendão de Aquiles",
+            "Tíbia medial",
+            "Tuberosidade isquiática",
+            "EIPS",
+            "Osso púbico",
+            "Eretores da espinha"
+          ],
+          "options": [
+            {
+              "label": "Perna Neutra",
+              "nextNodeId": "leg_checking_inicial"
+            },
+            {
+              "label": "Perna Curta",
+              "nextNodeId": "page_15"
+            },
+            {
+              "label": "Eips",
+              "nextNodeId": "page_16"
+            }
+          ]
+        },
+        "page_03": {
+          "id": "page_03",
+          "type": "question",
+          "title": "Leg Checking inicial",
+          "body": "Leg Checking inicial\nResposta\nPerna Neutra\n1. Pergunta\nRotação cervical para\nDireita e para Esquerda\nResposta\nPerna Neutra\n2. Pergunta\nRealizar\nFlexão de joelho\nResposta\nPerna Neutra\n3. Pergunta\nRotação cervical para\nDireita e para Esquerda\nResposta\nPerna Neutra\n4. Pergunta\nCom os joelhos em flexão",
+          "options": [
+            {
+              "label": "Perna Neutra",
+              "nextNodeId": "leg_checking_inicial"
+            }
+          ]
+        },
+        "page_04": {
+          "id": "page_04",
+          "type": "question",
+          "title": "Rotação Cervical para Direita e para a Esquerda",
+          "body": "Rotação Cervical para Direita e para a Esquerda\ncom o joelho em EXTENSÃO\nLeg Checking\ninicial\nResposta\nPerna Neutra\n1. Pergunta\n2. Pergunta\nPerna Neutra\nResposta\nPerna curta para os dois lados\nPerna Curta ipsilateral a cervical\nPerna Curta contralateral a cervical",
+          "options": [
+            {
+              "label": "Perna Neutra",
+              "nextNodeId": "leg_checking_inicial"
+            },
+            {
+              "label": "Perna curta para os dois lados",
+              "nextNodeId": "page_10"
+            },
+            {
+              "label": "Perna Curta ipsilateral a cervical",
+              "nextNodeId": "dx_sindrome_cervical_bilateral"
+            },
+            {
+              "label": "Perna Curta contralateral a cervical",
+              "nextNodeId": "dx_sindrome_cervical_unilateral"
+            },
+            {
+              "label": "Occipital Posterior",
+              "nextNodeId": "dx_occipital_posterior"
+            }
+          ]
+        },
+        "mov_iliaco_ex": {
+          "id": "mov_iliaco_ex",
+          "type": "interpretation",
+          "title": "Ilíaco EX",
+          "body": "1. Pergunta 2. Pergunta\nResultado\nLeg Checkinginicial\nResposta\nPerna Curta\nPerna curta\nCervical\nApós correção de:\nPelve\nL5 Área Secundária\nÁrea Terciária\nMOVIMENTO\nLIMPEZA\nAvaliação\nPosicionamento do\nCalcanhar\nCalcanhar Lateralizado\n2- REAVALIAÇÃO\nAumento do M. Glúteo",
+          "options": []
+        },
+        "dx_beijo_espinhoso": {
+          "id": "dx_beijo_espinhoso",
+          "type": "interpretation",
+          "title": "Beijo espinhoso",
+          "body": "Leg Checking\ninicial\nResposta\nPerna Curta\n1. Pergunta\nPerna curta\nCervical\n2. Pergunta\nApós correção de:\nPelve\nL5\nÁrea Secundária\n2- REAVALIAÇÃO\nConcavidade entre os espaços interespinhosos\nÁREA\nTERCIÁRIA\n1 - CORRIGIR",
+          "options": []
+        },
+        "page_13": {
+          "id": "page_13",
+          "type": "interpretation",
+          "title": "Leg Checking",
+          "body": "Leg Checking\ninicial\nResposta\nPerna Neutra\n1. Pergunta Rotação Cervical Dir e\nEsq. com extensão de\njoelhos\nResposta\nPerna Neutra\n2. Pergunta\nFlexão de joelho\nResposta\nPerna Curta\n3. Pergunta Rotação Cervical Dir e\nEsq. com flexão de\njoelhos\nResposta\nPerna Neutra com Rotação\ncervical a DIREITA\n4. Pergunta\n1 - CORRIGIR\n2- REAVALIAÇÃO",
+          "options": []
+        },
+        "page_15": {
+          "id": "page_15",
+          "type": "interpretation",
+          "title": "Leg Checking",
+          "body": "Leg Checking\ninicial\nResposta\nPerna Neutra\n1. Pergunta Rotação Cervical Dir e\nEsq. com extensão de\njoelhos\nResposta\nPerna Neutra\n2. Pergunta\nFlexão de joelho\nResposta\nPerna Curta\n3. Pergunta Rotação Cervical Dir e\nEsq. com flexão de\njoelhos\nResposta\nPerna Neutra com Rotação\ncervical a ESQUERDA\n4. Pergunta\nPontos Gatilhos\nResposta\nSim\n5. Pergunta\n1 - CORRIGIR\n2- REAVALIAÇÃO",
+          "options": []
+        },
+        "dx_derifield_x_esquerda": {
+          "id": "dx_derifield_x_esquerda",
+          "type": "interpretation",
+          "title": "Derifield X (Esquerda)",
+          "body": "Leg Checking\ninicial\nResposta\nPerna Curta\n1. Pergunta Rotação Cervical Dir e\nEsq. com extensão de\njoelhos\nResposta\nPerna Neutra ao rodar a\ncervical para a ESQUERDA\n2. Pergunta\n1 - Nódulo à Dir.\n3- REAVALIAÇÃO\n2 - Correção\nAtlas C7-C2",
+          "options": []
+        },
+        "dx_sindrome_cervical_bilateral": {
+          "id": "dx_sindrome_cervical_bilateral",
+          "type": "interpretation",
+          "title": "Síndrome Cervical Bilateral",
+          "body": "Leg Checking\ninicial\nResposta\nPerna Neutra\n1. Pergunta Rotação Cervical Dir e\nEsq. com extensão de\njoelhos\nResposta\nPerna curta para os dois\nlados\n2. Pergunta\n1 - CORRIGIR\n2- REAVALIAÇÃO",
+          "options": []
+        },
+        "dx_bloqueio_cervical_duplo": {
+          "id": "dx_bloqueio_cervical_duplo",
+          "type": "interpretation",
+          "title": "Bloqueio Cervical Duplo",
+          "body": "Leg Checking\ninicial\nResposta\nPerna Curta\n1. Pergunta Rotação Cervical Dir e\nEsq. com extensão de\njoelhos\nResposta\nPerna Neutra ao rodar a\ncervical para a\nDIREITA e ESQUERDA\n2. Pergunta\n1 - Nódulo Dir e Esq\n3- REAVALIAÇÃO\n2 - Correção\nAtlas C7-C2",
+          "options": []
+        },
+        "page_26": {
+          "id": "page_26",
+          "type": "interpretation",
+          "title": "Leg Checking",
+          "body": "Leg Checking\ninicial\nResposta\nPerna Curta\n1. Pergunta Rotação Cervical Dir e\nEsq. com extensão de\njoelhos\nResposta\nPermasse Perna Curta\n2. Pergunta\nFlexão de joelho\nResposta\n3. Pergunta\nPERNA CURTA LONGA\nPerna Curta CONTRALATERAL\nArm Foss Test\nResposta\nMEIO Até PÚBIS\n4. Pergunta\n2- REAVALIAÇÃO\n1 - CORRIGIR",
+          "options": []
+        },
+        "mov_apice_sacral_posterior": {
+          "id": "mov_apice_sacral_posterior",
+          "type": "interpretation",
+          "title": "Ápice sacral posterior",
+          "body": "1. Pergunta 2. Pergunta\nResultado\nLeg Checkinginicial\nResposta\nPerna Curta\nPerna curta\nCervical\nApós correção de:\nPelve\nL5 Área Secundária\nÁrea Terciária\nMOVIMENTO\nLIMPEZA\nAvaliação\nEstabiliza Sacro\nExtensão de quadril\nPouca Extensão de MMII\n(Bilateral)\n2- REAVALIAÇÃO",
+          "options": []
+        },
+        "page_22": {
+          "id": "page_22",
+          "type": "interpretation",
+          "title": "Leg Checking",
+          "body": "Leg Checking\ninicial\nResposta\nPerna Curta\n1. Pergunta Rotação Cervical Dir e\nEsq. com extensão de\njoelhos\nResposta\nPermanesse Curta\n2. Pergunta\nPontos Gatilhos\nResposta\nSim\n4. Pergunta\n1 - CORRIGIR\n2- REAVALIAÇÃO\nFlexão de joelho\nResposta\n3. Pergunta\nPERNA CURTA CURTA\nPerna Curta IPSILATERAL",
+          "options": []
+        }
+      }
+    },
+    "movimento_limpeza": {
+      "name": "Movimento de Limpeza",
+      "startNodeId": "movimento_limpeza_menu",
+      "nodesById": {
+        "dx_occipital_posterior": {
+          "id": "dx_occipital_posterior",
+          "type": "interpretation",
+          "title": "Occipital Posterior",
+          "body": "Leg Checking\ninicial\nResposta\nPerna Neutra\n1. Pergunta Rotação Cervical Dir e\nEsq. com extensão de\njoelhos\nResposta\nPerna curta\nCONTRALATERAL\na rotação cervical\n2. Pergunta\n1 - CORRIGIR\n2- REAVALIAÇÃO",
+          "options": []
+        },
+        "page_09": {
+          "id": "page_09",
+          "type": "question",
+          "title": "1. Pergunta",
+          "body": "1. Pergunta\nLeg Checking\ninicial\nResposta\nPerna Curta\nRotação cervical para Direita e para a Esqueda\ncom o joelho em EXTENSÃO\n2. Pergunta\nResposta\nPerna Neutra ao rodar a cervical para a Direita\nPerna Neutra ao rodar a cervical para a Esquerda\nPerna Neutra ao rodar a cervical para os dois lados\nPerna Curta ao rodar a cervical para os dois lados",
+          "options": [
+            {
+              "label": "Perna Curta",
+              "nextNodeId": "leg_checking_inicial"
+            },
+            {
+              "label": "Perna Neutra ao rodar a cervical para a Direita",
+              "nextNodeId": "dx_derifield_x_direita"
+            },
+            {
+              "label": "Perna Neutra ao rodar a cervical para a Esquerda",
+              "nextNodeId": "dx_derifield_x_esquerda"
+            },
+            {
+              "label": "Perna Neutra ao rodar a cervical para os dois lados",
+              "nextNodeId": "page_12"
+            },
+            {
+              "label": "Perna Curta ao rodar a cervical para os dois lados",
+              "nextNodeId": "dx_bloqueio_cervical_duplo"
+            },
+            {
+              "label": "Ir para página 11",
+              "nextNodeId": "page_11"
+            }
+          ]
+        },
+        "page_11": {
+          "id": "page_11",
+          "type": "question",
+          "title": "Leg Checking",
+          "body": "Leg Checking\ninicial\nResposta\n1. Pergunta Rotação cervical para\nDireita e Esquerda com\njoelhos em EXTENSÃO\n2. Pergunta\nRealizar a FLEXÃO do joelho\nResposta\n3. Pergunta\nPerna Curta Resposta\nPermasse Perna Curta\nao rodar a cervical para os\ndois lados\nPerna Curta IPSILATERAL a perna curta em extensão\nPERNA CURTA CURTA\nPerna Curta CONTRALATERAL a perna curta em extensão\nPERNA CURTA LONGA",
+          "options": [
+            {
+              "label": "Perna Curta Curta",
+              "nextNodeId": "leg_checking_inicial"
+            },
+            {
+              "label": "Perna Curta Longa",
+              "nextNodeId": "pontos_gatilho_perna_curta"
+            },
+            {
+              "label": "Perna Curta Resposta",
+              "nextNodeId": "page_24"
+            }
+          ]
+        },
+        "page_16": {
+          "id": "page_16",
+          "type": "interpretation",
+          "title": "Leg Checking",
+          "body": "Leg Checking\ninicial\nResposta\nPerna Neutra\n1. Pergunta Rotação Cervical Dir e\nEsq. com extensão de\njoelhos\nResposta\nPerna Neutra\n2. Pergunta\nFlexão de joelho\nResposta\nPerna Curta\n3. Pergunta Rotação Cervical Dir e\nEsq. com flexão de\njoelhos\nResposta\nPerna Neutra com Rotação\ncervical a ESQUERDA\n4. Pergunta\nPontos Gatilhos\nResposta\nNão\n5. Pergunta\n1 - CORRIGIR\n2- REAVALIAÇÃO",
+          "options": []
+        },
+        "mov_caixa_toracica_elevada": {
+          "id": "mov_caixa_toracica_elevada",
+          "type": "interpretation",
+          "title": "Caixa torácica elevada",
+          "body": "1. Pergunta 2. Pergunta\nResultado\nLeg Checkinginicial\nResposta\nPerna Curta\nPerna curta\nCervical\nApós correção de:\nPelve\nL5 Área Secundária\nÁrea Terciária\nMOVIMENTO\nLIMPEZA\nAvaliação\nAlterações Respiratória\nToda a regiao Torácica em\nFlexão\n2- REAVALIAÇÃO\nOmbro elevado",
+          "options": []
+        },
+        "leg_checking_inicial": {
+          "id": "leg_checking_inicial",
+          "type": "question",
+          "title": "Leg checking inicial",
+          "body": "1. PERGUNTA:\nLEG CHECKING INICIAL\nÁREA\nSECUNDÁRIA\nÁREA\nTERCIÁRIA\nMOVIMENTO\nLIMPEZA\nPERNA NEUTRA\nPERNA CURTA\nINÍCIO",
+          "options": [
+            {
+              "label": "Perna neutra",
+              "nextNodeId": "page_04"
+            },
+            {
+              "label": "Perna curta",
+              "nextNodeId": "page_09"
+            },
+            {
+              "label": "Área secundária",
+              "nextNodeId": "dx_espondilolistese"
+            },
+            {
+              "label": "Área terciária",
+              "nextNodeId": "dx_beijo_espinhoso"
+            },
+            {
+              "label": "Movimento de limpeza",
+              "nextNodeId": "movimento_limpeza_menu"
+            }
+          ]
+        },
+        "page_10": {
+          "id": "page_10",
+          "type": "question",
+          "title": "Leg Checking",
+          "body": "Leg Checking\ninicial\nResposta\n1. Pergunta Rotação cervical para\nDireita e Esquerda com\njoelhos em FLEXÃO\n2. Pergunta\nRealizar a FLEXÃO do joelho\nPerna Neutra\nResposta\n3. Pergunta\nPerna Neutra Resposta\nPerna Neutra\nPerna Curta",
+          "options": [
+            {
+              "label": "Perna Neutra",
+              "nextNodeId": "leg_checking_inicial"
+            },
+            {
+              "label": "Perna Neutra Resposta",
+              "nextNodeId": "page_05"
+            },
+            {
+              "label": "Perna Curta",
+              "nextNodeId": "page_12"
+            }
+          ]
+        },
+        "page_24": {
+          "id": "page_24",
+          "type": "question",
+          "title": "Leg Checking",
+          "body": "Leg Checking\ninicial\nResposta\nPerna Curta\n1. Pergunta Rotação Cervical Dir e\nEsq. com extensão de\njoelhos\nResposta\nPermasse Perna Curta\n2. Pergunta\nArm Foss Test\nResposta\n4. Pergunta\nEIAS até Meio\nMeio até Púbis\nFlexão de joelho\nResposta\n3. Pergunta\nPERNA CURTA LONGA\nPerna Curta CONTRALATERAL",
+          "options": [
+            {
+              "label": "Perna Curta",
+              "nextNodeId": "leg_checking_inicial"
+            },
+            {
+              "label": "Permasse Perna Curta",
+              "nextNodeId": "page_25"
+            },
+            {
+              "label": "Perna Curta Longa",
+              "nextNodeId": "page_26"
+            }
+          ]
+        },
+        "dx_sindrome_cervical_unilateral": {
+          "id": "dx_sindrome_cervical_unilateral",
+          "type": "interpretation",
+          "title": "Síndrome Cervical Unilateral",
+          "body": "1 - CORRIGIR\n2- REAVALIAÇÃO\nLeg Checking\ninicial\nResposta\nPerna Neutra\n1. Pergunta Rotação Cervical Dir e\nEsq. com extensão de\njoelhos\nResposta\nPerna curta IPSILATERAL\na rotação cervical\n2. Pergunta",
+          "options": []
+        },
+        "page_12": {
+          "id": "page_12",
+          "type": "question",
+          "title": "Leg Checking",
+          "body": "Leg Checking\ninicial\nResposta\n1. Pergunta Rotação cervical para\nDireita e Esquerda com\njoelhos em EXTENSÃO\n2. Pergunta\nRealizar a rotação cervical para Direita e Esquer\ncom o joelho em FLEXÃO\nResposta\n4. Pergunta\nPerna Neutra Resposta\nPerna Neutra\nPerna Neutra com rotação cervical para DIREITA\nJoelho em\nFlexão\nResposta\n3. Pergunta\nPerna Curta\nPerna Neutra com rotação cervical para ESQUERDA\nPerna Curta ao rodar cervical para os dois lados",
+          "options": [
+            {
+              "label": "Perna Neutra Resposta",
+              "nextNodeId": "leg_checking_inicial"
+            },
+            {
+              "label": "Perna Neutra",
+              "nextNodeId": "page_13"
+            },
+            {
+              "label": "Perna Neutra com rotação cervical para DIREITA",
+              "nextNodeId": "page_14"
+            },
+            {
+              "label": "Perna Curta",
+              "nextNodeId": "pontos_gatilho_perna_neutra"
+            }
+          ]
+        },
+        "mov_isquio_posterior": {
+          "id": "mov_isquio_posterior",
+          "type": "interpretation",
+          "title": "Ísquio posterior",
+          "body": "quio Posterior\n1. Pergunta 2. Pergunta\nResultado\nLeg Checkinginicial\nResposta\nPerna Curta\nPerna curta\nCervical\nApós correção de:\nPelve\nL5 Área Secundária\nÁrea Terciária\nMOVIMENTO\nLIMPEZA\nAvaliação\nPalpação em\nGastrocnêmios\nDor na palpação\n2- REAVALIAÇÃO",
+          "options": []
+        },
+        "mov_iliaco_in": {
+          "id": "mov_iliaco_in",
+          "type": "interpretation",
+          "title": "Ilíaco IN",
+          "body": "1. Pergunta 2. Pergunta\nResultado\nLeg Checkinginicial\nResposta\nPerna Curta\nPerna curta\nCervical\nApós correção de:\nPelve\nL5 Área Secundária\nÁrea Terciária\nMOVIMENTO\nLIMPEZA\nAvaliação\nPosicionamento do\nCalcanhar\nCalcanhar medializado\n2- REAVALIAÇÃO\nAchatamento do M. Glúteo",
+          "options": []
+        },
+        "dx_derifield_x_direita": {
+          "id": "dx_derifield_x_direita",
+          "type": "interpretation",
+          "title": "Derifield X (Direita)",
+          "body": "Leg Checking\ninicial\nResposta\nPerna Curta\n1. Pergunta Rotação Cervical Dir e\nEsq. com extensão de\njoelhos\nResposta\nPerna Neutra ao rodar a\ncervical para a DIREITA\n2. Pergunta\n1 - Nódulo à Esq.\n3- REAVALIAÇÃO\n2 - Correção\nAtlas C7-C2",
+          "options": []
+        },
+        "page_14": {
+          "id": "page_14",
+          "type": "interpretation",
+          "title": "Leg Checking",
+          "body": "Leg Checking\ninicial\nResposta\nPerna Neutra\n1. Pergunta Rotação Cervical Dir e\nEsq. com extensão de\njoelhos\nResposta\nPerna Neutra\n2. Pergunta\nFlexão de joelho\nResposta\nPerna Curta\n3. Pergunta Rotação Cervical Dir e\nEsq. com flexão de\njoelhos\nResposta\nPerna Neutra com Rotação\ncervical a ESQUERDA\n4. Pergunta\n1 - CORRIGIR\n2- REAVALIAÇÃO",
+          "options": []
+        },
+        "movimento_limpeza_menu": {
+          "id": "movimento_limpeza_menu",
+          "type": "question",
+          "title": "1. Pergunta 2. Pergunta",
+          "body": "1. Pergunta 2. Pergunta\nLeg Checking\ninicial\nResposta\nPerna Curta\nPerna curta\nCervical\nApós correção de:\nPelve\nL5 Área Secundária\nÁrea Terciária\n2- REAVALIAÇÃO\nMOVIMENTO\nLIMPEZA",
+          "options": [
+            {
+              "label": "Perna Curta",
+              "nextNodeId": "mov_rotacao_sacral"
+            },
+            {
+              "label": "2- REAVALIAÇÃO",
+              "nextNodeId": "mov_apice_sacral_posterior"
+            },
+            {
+              "label": "2- Reavaliação",
+              "nextNodeId": "leg_checking_inicial"
+            },
+            {
+              "label": "Movimento",
+              "nextNodeId": "mov_isquio_posterior"
+            },
+            {
+              "label": "Limpeza",
+              "nextNodeId": "mov_iliaco_in"
+            },
+            {
+              "label": "Ilíaco EX",
+              "nextNodeId": "mov_iliaco_ex"
+            },
+            {
+              "label": "Costela rodada",
+              "nextNodeId": "mov_costela_rodada"
+            },
+            {
+              "label": "Caixa torácica elevada",
+              "nextNodeId": "mov_caixa_toracica_elevada"
+            }
+          ]
+        },
+        "mov_costela_rodada": {
+          "id": "mov_costela_rodada",
+          "type": "interpretation",
+          "title": "Costela rodada",
+          "body": "1. Pergunta 2. Pergunta\nResultado\nLeg Checkinginicial\nResposta\nPerna Curta\nPerna curta\nCervical\nApós correção de:\nPelve\nL5 Área Secundária\nÁrea Terciária\nMOVIMENTO\nLIMPEZA\nAvaliação\nDor aguda\nPalpação das costelas,\nbuscando subluxações\n2- REAVALIAÇÃO\nPontada no peito",
+          "options": []
+        },
+        "page_23": {
+          "id": "page_23",
+          "type": "interpretation",
+          "title": "Leg Checking",
+          "body": "Leg Checking\ninicial\nResposta\nPerna Curta\n1. Pergunta Rotação Cervical Dir e\nEsq. com extensão de\njoelhos\nResposta\n2. Pergunta\nPontos Gatilhos\nResposta\nNão\n4. Pergunta\n1 - CORRIGIR\n2- REAVALIAÇÃO\nFlexão de joelho\nResposta\n3. Pergunta\nPERNA CURTA CURTA\nPerna Curta IPSILATERAL\nPermanesse Curta",
+          "options": []
+        },
+        "dx_espondilolistese": {
+          "id": "dx_espondilolistese",
+          "type": "interpretation",
+          "title": "Espondilolistese",
+          "body": "ÁREA\nSECUNDÁRIA\nLeg Checking\ninicial\nResposta\nPerna Curta\n1. Pergunta\nPerna curta\nCervical\n2. Pergunta\nApós correção de:\nPelve\nL5\n2- REAVALIAÇÃO\nPaciente Sintomático Espondileste grau 2 ou >\n1 - CORRIGIR",
+          "options": []
+        },
+        "mov_rotacao_sacral": {
+          "id": "mov_rotacao_sacral",
+          "type": "interpretation",
+          "title": "Rotação sacral",
+          "body": "1. Pergunta 2. Pergunta\nResultado\nLeg Checkinginicial\nResposta\nPerna Curta\nPerna curta\nCervical\nApós correção de:\nPelve\nL5 Área Secundária\nÁrea Terciária\nMOVIMENTO\nLIMPEZA\nAvaliação\nEstabiliza Sacro\nExtensão de quadril\nÁpice para o lado de MI\nque subiu mais\n2- REAVALIAÇÃO",
+          "options": []
+        },
+        "page_25": {
+          "id": "page_25",
+          "type": "interpretation",
+          "title": "Leg Checking",
+          "body": "Leg Checking\ninicial\nResposta\nPerna Curta\n1. Pergunta Rotação Cervical Dir e\nEsq. com extensão de\njoelhos\nResposta\nPermasse Perna Curta\n2. Pergunta\nFlexão de joelho\nResposta\n3. Pergunta\nPERNA CURTA LONGA\nPerna Curta CONTRALATERAL\nArm Foss Test\nResposta\nEIAS ATÉ MEIO\n4. Pergunta\n1 - CORRIGIR\n2- REAVALIAÇÃO",
+          "options": []
+        },
+        "page_05": {
+          "id": "page_05",
+          "type": "question",
+          "title": "Leg Checking",
+          "body": "Leg Checking\ninicial\nResposta\nPerna Neutra\n1. Pergunta Rotação Cervical Dir e\nEsq. com extensão de\njoelhos\nResposta\nPerna Neutra\n2. Pergunta\nFlexão de\nJoelhos\nResposta\nPerna Neutra\n3. Pergunta\nRotação Cervical para direita e para esquerda\ncom os joelhos em FLEXÃO\n4. Pergunta\nPerna Neutra\nResposta\nPerna Curta",
+          "options": [
+            {
+              "label": "Perna Neutra",
+              "nextNodeId": "leg_checking_inicial"
+            },
+            {
+              "label": "Perna Curta",
+              "nextNodeId": "page_03"
+            },
+            {
+              "label": "Ir para página 12",
+              "nextNodeId": "page_12"
+            }
+          ]
+        },
+        "pontos_gatilho_perna_curta": {
+          "id": "pontos_gatilho_perna_curta",
+          "type": "checkpoint",
+          "title": "Tendão de Aquiles",
+          "body": "Tendão de Aquiles\nAspecto proximal da tíbia medial\nEIPS\nEretores da espinha T6-T2 (contralateral)\nTuberosidade isquiática\nÁrea do osso púbico\nLeg Checking\ninicial\nResposta\nPerna Curta\n1. Pergunta Rotação Cervical Dir e\nEsq. com extensão de\njoelhos\nResposta\nPermasse Perna Curta\n2. Pergunta\nFlexão de joelho\nResposta\n3. Pergunta\nPontos Gatilhos\nResposta\n4. Pergunta\nSim\nProcurar\nNão\nPERNA CURTA CURTA\nPerna Curta IPSILATERAL",
+          "items": [
+            "Tendão de Aquiles",
+            "Tíbia medial",
+            "Tuberosidade isquiática",
+            "EIPS",
+            "Osso púbico",
+            "Eretores da espinha"
+          ],
+          "options": [
+            {
+              "label": "Perna Curta",
+              "nextNodeId": "leg_checking_inicial"
+            },
+            {
+              "label": "Permasse Perna Curta",
+              "nextNodeId": "page_22"
+            },
+            {
+              "label": "Eips",
+              "nextNodeId": "page_23"
+            }
+          ]
+        },
+        "pontos_gatilho_perna_neutra": {
+          "id": "pontos_gatilho_perna_neutra",
+          "type": "checkpoint",
+          "title": "Tendão de Aquiles",
+          "body": "Tendão de Aquiles\nAspecto proximal da tíbia medial\nEIPS\nEretores da espinha T6-T2 (contralateral)\nTuberosidade isquiática\nÁrea do osso púbico\nLeg Checking\ninicial\nResposta\nPerna Neutra\n1. Pergunta Rotação Cervical Dir e\nEsq. com extensão de\njoelhos\nResposta\nPerna Neutra\n2. Pergunta\nFlexão de joelho\nResposta\nPerna Curta\n3. Pergunta Rotação Cervical Dir e\nEsq. com flexão de\njoelhos\nResposta\nPerna Curta\n4. Pergunta\nPontos Gatilhos\nResposta\n5. Pergunta\nSim\nProcurar\nNão",
+          "items": [
+            "Tendão de Aquiles",
+            "Tíbia medial",
+            "Tuberosidade isquiática",
+            "EIPS",
+            "Osso púbico",
+            "Eretores da espinha"
+          ],
+          "options": [
+            {
+              "label": "Perna Neutra",
+              "nextNodeId": "leg_checking_inicial"
+            },
+            {
+              "label": "Perna Curta",
+              "nextNodeId": "page_15"
+            },
+            {
+              "label": "Eips",
+              "nextNodeId": "page_16"
+            }
+          ]
+        },
+        "page_03": {
+          "id": "page_03",
+          "type": "question",
+          "title": "Leg Checking inicial",
+          "body": "Leg Checking inicial\nResposta\nPerna Neutra\n1. Pergunta\nRotação cervical para\nDireita e para Esquerda\nResposta\nPerna Neutra\n2. Pergunta\nRealizar\nFlexão de joelho\nResposta\nPerna Neutra\n3. Pergunta\nRotação cervical para\nDireita e para Esquerda\nResposta\nPerna Neutra\n4. Pergunta\nCom os joelhos em flexão",
+          "options": [
+            {
+              "label": "Perna Neutra",
+              "nextNodeId": "leg_checking_inicial"
+            }
+          ]
+        },
+        "page_04": {
+          "id": "page_04",
+          "type": "question",
+          "title": "Rotação Cervical para Direita e para a Esquerda",
+          "body": "Rotação Cervical para Direita e para a Esquerda\ncom o joelho em EXTENSÃO\nLeg Checking\ninicial\nResposta\nPerna Neutra\n1. Pergunta\n2. Pergunta\nPerna Neutra\nResposta\nPerna curta para os dois lados\nPerna Curta ipsilateral a cervical\nPerna Curta contralateral a cervical",
+          "options": [
+            {
+              "label": "Perna Neutra",
+              "nextNodeId": "leg_checking_inicial"
+            },
+            {
+              "label": "Perna curta para os dois lados",
+              "nextNodeId": "page_10"
+            },
+            {
+              "label": "Perna Curta ipsilateral a cervical",
+              "nextNodeId": "dx_sindrome_cervical_bilateral"
+            },
+            {
+              "label": "Perna Curta contralateral a cervical",
+              "nextNodeId": "dx_sindrome_cervical_unilateral"
+            },
+            {
+              "label": "Occipital Posterior",
+              "nextNodeId": "dx_occipital_posterior"
+            }
+          ]
+        },
+        "mov_iliaco_ex": {
+          "id": "mov_iliaco_ex",
+          "type": "interpretation",
+          "title": "Ilíaco EX",
+          "body": "1. Pergunta 2. Pergunta\nResultado\nLeg Checkinginicial\nResposta\nPerna Curta\nPerna curta\nCervical\nApós correção de:\nPelve\nL5 Área Secundária\nÁrea Terciária\nMOVIMENTO\nLIMPEZA\nAvaliação\nPosicionamento do\nCalcanhar\nCalcanhar Lateralizado\n2- REAVALIAÇÃO\nAumento do M. Glúteo",
+          "options": []
+        },
+        "dx_beijo_espinhoso": {
+          "id": "dx_beijo_espinhoso",
+          "type": "interpretation",
+          "title": "Beijo espinhoso",
+          "body": "Leg Checking\ninicial\nResposta\nPerna Curta\n1. Pergunta\nPerna curta\nCervical\n2. Pergunta\nApós correção de:\nPelve\nL5\nÁrea Secundária\n2- REAVALIAÇÃO\nConcavidade entre os espaços interespinhosos\nÁREA\nTERCIÁRIA\n1 - CORRIGIR",
+          "options": []
+        },
+        "page_13": {
+          "id": "page_13",
+          "type": "interpretation",
+          "title": "Leg Checking",
+          "body": "Leg Checking\ninicial\nResposta\nPerna Neutra\n1. Pergunta Rotação Cervical Dir e\nEsq. com extensão de\njoelhos\nResposta\nPerna Neutra\n2. Pergunta\nFlexão de joelho\nResposta\nPerna Curta\n3. Pergunta Rotação Cervical Dir e\nEsq. com flexão de\njoelhos\nResposta\nPerna Neutra com Rotação\ncervical a DIREITA\n4. Pergunta\n1 - CORRIGIR\n2- REAVALIAÇÃO",
+          "options": []
+        },
+        "page_15": {
+          "id": "page_15",
+          "type": "interpretation",
+          "title": "Leg Checking",
+          "body": "Leg Checking\ninicial\nResposta\nPerna Neutra\n1. Pergunta Rotação Cervical Dir e\nEsq. com extensão de\njoelhos\nResposta\nPerna Neutra\n2. Pergunta\nFlexão de joelho\nResposta\nPerna Curta\n3. Pergunta Rotação Cervical Dir e\nEsq. com flexão de\njoelhos\nResposta\nPerna Neutra com Rotação\ncervical a ESQUERDA\n4. Pergunta\nPontos Gatilhos\nResposta\nSim\n5. Pergunta\n1 - CORRIGIR\n2- REAVALIAÇÃO",
+          "options": []
+        },
+        "dx_derifield_x_esquerda": {
+          "id": "dx_derifield_x_esquerda",
+          "type": "interpretation",
+          "title": "Derifield X (Esquerda)",
+          "body": "Leg Checking\ninicial\nResposta\nPerna Curta\n1. Pergunta Rotação Cervical Dir e\nEsq. com extensão de\njoelhos\nResposta\nPerna Neutra ao rodar a\ncervical para a ESQUERDA\n2. Pergunta\n1 - Nódulo à Dir.\n3- REAVALIAÇÃO\n2 - Correção\nAtlas C7-C2",
+          "options": []
+        },
+        "dx_sindrome_cervical_bilateral": {
+          "id": "dx_sindrome_cervical_bilateral",
+          "type": "interpretation",
+          "title": "Síndrome Cervical Bilateral",
+          "body": "Leg Checking\ninicial\nResposta\nPerna Neutra\n1. Pergunta Rotação Cervical Dir e\nEsq. com extensão de\njoelhos\nResposta\nPerna curta para os dois\nlados\n2. Pergunta\n1 - CORRIGIR\n2- REAVALIAÇÃO",
+          "options": []
+        },
+        "dx_bloqueio_cervical_duplo": {
+          "id": "dx_bloqueio_cervical_duplo",
+          "type": "interpretation",
+          "title": "Bloqueio Cervical Duplo",
+          "body": "Leg Checking\ninicial\nResposta\nPerna Curta\n1. Pergunta Rotação Cervical Dir e\nEsq. com extensão de\njoelhos\nResposta\nPerna Neutra ao rodar a\ncervical para a\nDIREITA e ESQUERDA\n2. Pergunta\n1 - Nódulo Dir e Esq\n3- REAVALIAÇÃO\n2 - Correção\nAtlas C7-C2",
+          "options": []
+        },
+        "page_26": {
+          "id": "page_26",
+          "type": "interpretation",
+          "title": "Leg Checking",
+          "body": "Leg Checking\ninicial\nResposta\nPerna Curta\n1. Pergunta Rotação Cervical Dir e\nEsq. com extensão de\njoelhos\nResposta\nPermasse Perna Curta\n2. Pergunta\nFlexão de joelho\nResposta\n3. Pergunta\nPERNA CURTA LONGA\nPerna Curta CONTRALATERAL\nArm Foss Test\nResposta\nMEIO Até PÚBIS\n4. Pergunta\n2- REAVALIAÇÃO\n1 - CORRIGIR",
+          "options": []
+        },
+        "mov_apice_sacral_posterior": {
+          "id": "mov_apice_sacral_posterior",
+          "type": "interpretation",
+          "title": "Ápice sacral posterior",
+          "body": "1. Pergunta 2. Pergunta\nResultado\nLeg Checkinginicial\nResposta\nPerna Curta\nPerna curta\nCervical\nApós correção de:\nPelve\nL5 Área Secundária\nÁrea Terciária\nMOVIMENTO\nLIMPEZA\nAvaliação\nEstabiliza Sacro\nExtensão de quadril\nPouca Extensão de MMII\n(Bilateral)\n2- REAVALIAÇÃO",
+          "options": []
+        },
+        "page_22": {
+          "id": "page_22",
+          "type": "interpretation",
+          "title": "Leg Checking",
+          "body": "Leg Checking\ninicial\nResposta\nPerna Curta\n1. Pergunta Rotação Cervical Dir e\nEsq. com extensão de\njoelhos\nResposta\nPermanesse Curta\n2. Pergunta\nPontos Gatilhos\nResposta\nSim\n4. Pergunta\n1 - CORRIGIR\n2- REAVALIAÇÃO\nFlexão de joelho\nResposta\n3. Pergunta\nPERNA CURTA CURTA\nPerna Curta IPSILATERAL",
+          "options": []
+        }
+      }
+    }
+  }
+}
