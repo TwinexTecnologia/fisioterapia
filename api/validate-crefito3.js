@@ -124,6 +124,13 @@ function buildResult({ source, sourceLabel, parsed, status, officialName = "", o
   };
 }
 
+function getSourceLabel(source) {
+  if (source === "crefito2") return "CREFITO-2";
+  if (source === "crefito3") return "CREFITO-3";
+  if (source === "coffito") return "COFFITO";
+  return String(source ?? "").toUpperCase() || "fonte";
+}
+
 function getSourceChain() {
   const configured = String(process.env.CREFITO_VALIDATION_SOURCES || "")
     .split(",")
@@ -410,15 +417,26 @@ module.exports = async (req, res) => {
     }
   }
 
+  const searchedSources = attempts
+    .filter((item) => item.source)
+    .map((item) => item.source);
+
   const foundNotFound = attempts.find((item) => item.status === "not_found");
   if (foundNotFound) {
-    return res.status(200).json(buildResult({
+    const labels = searchedSources.map(getSourceLabel);
+    const result = buildResult({
       source: foundNotFound.source,
-      sourceLabel: foundNotFound.source === "crefito2" ? "CREFITO-2" : "CREFITO-3",
+      sourceLabel: labels.length > 0 ? labels.join(" e ") : getSourceLabel(foundNotFound.source),
       parsed,
       status: "not_found",
       name: body?.name
-    }));
+    });
+    result.searchedSources = searchedSources;
+    result.searchedSourceLabels = labels;
+    result.message = labels.length > 1
+      ? `Nenhum registro foi localizado apos consultar ${labels.join(" e ")}.`
+      : result.message;
+    return res.status(200).json(result);
   }
 
   return res.status(502).json({

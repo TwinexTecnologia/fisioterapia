@@ -242,7 +242,10 @@ function applyCrefitoLookupToForm(result, options = {}) {
   }
 
   if (result.status === "not_found") {
-    setCrefitoStatus("Nenhum registro foi localizado no CREFITO-3 para esse CREFITO.", "error");
+    setCrefitoStatus(
+      result.message || "Nenhum registro foi localizado nos CREFITOs consultados para esse CREFITO.",
+      "error"
+    );
     return;
   }
 
@@ -263,7 +266,13 @@ function buildCrefitoProceedMessage(result) {
   }
 
   if (result.status === "not_found") {
-    return "Nao foi encontrado nenhum registro desse CREFITO no CREFITO-3.\n\nDeseja continuar o cadastro mesmo assim?";
+    const sourceLabels = Array.isArray(result.searchedSourceLabels) && result.searchedSourceLabels.length > 0
+      ? result.searchedSourceLabels
+      : Array.isArray(result.searchedSources) ? result.searchedSources : [];
+    const sourceText = sourceLabels.length > 0
+      ? ` nos CREFITOs consultados (${sourceLabels.join(", ")})`
+      : "";
+    return `Nao foi encontrado nenhum registro desse CREFITO${sourceText}.\n\nDeseja continuar o cadastro mesmo assim?`;
   }
 
   if (result.status === "invalid_format") {
