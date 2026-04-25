@@ -206,7 +206,7 @@ function getReadableCrefitoLookupError(error) {
     return "A consulta ao CREFITO-3 demorou mais do que o esperado. Tente novamente.";
   }
   if (/failed to fetch|networkerror|load failed/i.test(message)) {
-    return "O servidor local da validacao do CREFITO nao esta rodando. Inicie o arquivo crefito-local-server.js e tente novamente.";
+    return "Nao foi possivel acessar o validador do CREFITO agora. Verifique se o ambiente local ou a rota da Vercel estao ativos.";
   }
   return message;
 }
