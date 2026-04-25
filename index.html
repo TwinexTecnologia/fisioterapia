@@ -7,7 +7,7 @@
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
     <title>Roteiro de Thompson - MVP</title>
-    <link rel="stylesheet" href="./style.css?v=20260423l" />
+    <link rel="stylesheet" href="./style.css?v=20260424h" />
   </head>
   <body>
     <!-- TELA 0: LOGIN DO SISTEMA -->
@@ -30,7 +30,7 @@
         </form>
         <div class="login-footer">
           <p id="loginError" style="color: red; font-size: 14px; display: none; margin-top: 10px;">E-mail ou senha incorretos.</p>
-          <small class="muted" style="display: block; margin-top: 20px;">Dica: Use <b>admin@admin.com</b> para gerenciar o sistema.</small>
+          <small class="muted" style="display: block; margin-top: 20px;">Use o e-mail e a senha cadastrados no sistema.</small>
         </div>
       </div>
     </div>
@@ -41,7 +41,7 @@
       <aside class="sidebar">
         <div class="sidebar__brand">
           <h2>FisioFlow</h2>
-          <span>Admin</span>
+          <span id="sidebarRole">Admin</span>
         </div>
         <nav class="sidebar__nav">
           <button id="navDashboard" class="sidebar__link active">📊 Dashboard</button>
@@ -50,9 +50,10 @@
         </nav>
         <div class="sidebar__footer">
           <div class="sidebar__user">
-            <div class="avatar">D</div>
-            <span>Denis Tosta</span>
+            <div id="sidebarAvatar" class="avatar">D</div>
+            <span id="sidebarUserName">Denis Tosta</span>
           </div>
+          <button id="btnLogout" class="btn btn--ghost btn--sm" type="button" style="width: 100%; margin-top: 14px;">Sair</button>
         </div>
       </aside>
 
@@ -60,41 +61,117 @@
       <main id="mainAdmin" class="main main--admin">
         
         <!-- TELA 1: DASHBOARD GERAL -->
-        <section id="screenAdminDashboard" class="screen">
+        <section id="screenAdminDashboard" class="screen screen--admin-panel">
           <div class="dash-header">
+            <div class="dash-header__eyebrow">Painel Executivo</div>
             <h1 class="h1">Visão Geral</h1>
-            <p class="muted">Acompanhe os acessos e módulos da sua plataforma.</p>
+            <p id="dashboardSubtitle" class="muted">Acompanhe os acessos e módulos da sua plataforma.</p>
           </div>
-          
-          <div class="dash-grid">
-            <div class="dash-stat-card">
-              <h3>Fisioterapeutas Ativos</h3>
-              <div class="stat-number">24</div>
+
+          <div class="dashboard-stats-grid">
+            <div class="dash-stat-card dash-stat-card--hero">
+              <h3 id="dashboardStatLabel1">Fisioterapeutas Ativos</h3>
+              <div id="dashboardStatValue1" class="stat-number">0</div>
+              <p id="dashboardStatMeta1" class="dash-stat-card__meta">Perfis com acesso liberado no momento.</p>
             </div>
             <div class="dash-stat-card">
-              <h3>Módulos Criados</h3>
-              <div class="stat-number">3</div>
+              <h3 id="dashboardStatLabel2">Módulos Criados</h3>
+              <div id="dashboardStatValue2" class="stat-number">0</div>
+              <p id="dashboardStatMeta2" class="dash-stat-card__meta">Módulos publicados e prontos para uso.</p>
             </div>
             <div class="dash-stat-card">
-              <h3>Acessos no Mês</h3>
-              <div class="stat-number">142</div>
+              <h3 id="dashboardStatLabel3">Acessos no Mês</h3>
+              <div id="dashboardStatValue3" class="stat-number">0</div>
+              <p id="dashboardStatMeta3" class="dash-stat-card__meta">Indicador operacional calculado pelos dados atuais.</p>
+            </div>
+          </div>
+
+          <div class="dashboard-grid">
+            <div class="card dashboard-panel dashboard-panel--chart">
+              <div class="dashboard-panel__header">
+                <div>
+                  <div class="dashboard-panel__eyebrow">Resumo Operacional</div>
+                  <h3 class="dashboard-panel__title">Ativos x Inativos</h3>
+                </div>
+                <div id="dashboardRatioTag" class="dashboard-panel__tag">0 ativos</div>
+              </div>
+              <div class="dashboard-ratio">
+                <div class="dashboard-donut-wrap">
+                  <div id="dashboardDonut" class="dashboard-donut">
+                    <div class="dashboard-donut__inner">
+                      <strong id="dashboardDonutValue">0%</strong>
+                      <span>ativos</span>
+                    </div>
+                  </div>
+                </div>
+                <div id="dashboardBreakdown" class="dashboard-breakdown"></div>
+              </div>
+            </div>
+
+            <div class="card dashboard-panel dashboard-panel--chart">
+              <div class="dashboard-panel__header">
+                <div>
+                  <div class="dashboard-panel__eyebrow">Uso dos Módulos</div>
+                  <h3 class="dashboard-panel__title">Perfis por Módulo</h3>
+                </div>
+              </div>
+              <div id="dashboardModuleChart" class="dashboard-bars"></div>
+            </div>
+
+            <div class="card dashboard-panel">
+              <div class="dashboard-panel__header">
+                <div>
+                  <div class="dashboard-panel__eyebrow">Visão Rápida</div>
+                  <h3 class="dashboard-panel__title">Distribuição Atual</h3>
+                </div>
+              </div>
+              <div id="dashboardHighlights" class="dashboard-highlights"></div>
+            </div>
+
+            <div class="card dashboard-panel">
+              <div class="dashboard-panel__header">
+                <div>
+                  <div class="dashboard-panel__eyebrow">Cadastros</div>
+                  <h3 class="dashboard-panel__title">Últimos Perfis</h3>
+                </div>
+              </div>
+              <div id="dashboardRecentProfiles" class="dashboard-recent-list"></div>
             </div>
           </div>
         </section>
 
         <!-- TELA 2: GERENCIAR FISIOTERAPEUTAS -->
-        <section id="screenAdminFisios" class="screen hidden">
+        <section id="screenAdminFisios" class="screen screen--admin-panel hidden">
           <div class="dash-header row row--between">
             <div>
-              <h1 class="h1">Fisioterapeutas (Clientes)</h1>
-              <p class="muted">Gerencie os logins e permissões de módulos para os assinantes.</p>
+              <div class="dash-header__eyebrow">Gestao Clinica</div>
+              <h1 id="fisiosScreenTitle" class="h1">Fisioterapeutas (Clientes)</h1>
+              <p id="fisiosScreenSubtitle" class="muted">Gerencie os logins e permissões de módulos para os assinantes.</p>
             </div>
             <button id="btnNewFisio" class="btn btn--start-sm" style="flex: 0; white-space: nowrap;">+ Novo Fisio</button>
           </div>
 
+          <div class="fisios-stats-grid">
+            <div class="fisios-stat-card fisios-stat-card--primary">
+              <div class="fisios-stat-card__label">Ativos</div>
+              <div id="fisiosStatActive" class="fisios-stat-card__value">0</div>
+              <div class="fisios-stat-card__meta">Contas prontas para acessar os módulos</div>
+            </div>
+            <div class="fisios-stat-card">
+              <div class="fisios-stat-card__label">Inativos</div>
+              <div id="fisiosStatInactive" class="fisios-stat-card__value">0</div>
+              <div class="fisios-stat-card__meta">Perfis pausados ou aguardando reativação</div>
+            </div>
+            <div class="fisios-stat-card fisios-stat-card--accent">
+              <div class="fisios-stat-card__label">Módulos Liberados</div>
+              <div id="fisiosStatModules" class="fisios-stat-card__value">0</div>
+              <div class="fisios-stat-card__meta">Soma total de liberações ativas no painel</div>
+            </div>
+          </div>
+
           <div class="tabs">
-            <button class="tab-btn active">Ativos (2)</button>
-            <button class="tab-btn">Inativos (1)</button>
+            <button id="tabActiveFisios" class="tab-btn active" type="button">Ativos (0)</button>
+            <button id="tabInactiveFisios" class="tab-btn" type="button">Inativos (0)</button>
           </div>
 
           <div class="card table-card">
@@ -108,32 +185,17 @@
                   <th>Ações</th>
                 </tr>
               </thead>
-              <tbody>
-                <tr>
-                  <td><strong>João Silva</strong><br><small class="muted">CREFITO: 123456-F</small></td>
-                  <td>joao@clinica.com</td>
-                  <td><span class="pill-sm">Roteiro de Thompson</span></td>
-                  <td><span class="status-badge status-active">Ativo</span></td>
-                  <td><button class="btn btn--ghost btn--sm">Editar</button></td>
-                </tr>
-                <tr>
-                  <td><strong>Maria Souza</strong><br><small class="muted">CREFITO: 654321-F</small></td>
-                  <td>maria@reabilitar.com</td>
-                  <td><span class="pill-sm">Thompson</span> <span class="pill-sm">Limpeza</span></td>
-                  <td><span class="status-badge status-active">Ativo</span></td>
-                  <td><button class="btn btn--ghost btn--sm">Editar</button></td>
-                </tr>
-              </tbody>
+              <tbody id="adminFisiosTableBody"></tbody>
             </table>
           </div>
         </section>
 
         <!-- TELA 2.1: CADASTRAR/EDITAR FISIOTERAPEUTA -->
-        <section id="screenAdminFisiosForm" class="screen hidden">
+        <section id="screenAdminFisiosForm" class="screen screen--admin-panel hidden">
           <div class="dash-header row row--between">
             <div>
-              <h1 class="h1">Cadastrar Fisioterapeuta</h1>
-              <p class="muted">Crie um acesso para o cliente e libere módulos.</p>
+              <h1 id="fisioFormTitle" class="h1">Cadastrar Fisioterapeuta</h1>
+              <p id="fisioFormSubtitle" class="muted">Crie um acesso para o cliente e libere módulos.</p>
             </div>
             <button id="btnBackFisios" class="btn btn--ghost btn--sm" style="flex: 0;">Voltar</button>
           </div>
@@ -150,7 +212,7 @@
               <div class="row-inputs">
                 <div class="input-group">
                   <label class="label">E-mail (Login)</label>
-                  <input type="email" class="input-text" placeholder="Ex: carlos@email.com" required />
+                  <input type="email" id="emailFisioInput" class="input-text" placeholder="Ex: carlos@email.com" required />
                 </div>
                 <div class="input-group">
                   <label class="label">CREFITO</label>
@@ -158,13 +220,13 @@
                     <input type="text" id="crefitoInput" class="input-text" placeholder="Ex: 12345-F" required style="flex: 1;" />
                     <button type="button" id="btnValidateCrefito" class="btn btn--ghost" style="padding: 0 15px; font-size: 14px; min-height: 44px;">Validar</button>
                   </div>
-                  <small id="crefitoStatus" class="muted" style="margin-top: 5px; font-weight: bold;"></small>
+                  <small id="crefitoStatus" class="crefito-status hidden"></small>
                 </div>
               </div>
 
               <div class="input-group">
                 <label class="label">Senha de Acesso</label>
-                <input type="password" class="input-text" placeholder="Crie uma senha inicial" required />
+                <input type="password" id="senhaFisioInput" class="input-text" placeholder="Crie uma senha inicial" required />
               </div>
             </div>
 
@@ -185,11 +247,11 @@
               <div class="row-inputs">
                 <div class="input-group">
                   <label class="label">Número</label>
-                  <input type="text" class="input-text" placeholder="123" />
+                  <input type="text" id="numeroInput" class="input-text" placeholder="123" />
                 </div>
                 <div class="input-group" style="flex: 2;">
                   <label class="label">Complemento</label>
-                  <input type="text" class="input-text" placeholder="Sala, Apto, Bloco..." />
+                  <input type="text" id="complementoInput" class="input-text" placeholder="Sala, Apto, Bloco..." />
                 </div>
               </div>
 
@@ -212,24 +274,45 @@
             <div class="card form-card">
               <h2 class="h2" style="margin-bottom: 20px;">Módulos Liberados</h2>
               <label class="checkbox-label">
-                <input type="checkbox" checked> Roteiro de Thompson
+                <input type="checkbox" id="fisioModuleThompson" checked> Roteiro de Thompson
               </label>
               <label class="checkbox-label">
-                <input type="checkbox"> Módulo Avançado (Exemplo)
+                <input type="checkbox" id="fisioModuleAdvanced"> Módulo Avançado (Exemplo)
               </label>
             </div>
 
+            <div id="formFisioStatus" class="form-status hidden"></div>
+
             <div class="row row--right" style="margin-top: 10px;">
-              <button type="submit" class="btn btn--start-sm" style="flex: 0; min-width: 200px;">Salvar Cadastro</button>
+              <button id="btnSubmitFisioForm" type="submit" class="btn btn--start-sm" style="flex: 0; min-width: 200px;">Salvar Cadastro</button>
             </div>
           </form>
         </section>
 
         <!-- TELA 3: GERENCIAR MÓDULOS (O que era o dashboard antigo) -->
-        <section id="screenAdminModulos" class="screen hidden">
+        <section id="screenAdminModulos" class="screen screen--admin-panel hidden">
           <div class="dash-header">
+            <div class="dash-header__eyebrow">Biblioteca Clinica</div>
             <h1 class="h1">Gerenciar Módulos</h1>
-            <p class="muted">Crie ou edite os roteiros clínicos que serão disponibilizados aos fisioterapeutas.</p>
+            <p id="modulesScreenSubtitle" class="muted">Crie ou edite os roteiros clínicos que serão disponibilizados aos fisioterapeutas.</p>
+          </div>
+
+          <div class="modules-stats-grid">
+            <div class="modules-stat-card modules-stat-card--primary">
+              <div class="modules-stat-card__label">Módulos Cadastrados</div>
+              <div id="modulesStatTotal" class="modules-stat-card__value">0</div>
+              <div class="modules-stat-card__meta">Total de módulos disponíveis para este perfil.</div>
+            </div>
+            <div class="modules-stat-card">
+              <div class="modules-stat-card__label">Publicados</div>
+              <div id="modulesStatPublished" class="modules-stat-card__value">0</div>
+              <div class="modules-stat-card__meta">Módulos ativos e prontos para teste ou liberação.</div>
+            </div>
+            <div class="modules-stat-card modules-stat-card--accent">
+              <div class="modules-stat-card__label">Etapas Totais</div>
+              <div id="modulesStatSteps" class="modules-stat-card__value">0</div>
+              <div class="modules-stat-card__meta">Soma das etapas existentes nos protocolos salvos.</div>
+            </div>
           </div>
 
           <div id="modulesList" class="dash-grid"></div>
@@ -777,12 +860,12 @@
           <!-- Áreas em Preto (quadrados lado a lado) -->
           <div id="areaOptions" class="areas-container"></div>
 
-          <!-- Botões de ação primária (como Corrigir/Reavaliar) -->
+          <!-- Botões de navegação do teste -->
           <div id="primaryActions" class="options"></div>
 
-          <div class="row row--between" style="margin-top: 20px;">
+          <div class="runtime-actions">
             <button id="btnBack" class="btn btn--ghost" type="button">Voltar 1 passo</button>
-            <button id="btnReavaliar" class="btn btn--ghost" type="button">Reavaliar</button>
+            <button id="btnExitFlow" class="btn btn--ghost" type="button">Sair do fluxo</button>
           </div>
         </section>
       </main>
@@ -792,6 +875,6 @@
       </footer>
     </div>
 
-    <script type="module" src="./app.js?v=20260423k"></script>
+    <script type="module" src="./app.js?v=20260424h"></script>
   </body>
 </html>

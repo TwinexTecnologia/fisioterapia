@@ -1,0 +1,9 @@
+{
+  "name": "denis-fisio-local",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "start": "node local-app-server.js",
+    "start:crefito": "node crefito-local-server.js"
+  }
+}

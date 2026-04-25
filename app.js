@@ -1,12 +1,32 @@
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
 const STORAGE = {
   protocol: "thompson.protocol.v1",
   session: "thompson.session.v1"
 };
 
 const DEFAULT_PROTOCOL_URL = "./protocol.generated.json";
+const SUPABASE_URL = "https://uoqeewalrlzrmrtbqxgi.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvcWVld2Fscmx6cm1ydGJxeGdpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY5OTU3ODgsImV4cCI6MjA5MjU3MTc4OH0.CHa8PVpph4mYf7RYN2tzESbNrbH92ITrNeWAYDGBok8";
+const CREFITO_LOCAL_API_URL = getCrefitoLocalApiUrl();
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: true
+  }
+});
 
 function $(id) {
   return document.getElementById(id);
+}
+
+function getCrefitoLocalApiUrl() {
+  const origin = String(window.location?.origin ?? "").trim();
+  if (origin && !/^file:/i.test(origin)) {
+    return `${origin}/api/validate-crefito3`;
+  }
+  return "http://127.0.0.1:8000/api/validate-crefito3";
 }
 
 function now() {
@@ -19,6 +39,571 @@ function safeJsonParse(text) {
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : String(e) };
   }
+}
+
+function getDefaultViewForRole(role) {
+  return canAccessDashboard(role) ? "dashboard" : "modulos";
+}
+
+function getRoleLabel(role) {
+  if (isOwnerRole(role)) return "Owner";
+  if (isFisioAdminRole(role)) return "Fisio Admin";
+  return "Fisio Paciente";
+}
+
+function isOwnerRole(role) {
+  return String(role ?? "").trim().toLowerCase() === "owner";
+}
+
+function isFisioAdminRole(role) {
+  const normalized = String(role ?? "").trim().toLowerCase();
+  return normalized === "fisio_admin" || normalized === "admin";
+}
+
+function isFisioPacienteRole(role) {
+  const normalized = String(role ?? "").trim().toLowerCase();
+  return normalized === "fisio_paciente" || normalized === "fisio";
+}
+
+function canAccessDashboard(role) {
+  return isOwnerRole(role) || isFisioAdminRole(role);
+}
+
+function canManageProfiles(role) {
+  return isOwnerRole(role) || isFisioAdminRole(role);
+}
+
+function getManagedChildRole(role) {
+  if (isOwnerRole(role)) return "fisio_admin";
+  if (isFisioAdminRole(role)) return "fisio_paciente";
+  return "";
+}
+
+function getManagedProfileContext(role) {
+  if (isOwnerRole(role)) {
+    return {
+      listTitle: "Clientes Fisio Admin",
+      listSubtitle: "Gerencie os clientes da plataforma, acompanhe status e centralize os acessos dos administradores clinicos.",
+      buttonLabel: "+ Novo Cliente",
+      formTitle: "Cadastrar Cliente Fisio Admin",
+      formSubtitle: "Crie o login do fisio admin que vai montar modulos, ver dashboard e gerenciar os proprios pacientes.",
+      emptyState: "Nenhum fisio admin cadastrado ainda."
+    };
+  }
+
+  return {
+    listTitle: "Fisio Pacientes",
+    listSubtitle: "Cadastre os acessos dos seus fisio pacientes e controle quais contas ficam ativas no seu app.",
+    buttonLabel: "+ Novo Fisio Paciente",
+    formTitle: "Cadastrar Fisio Paciente",
+    formSubtitle: "Crie um acesso para o fisio paciente que vai consumir apenas os modulos liberados por voce.",
+    emptyState: "Nenhum fisio paciente cadastrado ainda."
+  };
+}
+
+function getExitFlowView(role) {
+  if (isFisioAdminRole(role)) return "modulos";
+  return getDefaultViewForRole(role);
+}
+
+function createIsolatedSupabaseClient() {
+  return createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+      storageKey: `thompson-managed-user-${now()}`
+    }
+  });
+}
+
+function parseCrefitoInput(value) {
+  const normalized = String(value ?? "")
+    .trim()
+    .toUpperCase()
+    .replace(/\s+/g, "");
+  const match = normalized.match(/^(\d{1,8})-(F|TO)$/i);
+  if (!match) return null;
+  const suffix = match[2].toUpperCase();
+  return {
+    raw: `${match[1]}-${suffix}`,
+    number: match[1],
+    suffix,
+    typeCode: suffix === "TO" ? "3" : "4"
+  };
+}
+
+function setCrefitoStatus(message = "", variant = "") {
+  const status = $("crefitoStatus");
+  if (!status) return;
+  status.textContent = message;
+  status.className = "crefito-status";
+  if (!message) {
+    status.classList.add("hidden");
+    return;
+  }
+  if (variant === "success") status.classList.add("crefito-status--success");
+  if (variant === "warning") status.classList.add("crefito-status--warning");
+  if (variant === "error") status.classList.add("crefito-status--error");
+  if (variant === "info") status.classList.add("crefito-status--info");
+}
+
+function resetManagedProfileCrefitoState(app = null, options = {}) {
+  if (app) app.crefitoValidation = null;
+  if (options.clearStatus) setCrefitoStatus("");
+}
+
+function highlightInputTemporarily(input, color) {
+  if (!input) return;
+  const previousColor = input.style.backgroundColor;
+  input.style.backgroundColor = color;
+  setTimeout(() => {
+    input.style.backgroundColor = previousColor;
+  }, 1400);
+}
+
+function getStoredCrefitoValidation(app) {
+  const parsed = parseCrefitoInput($("crefitoInput")?.value ?? "");
+  if (!parsed) return null;
+  if (app?.crefitoValidation?.checkedCrefito !== parsed.raw) return null;
+  return app.crefitoValidation;
+}
+
+function rememberCrefitoValidation(app, result) {
+  const parsed = parseCrefitoInput($("crefitoInput")?.value ?? "");
+  const nextResult = {
+    checkedAt: now(),
+    checkedCrefito: parsed?.raw ?? "",
+    ...result
+  };
+  if (app) app.crefitoValidation = nextResult;
+  return nextResult;
+}
+
+function normalizeCrefitoLookupResult(data, fallbackCrefito = "") {
+  return {
+    source: "crefito3",
+    crefito: String(data?.crefito ?? fallbackCrefito ?? "").trim().toUpperCase(),
+    status: String(data?.status ?? "").trim().toLowerCase() || "lookup_error",
+    officialName: String(data?.officialName ?? "").trim(),
+    officialStatus: String(data?.officialStatus ?? "").trim().toUpperCase(),
+    professionType: String(data?.professionType ?? "").trim(),
+    message: String(data?.message ?? "").trim(),
+    canProceed: Boolean(data?.canProceed),
+    nameMatches: typeof data?.nameMatches === "boolean" ? data.nameMatches : null
+  };
+}
+
+function getReadableCrefitoLookupError(error) {
+  const message = String(
+    error?.cause?.message
+    ?? error?.message
+    ?? error
+    ?? ""
+  ).trim();
+  if (!message) return "Nao foi possivel consultar o CREFITO-3 agora.";
+  if (/aborted|timeout/i.test(message)) {
+    return "A consulta ao CREFITO-3 demorou mais do que o esperado. Tente novamente.";
+  }
+  if (/failed to fetch|networkerror|load failed/i.test(message)) {
+    return "O servidor local da validacao do CREFITO nao esta rodando. Inicie o arquivo crefito-local-server.js e tente novamente.";
+  }
+  return message;
+}
+
+function applyCrefitoLookupToForm(result, options = {}) {
+  const allowNameAutofill = options.allowNameAutofill !== false;
+  const nomeInput = $("nomeFisioInput");
+
+  if (result.status === "active") {
+    if (allowNameAutofill && nomeInput && !String(nomeInput.value ?? "").trim() && result.officialName) {
+      nomeInput.value = result.officialName;
+      highlightInputTemporarily(nomeInput, "#ecfdf5");
+    }
+
+    let message = "CREFITO ativo no CREFITO-3.";
+    if (result.officialName) {
+      message = `CREFITO ativo no CREFITO-3 para ${result.officialName}.`;
+    }
+    if (result.nameMatches === false) {
+      message += " O nome digitado nao bate exatamente com o cadastro oficial.";
+      setCrefitoStatus(message, "warning");
+      return;
+    }
+    setCrefitoStatus(message, "success");
+    return;
+  }
+
+  if (result.status === "inactive") {
+    const label = result.officialStatus || "INATIVO";
+    const suffix = result.officialName ? ` Registro localizado para ${result.officialName}.` : "";
+    setCrefitoStatus(`CREFITO localizado, mas consta como ${label} no CREFITO-3.${suffix}`, "warning");
+    return;
+  }
+
+  if (result.status === "not_found") {
+    setCrefitoStatus("Nenhum registro foi localizado no CREFITO-3 para esse CREFITO.", "error");
+    return;
+  }
+
+  if (result.status === "invalid_format") {
+    setCrefitoStatus("Formato invalido. Use apenas numero e sufixo, por exemplo: 212658-F.", "error");
+    return;
+  }
+
+  const fallbackMessage = result.message || "Nao foi possivel consultar o CREFITO-3 agora.";
+  setCrefitoStatus(fallbackMessage, result.status === "lookup_error" ? "warning" : "info");
+}
+
+function buildCrefitoProceedMessage(result) {
+  if (result.status === "inactive") {
+    const label = result.officialStatus || "INATIVO";
+    const officialName = result.officialName ? `\nProfissional localizado: ${result.officialName}` : "";
+    return `O CREFITO informado foi localizado, mas esta como ${label} no CREFITO-3.${officialName}\n\nDeseja continuar o cadastro mesmo assim?`;
+  }
+
+  if (result.status === "not_found") {
+    return "Nao foi encontrado nenhum registro desse CREFITO no CREFITO-3.\n\nDeseja continuar o cadastro mesmo assim?";
+  }
+
+  if (result.status === "invalid_format") {
+    return "O formato do CREFITO esta invalido.\n\nDeseja continuar o cadastro mesmo assim?";
+  }
+
+  const fallbackMessage = result.message || "Nao foi possivel validar o CREFITO-3 agora.";
+  return `${fallbackMessage}\n\nDeseja continuar o cadastro mesmo assim?`;
+}
+
+async function validateManagedProfileCrefito(app, options = {}) {
+  const parsed = parseCrefitoInput($("crefitoInput")?.value ?? "");
+  if (!parsed) {
+    const result = rememberCrefitoValidation(app, {
+      status: "invalid_format",
+      message: "Formato invalido."
+    });
+    applyCrefitoLookupToForm(result, options);
+    return result;
+  }
+
+  const validateButton = $("btnValidateCrefito");
+  const typedName = String($("nomeFisioInput")?.value ?? "").trim();
+  setCrefitoStatus("Consultando CREFITO-3...", "info");
+  if (validateButton) validateButton.disabled = true;
+
+  try {
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), 12000);
+    const response = await fetch(CREFITO_LOCAL_API_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        crefito: parsed.raw,
+        name: typedName || null
+      }),
+      signal: controller.signal
+    });
+    window.clearTimeout(timeoutId);
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(String(payload?.error ?? "Nao foi possivel consultar o CREFITO-3 agora."));
+    }
+
+    const result = rememberCrefitoValidation(app, normalizeCrefitoLookupResult(payload, parsed.raw));
+    applyCrefitoLookupToForm(result, options);
+    return result;
+  } catch (error) {
+    console.error("Erro ao validar CREFITO-3", error);
+    const result = rememberCrefitoValidation(app, {
+      status: "lookup_error",
+      message: getReadableCrefitoLookupError(error)
+    });
+    applyCrefitoLookupToForm(result, options);
+    return result;
+  } finally {
+    if (validateButton) validateButton.disabled = false;
+  }
+}
+
+async function ensureManagedProfileCrefitoBeforeSave(app) {
+  let result = getStoredCrefitoValidation(app);
+  if (!result) {
+    result = await validateManagedProfileCrefito(app, { allowNameAutofill: true });
+  } else {
+    applyCrefitoLookupToForm(result, { allowNameAutofill: true });
+  }
+
+  if (result.status === "active") return result;
+
+  const shouldContinue = window.confirm(buildCrefitoProceedMessage(result));
+  if (!shouldContinue) {
+    throw new Error("Cadastro pausado para revisar o CREFITO informado.");
+  }
+  return result;
+}
+
+function setFisioFormStatus(message = "", variant = "") {
+  const status = $("formFisioStatus");
+  if (!status) return;
+  status.textContent = message;
+  status.className = "form-status";
+  if (!message) {
+    status.classList.add("hidden");
+    return;
+  }
+  if (variant === "success") status.classList.add("form-status--success");
+  if (variant === "error") status.classList.add("form-status--error");
+}
+
+function resetFisioForm(app = null) {
+  const form = $("formFisio");
+  if (form) form.reset();
+  resetManagedProfileCrefitoState(app, { clearStatus: true });
+  setFisioFormStatus("");
+}
+
+function isManagedProfileActive(profile) {
+  if (typeof profile?.is_active === "boolean") return profile.is_active;
+  if (typeof profile?.active === "boolean") return profile.active;
+  const status = String(profile?.status ?? "").trim().toLowerCase();
+  if (status) return status !== "inactive" && status !== "inativo";
+  return true;
+}
+
+function getManagedProfileEmail(profile) {
+  return String(
+    profile?.email
+    ?? profile?.login_email
+    ?? "Login criado com sucesso"
+  ).trim();
+}
+
+function getManagedProfileCrefito(profile) {
+  const raw = profile?.crefito ?? profile?.license_code;
+  return String(raw ?? "").trim();
+}
+
+function getManagedProfileModules(profile) {
+  const directModules = Array.isArray(profile?.allowed_modules) ? profile.allowed_modules : null;
+  if (directModules && directModules.length > 0) return directModules;
+  return [];
+}
+
+function getMissingManagedProfileColumnsMessage(error) {
+  const message = String(error?.message ?? error ?? "");
+  if (/column .* does not exist/i.test(message) || /schema cache/i.test(message)) {
+    return "Falta concluir a configuracao necessaria para salvar todos os campos do cadastro.";
+  }
+  if (/save_managed_profile/i.test(message) && /function/i.test(message)) {
+    return "Falta concluir a configuracao necessaria para salvar todos os campos do cadastro.";
+  }
+  return "";
+}
+
+function getUserDisplayName(profile, user) {
+  return String(
+    profile?.full_name
+    ?? user?.user_metadata?.full_name
+    ?? user?.email?.split("@")[0]
+    ?? "Usuario"
+  ).trim();
+}
+
+function getUserInitial(name) {
+  const cleanName = String(name ?? "").trim();
+  return cleanName ? cleanName.charAt(0).toUpperCase() : "U";
+}
+
+function setLoginError(message = "") {
+  const loginError = $("loginError");
+  if (!loginError) return;
+  loginError.textContent = message || "E-mail ou senha incorretos.";
+  loginError.style.display = message ? "block" : "none";
+}
+
+function getReadableAuthError(error) {
+  const rawMessage = String(error?.message ?? error ?? "").trim();
+  if (!rawMessage) return "Nao foi possivel entrar.";
+  if (/invalid login credentials/i.test(rawMessage)) {
+    return "Credenciais invalidas. Confira o e-mail e a senha cadastrados.";
+  }
+  if (/email not confirmed/i.test(rawMessage)) {
+    return "O e-mail ainda nao foi confirmado.";
+  }
+  if (/database error querying schema/i.test(rawMessage)) {
+    return "Erro ao consultar os dados.";
+  }
+  return rawMessage;
+}
+
+function getReadableRuntimeError(error, fallback = "Ocorreu um erro inesperado.") {
+  if (error instanceof Error) {
+    return error.message || fallback;
+  }
+
+  const authMessage = String(error?.message ?? "").trim();
+  if (authMessage) return authMessage;
+
+  const nestedError = String(error?.error_description ?? error?.error ?? "").trim();
+  if (nestedError) return nestedError;
+
+  try {
+    const serialized = JSON.stringify(error);
+    if (serialized && serialized !== "{}") return serialized;
+  } catch {}
+
+  return fallback;
+}
+
+function applyAuthUi(app) {
+  const role = String(app.currentProfile?.role ?? "fisio_paciente");
+  const displayName = getUserDisplayName(app.currentProfile, app.currentUser);
+  const sidebarRole = $("sidebarRole");
+  const sidebarUserName = $("sidebarUserName");
+  const sidebarAvatar = $("sidebarAvatar");
+  const navDashboard = $("navDashboard");
+  const navFisios = $("navFisios");
+  const navModulos = $("navModulos");
+
+  if (sidebarRole) sidebarRole.textContent = getRoleLabel(role);
+  if (sidebarUserName) sidebarUserName.textContent = displayName;
+  if (sidebarAvatar) sidebarAvatar.textContent = getUserInitial(displayName);
+  if (navDashboard) navDashboard.classList.toggle("hidden", !canAccessDashboard(role));
+  if (navFisios) navFisios.classList.toggle("hidden", !canManageProfiles(role));
+  if (navModulos) navModulos.classList.toggle("hidden", isOwnerRole(role));
+}
+
+async function loadAuthContext() {
+  const { data, error } = await supabase.auth.getSession();
+  if (error) throw error;
+  const session = data?.session ?? null;
+
+  if (!session?.user) {
+    return { session: null, user: null, profile: null };
+  }
+
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("id, full_name, role, parent_admin_id")
+    .eq("id", session.user.id)
+    .single();
+
+  if (profileError) throw profileError;
+  return { session, user: session.user, profile };
+}
+
+function buildModuleDescription(flowId) {
+  if (flowId === "roteiro_thompsom") {
+    return "Roteiro clinico Thompson pronto para uso na plataforma.";
+  }
+  return "Fluxo clinico criado pelo builder visual.";
+}
+
+function buildSupabaseModulePayload(app, flow, blueprint) {
+  return {
+    owner_id: app.currentUser.id,
+    slug: flow.id,
+    name: flow.name,
+    description: buildModuleDescription(flow.id),
+    status: "published",
+    protocol_json: {
+      id: flow.id,
+      name: flow.name,
+      startNodeId: flow.startNodeId,
+      nodesById: flow.nodesById
+    },
+    blueprint_json: normalizeModuleBlueprint(blueprint),
+    cover_image_url: ""
+  };
+}
+
+function mergeProtocolWithSupabaseModules(baseProtocol, rows, options = {}) {
+  const replaceAll = Boolean(options.replaceAll);
+  const flowsById = replaceAll ? {} : { ...(baseProtocol?.flowsById ?? {}) };
+  const moduleBlueprints = replaceAll ? {} : { ...(baseProtocol?.moduleBlueprints ?? {}) };
+
+  for (const row of Array.isArray(rows) ? rows : []) {
+    const rawFlow = row?.protocol_json;
+    if (!rawFlow || typeof rawFlow !== "object") continue;
+
+    try {
+      const flow = normalizeFlow({
+        ...rawFlow,
+        id: String(rawFlow.id ?? row.slug ?? ""),
+        name: String(rawFlow.name ?? row.name ?? row.slug ?? "")
+      });
+      flowsById[flow.id] = flow;
+      moduleBlueprints[flow.id] = normalizeModuleBlueprint(row.blueprint_json);
+    } catch (err) {
+      console.error("Falha ao normalizar modulo do Supabase", row?.slug, err);
+    }
+  }
+
+  const flowIds = Object.keys(flowsById);
+  if (flowIds.length === 0) return baseProtocol;
+
+  const defaultFlowId = baseProtocol?.defaultFlowId && flowsById[baseProtocol.defaultFlowId]
+    ? baseProtocol.defaultFlowId
+    : (flowsById.roteiro_thompsom ? "roteiro_thompsom" : flowIds[0]);
+
+  return normalizeProtocol({
+    flowsById,
+    defaultFlowId,
+    moduleBlueprints
+  });
+}
+
+async function loadSupabaseModuleRows() {
+  const { data, error } = await supabase
+    .from("modules")
+    .select("id, owner_id, slug, name, description, status, protocol_json, blueprint_json, cover_image_url, created_at, updated_at")
+    .order("created_at", { ascending: true });
+
+  if (error) throw error;
+  return Array.isArray(data) ? data : [];
+}
+
+async function upsertSupabaseModule(app, flow, blueprint) {
+  if (!app.currentUser?.id) return null;
+  const payload = buildSupabaseModulePayload(app, flow, blueprint);
+  const { data, error } = await supabase
+    .from("modules")
+    .upsert(payload, { onConflict: "slug" })
+    .select("id, owner_id, slug, name, description, status, protocol_json, blueprint_json, cover_image_url")
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+async function deleteSupabaseModuleBySlug(app, slug) {
+  if (!app.currentUser?.id || !slug) return;
+  const { error } = await supabase
+    .from("modules")
+    .delete()
+    .eq("slug", slug)
+    .eq("owner_id", app.currentUser.id);
+
+  if (error) throw error;
+}
+
+async function refreshSupabaseModules(app, options = {}) {
+  if (!app.authSession || !app.currentUser?.id) return [];
+
+  let rows = await loadSupabaseModuleRows();
+  const shouldSeedStarter = Boolean(options.seedStarterForAdmin) && isFisioAdminRole(app.currentProfile?.role);
+  const hasStarter = rows.some((row) => String(row?.slug ?? "") === "roteiro_thompsom");
+
+  if (shouldSeedStarter && !hasStarter && app.protocol?.flowsById?.roteiro_thompsom) {
+    await upsertSupabaseModule(app, app.protocol.flowsById.roteiro_thompsom, getModuleBlueprint(app.protocol, "roteiro_thompsom"));
+    rows = await loadSupabaseModuleRows();
+  }
+
+  app.supabaseModules = rows;
+  app.protocol = mergeProtocolWithSupabaseModules(app.protocol, rows);
+  if (app.protocol) saveProtocolToStorage(app.protocol);
+  return rows;
 }
 
 async function loadProtocolFromUrl(url) {
@@ -281,6 +866,10 @@ function saveSessionToStorage(session) {
   localStorage.setItem(STORAGE.session, JSON.stringify(session));
 }
 
+function clearSessionStorage() {
+  localStorage.removeItem(STORAGE.session);
+}
+
 function clearAllStorage() {
   localStorage.removeItem(STORAGE.protocol);
   localStorage.removeItem(STORAGE.session);
@@ -355,6 +944,12 @@ function restartAt(protocol, session, nodeId) {
   const flow = protocol.flowsById[session.flowId];
   if (!flow.nodesById[nodeId]) throw new Error(`nodeId inválido: ${nodeId}`);
   return { ...session, currentNodeId: nodeId, path: [] };
+}
+
+function exitFlow(app) {
+  clearSessionStorage();
+  app.session = null;
+  app.view = getExitFlowView(app.currentProfile?.role);
 }
 
 function setCheckpointValue(session, key, value) {
@@ -1388,7 +1983,7 @@ function createStarterThompsomFlow() {
 
   return buildFlowFromBuilderDraft({
     id: "roteiro_thompsom",
-    name: "Roteiro de Thompsom",
+    name: "Roteiro de Thompson",
     startNodeId: perguntaInicial.id,
     nodes: [
       perguntaInicial,
@@ -2039,14 +2634,14 @@ function renderThompsonDiagram(app) {
   const diagram = $("thompsonDiagram");
   if (!tabs || !diagram || !app.protocol) return;
 
-  const module = getProtocolModules(app.protocol).find((item) => item.id === (app.currentModuleId ?? "thompson"));
+  const module = getModulesForView(app).find((item) => item.id === (app.currentModuleId ?? "thompson"));
   if (!module) {
     tabs.innerHTML = "";
     diagram.innerHTML = `<div class="flow-empty">Nenhum módulo encontrado para visualizar.</div>`;
     return;
   }
 
-  const availableFlows = module.flowIds
+  const availableFlows = (module.flowIds ?? [module.startFlowId])
     .map((flowId) => app.protocol.flowsById[flowId])
     .filter(Boolean);
   const { mainBranches, supportFlows } = getThompsonStartBranches(module, app.protocol);
@@ -2237,29 +2832,517 @@ function getProtocolModules(protocol) {
   return modules;
 }
 
+function getSupabaseBackedModules(app) {
+  const rows = Array.isArray(app.supabaseModules) ? app.supabaseModules : [];
+  if (rows.length === 0) return [];
+
+  return rows.map((row) => {
+    const protocolJson = row?.protocol_json && typeof row.protocol_json === "object" ? row.protocol_json : {};
+    const flowId = String(protocolJson.id ?? row.slug ?? row.id ?? "");
+    const nodesById = protocolJson?.nodesById && typeof protocolJson.nodesById === "object" ? protocolJson.nodesById : {};
+    const nodeCount = Object.keys(nodesById).length;
+    const status = String(row?.status ?? "draft").trim().toLowerCase() || "draft";
+    const normalizedName = normalizeDashboardModuleName(row?.name ?? row?.slug ?? "Modulo sem nome");
+    return {
+      id: String(row?.id ?? flowId),
+      flowId,
+      slug: String(row?.slug ?? flowId),
+      name: normalizedName,
+      description: String(row?.description ?? "Modulo clinico disponivel para uso na plataforma."),
+      status,
+      nodeCount,
+      ownerId: String(row?.owner_id ?? ""),
+      createdAt: row?.created_at ?? null,
+      updatedAt: row?.updated_at ?? null,
+      startFlowId: flowId,
+      icon: status === "published" ? "🧩" : "📝",
+      source: "supabase"
+    };
+  });
+}
+
+function getModulesForView(app) {
+  const supabaseModules = getSupabaseBackedModules(app);
+  if (supabaseModules.length > 0) return supabaseModules;
+  return getProtocolModules(app.protocol).map((module) => ({
+    ...module,
+    source: "local",
+    status: "local",
+    createdAt: null,
+    updatedAt: null,
+    slug: module.id,
+    ownerId: String(app.currentUser?.id ?? "")
+  }));
+}
+
+function formatModuleDate(dateValue) {
+  if (!dateValue) return "Sem data";
+  const date = new Date(dateValue);
+  if (Number.isNaN(date.getTime())) return "Sem data";
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric"
+  }).format(date);
+}
+
 function renderModulesList(app) {
   const list = $("modulesList");
   if (!list) return;
   list.innerHTML = "";
 
-  const modules = getProtocolModules(app.protocol);
+  const subtitle = $("modulesScreenSubtitle");
+  const statTotal = $("modulesStatTotal");
+  const statPublished = $("modulesStatPublished");
+  const statSteps = $("modulesStatSteps");
+  const modules = getModulesForView(app);
   modules.sort((a, b) => String(a.name).localeCompare(String(b.name)));
+  const publishedCount = modules.filter((module) => module.status === "published").length;
+  const totalSteps = modules.reduce((sum, module) => sum + Number(module.nodeCount ?? 0), 0);
+
+  if (subtitle) {
+    subtitle.textContent = modules.some((module) => module.source === "supabase")
+      ? "Sua biblioteca clinica mostra os módulos cadastrados, com status e estrutura atualizados."
+      : "Crie ou edite os roteiros clínicos que serão disponibilizados aos fisioterapeutas.";
+  }
+  if (statTotal) statTotal.textContent = String(modules.length);
+  if (statPublished) statPublished.textContent = String(publishedCount);
+  if (statSteps) statSteps.textContent = String(totalSteps);
+
+  if (modules.length === 0) {
+    list.innerHTML = `<div class="dashboard-empty">Nenhum módulo encontrado ainda. Clique em "Criar Passo a Passo" para começar.</div>`;
+    return;
+  }
 
   for (const module of modules) {
     const card = document.createElement("div");
-    card.className = "dash-card";
+    const statusLabel = module.status === "published" ? "Publicado" : module.status === "draft" ? "Rascunho" : module.status === "archived" ? "Arquivado" : "Disponivel";
+    const dateLabel = formatModuleDate(module.updatedAt ?? module.createdAt);
+    card.className = "dash-card module-card";
     card.innerHTML = `
-      <div class="dash-card-icon">${module.icon}</div>
-      <h3 class="dash-card-title">${module.name}</h3>
-      <p class="dash-card-desc">${module.description}</p>
-      <p class="muted">${module.flowIds.length} fluxo(s) integrado(s) • ${module.nodeCount} etapa(s) cadastrada(s).</p>
-      <div class="dash-card-actions">
+      <div class="module-card__top">
+        <div class="module-card__icon">${module.icon}</div>
+        <span class="module-card__badge module-card__badge--${module.status}">${statusLabel}</span>
+      </div>
+      <div class="module-card__body">
+        <h3 class="dash-card-title">${module.name}</h3>
+        <p class="dash-card-desc">${module.description}</p>
+      </div>
+      <div class="module-card__metrics">
+        <div class="module-card__metric">
+          <span class="module-card__metric-label">Etapas</span>
+          <strong>${module.nodeCount}</strong>
+        </div>
+      </div>
+      <div class="module-card__footer">
+        <span class="module-card__date">Atualizado em ${dateLabel}</span>
+      </div>
+      <div class="dash-card-actions module-card__actions">
         <button class="btn btn--start-sm" type="button" data-module-action="test" data-module-id="${module.id}">Testar Fluxo</button>
-        <button class="btn btn--ghost" type="button" data-module-action="edit" data-module-id="${module.id}">${module.mode === "multi_flow" ? "Editar Estrutura" : "Editar Passo a Passo"}</button>
+        <button class="btn btn--ghost" type="button" data-module-action="edit" data-module-id="${module.id}">Editar Passo a Passo</button>
       </div>
     `;
     list.appendChild(card);
   }
+}
+
+async function loadManagedProfiles(app) {
+  if (!app.authSession || !app.currentUser?.id || !canManageProfiles(app.currentProfile?.role)) {
+    app.managedProfiles = [];
+    return [];
+  }
+
+  const childRole = getManagedChildRole(app.currentProfile?.role);
+  if (!childRole) {
+    app.managedProfiles = [];
+    return [];
+  }
+
+  let query = supabase
+    .from("profiles")
+    .select("id, full_name, role, parent_admin_id, login_email, crefito, is_active, allowed_modules, cep, street, address_number, address_complement, neighborhood, city, state, created_at")
+    .eq("role", childRole);
+
+  if (isFisioAdminRole(app.currentProfile?.role)) {
+    query = query.eq("parent_admin_id", app.currentUser.id);
+  }
+
+  const { data, error } = await query.order("created_at", { ascending: false });
+  if (error) {
+    const missingColumnsMessage = getMissingManagedProfileColumnsMessage(error);
+    if (missingColumnsMessage) throw new Error(missingColumnsMessage);
+    throw error;
+  }
+  app.managedProfiles = Array.isArray(data) ? data : [];
+  return app.managedProfiles;
+}
+
+function formatDashboardDate(dateValue) {
+  if (!dateValue) return "Cadastro recente";
+  const date = new Date(dateValue);
+  if (Number.isNaN(date.getTime())) return "Cadastro recente";
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric"
+  }).format(date);
+}
+
+function normalizeDashboardModuleName(moduleName) {
+  const normalized = String(moduleName ?? "").trim();
+  if (!normalized) return "";
+  const lower = normalized.toLowerCase();
+  if (lower === "roteiro de thompsom" || lower === "roteiro thompsom") {
+    return "Roteiro de Thompson";
+  }
+  return normalized;
+}
+
+function renderDashboard(app) {
+  const subtitle = $("dashboardSubtitle");
+  const statLabel1 = $("dashboardStatLabel1");
+  const statLabel2 = $("dashboardStatLabel2");
+  const statLabel3 = $("dashboardStatLabel3");
+  const statValue1 = $("dashboardStatValue1");
+  const statValue2 = $("dashboardStatValue2");
+  const statValue3 = $("dashboardStatValue3");
+  const statMeta1 = $("dashboardStatMeta1");
+  const statMeta2 = $("dashboardStatMeta2");
+  const statMeta3 = $("dashboardStatMeta3");
+  const donut = $("dashboardDonut");
+  const donutValue = $("dashboardDonutValue");
+  const ratioTag = $("dashboardRatioTag");
+  const breakdown = $("dashboardBreakdown");
+  const moduleChart = $("dashboardModuleChart");
+  const highlights = $("dashboardHighlights");
+  const recentProfiles = $("dashboardRecentProfiles");
+  if (!subtitle || !statLabel1 || !statLabel2 || !statLabel3 || !statValue1 || !statValue2 || !statValue3 || !breakdown || !moduleChart || !highlights || !recentProfiles || !donut || !donutValue || !ratioTag) return;
+
+  const role = String(app.currentProfile?.role ?? "");
+  const profiles = Array.isArray(app.managedProfiles) ? app.managedProfiles : [];
+  const activeProfiles = profiles.filter((profile) => isManagedProfileActive(profile));
+  const inactiveProfiles = profiles.filter((profile) => !isManagedProfileActive(profile));
+  const moduleRows = Array.isArray(app.supabaseModules) ? app.supabaseModules : [];
+  const totalAssignments = profiles.reduce((total, profile) => total + getManagedProfileModules(profile).length, 0);
+  const moduleUsage = new Map();
+
+  for (const row of moduleRows) {
+    const moduleName = normalizeDashboardModuleName(row?.name ?? row?.slug ?? "");
+    if (moduleName && !moduleUsage.has(moduleName)) {
+      moduleUsage.set(moduleName, 0);
+    }
+  }
+
+  for (const profile of profiles) {
+    for (const moduleName of getManagedProfileModules(profile)) {
+      const key = normalizeDashboardModuleName(moduleName);
+      if (!key) continue;
+      moduleUsage.set(key, (moduleUsage.get(key) ?? 0) + 1);
+    }
+  }
+
+  const moduleEntries = Array.from(moduleUsage.entries())
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .slice(0, 5);
+  const totalProfiles = profiles.length;
+  const activePercentage = totalProfiles > 0 ? Math.round((activeProfiles.length / totalProfiles) * 100) : 0;
+  const uniqueModules = moduleUsage.size;
+
+  if (isOwnerRole(role)) {
+    subtitle.textContent = "Acompanhe a base de clientes administradores, a distribuição de módulos e o ritmo operacional da plataforma.";
+    statLabel1.textContent = "Clientes Ativos";
+    statValue1.textContent = String(activeProfiles.length);
+    statMeta1.textContent = "Fisios admin ativos e aptos para operar na plataforma.";
+    statLabel2.textContent = "Clientes Inativos";
+    statValue2.textContent = String(inactiveProfiles.length);
+    statMeta2.textContent = "Contas pausadas ou ainda não liberadas para produção.";
+    statLabel3.textContent = "Módulos em Uso";
+    statValue3.textContent = String(totalAssignments);
+    statMeta3.textContent = "Soma de liberações distribuídas entre todos os clientes.";
+  } else {
+    subtitle.textContent = "Acompanhe seus fisio pacientes, os módulos que você liberou e o panorama operacional do seu app.";
+    statLabel1.textContent = "Fisio Pacientes Ativos";
+    statValue1.textContent = String(activeProfiles.length);
+    statMeta1.textContent = "Fisio pacientes com login ativo e acesso liberado.";
+    statLabel2.textContent = "Módulos Criados";
+    statValue2.textContent = String(moduleRows.length);
+    statMeta2.textContent = "Módulos publicados no seu ambiente e disponíveis para gestão.";
+    statLabel3.textContent = "Liberações Ativas";
+    statValue3.textContent = String(totalAssignments);
+    statMeta3.textContent = "Total de liberações de módulos vinculadas aos seus fisio pacientes.";
+  }
+
+  donut.style.setProperty("--dashboard-active", `${activePercentage}%`);
+  donutValue.textContent = `${activePercentage}%`;
+  ratioTag.textContent = `${activeProfiles.length} ativos de ${totalProfiles}`;
+
+  breakdown.innerHTML = `
+    <div class="dashboard-breakdown__item">
+      <span class="dashboard-breakdown__dot dashboard-breakdown__dot--active"></span>
+      <div>
+        <strong>${activeProfiles.length}</strong>
+        <span>Perfis ativos</span>
+      </div>
+    </div>
+    <div class="dashboard-breakdown__item">
+      <span class="dashboard-breakdown__dot dashboard-breakdown__dot--inactive"></span>
+      <div>
+        <strong>${inactiveProfiles.length}</strong>
+        <span>Perfis inativos</span>
+      </div>
+    </div>
+    <div class="dashboard-breakdown__item">
+      <span class="dashboard-breakdown__dot dashboard-breakdown__dot--modules"></span>
+      <div>
+        <strong>${uniqueModules}</strong>
+        <span>Módulos diferentes liberados no painel</span>
+      </div>
+    </div>
+  `;
+
+  if (moduleEntries.length === 0) {
+    moduleChart.innerHTML = `<div class="dashboard-empty">Nenhum módulo liberado ainda para montar o gráfico.</div>`;
+  } else {
+    const maxValue = Math.max(...moduleEntries.map(([, value]) => value), 1);
+    moduleChart.innerHTML = moduleEntries.map(([label, value]) => `
+      <div class="dashboard-bar">
+        <div class="dashboard-bar__top">
+          <strong>${label}</strong>
+          <span>${value} ${value === 1 ? "perfil" : "perfis"}</span>
+        </div>
+        <div class="dashboard-bar__track">
+          <div class="dashboard-bar__fill" style="width:${Math.max(14, Math.round((value / maxValue) * 100))}%"></div>
+        </div>
+      </div>
+    `).join("");
+  }
+
+  highlights.innerHTML = `
+    <div class="dashboard-highlight dashboard-highlight--blue">
+      <span class="dashboard-highlight__label">Base total</span>
+      <strong>${totalProfiles}</strong>
+      <small>Perfis monitorados neste painel</small>
+    </div>
+    <div class="dashboard-highlight dashboard-highlight--green">
+      <span class="dashboard-highlight__label">Média por perfil</span>
+      <strong>${totalProfiles > 0 ? (totalAssignments / totalProfiles).toFixed(1) : "0.0"}</strong>
+      <small>Liberações médias por perfil cadastrado</small>
+    </div>
+    <div class="dashboard-highlight dashboard-highlight--dark">
+      <span class="dashboard-highlight__label">Módulos Diferentes</span>
+      <strong>${uniqueModules}</strong>
+      <small>Quantidade de módulos diferentes que aparecem nas liberações atuais</small>
+    </div>
+  `;
+
+  const recent = [...profiles].slice(0, 4);
+  if (recent.length === 0) {
+    recentProfiles.innerHTML = `<div class="dashboard-empty">Nenhum perfil encontrado ainda.</div>`;
+    return;
+  }
+
+  recentProfiles.innerHTML = recent.map((profile) => {
+    const profileName = String(profile.full_name ?? "Sem nome");
+    const profileEmail = getManagedProfileEmail(profile);
+    const statusClass = isManagedProfileActive(profile) ? "status-active" : "status-inactive";
+    const statusLabel = isManagedProfileActive(profile) ? "Ativo" : "Inativo";
+    return `
+      <div class="dashboard-recent-item">
+        <div class="dashboard-recent-item__avatar">${getUserInitial(profileName)}</div>
+        <div class="dashboard-recent-item__content">
+          <strong>${profileName}</strong>
+          <span>${profileEmail}</span>
+          <small>${formatDashboardDate(profile.created_at)}</small>
+        </div>
+        <span class="status-badge ${statusClass}">${statusLabel}</span>
+      </div>
+    `;
+  }).join("");
+}
+
+function renderManagedProfiles(app) {
+  const tableBody = $("adminFisiosTableBody");
+  const tabActive = $("tabActiveFisios");
+  const tabInactive = $("tabInactiveFisios");
+  const statActive = $("fisiosStatActive");
+  const statInactive = $("fisiosStatInactive");
+  const statModules = $("fisiosStatModules");
+  const screenTitle = $("fisiosScreenTitle");
+  const screenSubtitle = $("fisiosScreenSubtitle");
+  const formTitle = $("fisioFormTitle");
+  const formSubtitle = $("fisioFormSubtitle");
+  const newButton = $("btnNewFisio");
+  if (!tableBody) return;
+
+  const context = getManagedProfileContext(app.currentProfile?.role);
+  if (screenTitle) screenTitle.textContent = context.listTitle;
+  if (screenSubtitle) screenSubtitle.textContent = context.listSubtitle;
+  if (formTitle) formTitle.textContent = context.formTitle;
+  if (formSubtitle) formSubtitle.textContent = context.formSubtitle;
+  if (newButton) newButton.textContent = context.buttonLabel;
+
+  const profiles = Array.isArray(app.managedProfiles) ? app.managedProfiles : [];
+  const activeProfiles = profiles.filter((profile) => isManagedProfileActive(profile));
+  const inactiveProfiles = profiles.filter((profile) => !isManagedProfileActive(profile));
+  const modulesCount = profiles.reduce((total, profile) => total + getManagedProfileModules(profile).length, 0);
+
+  if (tabActive) tabActive.textContent = `Ativos (${activeProfiles.length})`;
+  if (tabInactive) tabInactive.textContent = `Inativos (${inactiveProfiles.length})`;
+  if (statActive) statActive.textContent = String(activeProfiles.length);
+  if (statInactive) statInactive.textContent = String(inactiveProfiles.length);
+  if (statModules) statModules.textContent = String(modulesCount);
+
+  tableBody.innerHTML = "";
+  if (profiles.length === 0) {
+    const row = document.createElement("tr");
+    row.innerHTML = `<td colspan="5" class="table-empty">${context.emptyState}</td>`;
+    tableBody.appendChild(row);
+    return;
+  }
+
+  for (const profile of profiles) {
+    const modules = getManagedProfileModules(profile);
+    const moduleHtml = modules.length > 0
+      ? modules.map((moduleName) => `<span class="pill-sm">${String(moduleName)}</span>`).join(" ")
+      : '<span class="muted">Sem modulos liberados</span>';
+    const crefito = getManagedProfileCrefito(profile);
+    const isActive = isManagedProfileActive(profile);
+    const displayName = String(profile.full_name ?? "Sem nome");
+    const email = getManagedProfileEmail(profile);
+    const profileInitial = getUserInitial(displayName);
+    const row = document.createElement("tr");
+    row.innerHTML = `
+      <td>
+        <div class="admin-person">
+          <div class="admin-person__avatar">${profileInitial}</div>
+          <div class="admin-person__content">
+            <strong>${displayName}</strong>
+            <small class="muted">${crefito ? `CREFITO: ${crefito}` : "Sem CREFITO informado"}</small>
+          </div>
+        </div>
+      </td>
+      <td>
+        <div class="admin-contact">
+          <div class="admin-contact__email">${email}</div>
+          <small class="muted">${isActive ? "Acesso habilitado" : "Acesso pausado"}</small>
+        </div>
+      </td>
+      <td>${moduleHtml}</td>
+      <td><span class="status-badge ${isActive ? "status-active" : "status-inactive"}">${isActive ? "Ativo" : "Inativo"}</span></td>
+      <td><button class="btn btn--ghost btn--sm" type="button" disabled>Editar</button></td>
+    `;
+    tableBody.appendChild(row);
+  }
+}
+
+async function createManagedProfileFromForm(app) {
+  if (!app.currentUser?.id) {
+    throw new Error("Sessao do administrador nao encontrada.");
+  }
+
+  const name = String($("nomeFisioInput")?.value ?? "").trim();
+  const email = String($("emailFisioInput")?.value ?? "").trim().toLowerCase();
+  const password = String($("senhaFisioInput")?.value ?? "");
+  const crefito = String($("crefitoInput")?.value ?? "").trim().toUpperCase();
+  const cep = String($("cepInput")?.value ?? "").trim();
+  const street = String($("ruaInput")?.value ?? "").trim();
+  const addressNumber = String($("numeroInput")?.value ?? "").trim();
+  const addressComplement = String($("complementoInput")?.value ?? "").trim();
+  const neighborhood = String($("bairroInput")?.value ?? "").trim();
+  const city = String($("cidadeInput")?.value ?? "").trim();
+  const state = String($("ufInput")?.value ?? "").trim().toUpperCase();
+  const childRole = getManagedChildRole(app.currentProfile?.role);
+  const selectedModules = [];
+  if ($("fisioModuleThompson")?.checked) selectedModules.push("Roteiro de Thompson");
+  if ($("fisioModuleAdvanced")?.checked) selectedModules.push("Modulo Avancado");
+
+  if (!name) throw new Error("Preencha o nome completo.");
+  if (!email) throw new Error("Preencha o e-mail de acesso.");
+  if (!password || password.length < 6) throw new Error("A senha inicial precisa ter pelo menos 6 caracteres.");
+  if (!childRole) throw new Error("Seu perfil atual nao pode cadastrar usuarios por esta tela.");
+
+  const adminClient = createIsolatedSupabaseClient();
+  let managedUserId = "";
+  const { data: authData, error: authError } = await adminClient.auth.signUp({
+    email,
+    password,
+    options: {
+      data: {
+        full_name: name,
+        role: childRole,
+        login_email: email
+      }
+    }
+  });
+
+  if (authError) {
+    const isAlreadyRegistered = /user already registered/i.test(String(authError.message ?? ""));
+    if (!isAlreadyRegistered) throw authError;
+
+    const { data: existingAuthData, error: existingAuthError } = await adminClient.auth.signInWithPassword({
+      email,
+      password
+    });
+    if (existingAuthError) {
+      throw new Error("Este e-mail ja esta cadastrado no Auth. Se quiser reaproveitar este login, informe a senha correta desse usuario ou exclua-o no Supabase Auth antes de tentar novamente.");
+    }
+    managedUserId = String(existingAuthData?.user?.id ?? "").trim();
+  } else {
+    managedUserId = String(authData?.user?.id ?? "").trim();
+  }
+
+  if (!managedUserId) {
+    throw new Error("Nao foi possivel obter o ID do usuario criado no Supabase.");
+  }
+
+  const profilePayload = {
+    id: managedUserId,
+    full_name: name,
+    role: childRole,
+    parent_admin_id: isFisioAdminRole(app.currentProfile?.role) ? app.currentUser.id : null,
+    login_email: email,
+    crefito,
+    is_active: true,
+    allowed_modules: selectedModules,
+    cep,
+    street,
+    address_number: addressNumber,
+    address_complement: addressComplement,
+    neighborhood,
+    city,
+    state
+  };
+
+  const { error: profileError } = await supabase.rpc("save_managed_profile", {
+    p_profile_id: profilePayload.id,
+    p_full_name: profilePayload.full_name,
+    p_role: profilePayload.role,
+    p_parent_admin_id: profilePayload.parent_admin_id,
+    p_login_email: profilePayload.login_email,
+    p_crefito: profilePayload.crefito,
+    p_is_active: profilePayload.is_active,
+    p_allowed_modules: profilePayload.allowed_modules,
+    p_cep: profilePayload.cep,
+    p_street: profilePayload.street,
+    p_address_number: profilePayload.address_number,
+    p_address_complement: profilePayload.address_complement,
+    p_neighborhood: profilePayload.neighborhood,
+    p_city: profilePayload.city,
+    p_state: profilePayload.state
+  });
+  if (profileError) {
+    const missingColumnsMessage = getMissingManagedProfileColumnsMessage(profileError);
+    if (missingColumnsMessage) throw new Error(missingColumnsMessage);
+    throw profileError;
+  }
+
+  await adminClient.auth.signOut();
+
+  return {
+    id: managedUserId,
+    email,
+    modules: selectedModules
+  };
 }
 
 function renderState(app) {
@@ -2269,6 +3352,7 @@ function renderState(app) {
     const { protocol, session, view } = app;
   
   // Elementos de tela
+  const screenLogin = $("screenLogin");
   const screenAdminDashboard = $("screenAdminDashboard");
   const screenAdminFisios = $("screenAdminFisios");
   const screenAdminFisiosForm = $("screenAdminFisiosForm");
@@ -2280,6 +3364,7 @@ function renderState(app) {
   const mainAdmin = $("mainAdmin");
   
   // Esconder todas
+  if (screenLogin) screenLogin.classList.add("hidden");
   if (screenAdminDashboard) screenAdminDashboard.classList.add("hidden");
   if (screenAdminFisios) screenAdminFisios.classList.add("hidden");
   if (screenAdminFisiosForm) screenAdminFisiosForm.classList.add("hidden");
@@ -2293,11 +3378,25 @@ function renderState(app) {
   document.querySelectorAll(".sidebar__link").forEach(btn => btn.classList.remove("active"));
   if (mainAdmin) mainAdmin.classList.toggle("main--editor", view === "editor");
 
+  if (view === "login") {
+    setVisualEditorFullscreen(false);
+    if (screenLogin) screenLogin.classList.remove("hidden");
+    return;
+  }
+
+  if (!app.authSession) {
+    app.view = "login";
+    renderState(app);
+    return;
+  }
+
+  applyAuthUi(app);
   if (appContainer) appContainer.classList.remove("hidden");
 
   if (view === "dashboard") {
     setVisualEditorFullscreen(false);
     if (screenAdminDashboard) screenAdminDashboard.classList.remove("hidden");
+    renderDashboard(app);
     const nav = $("navDashboard");
     if (nav) nav.classList.add("active");
     return;
@@ -2306,6 +3405,7 @@ function renderState(app) {
   if (view === "fisios") {
     setVisualEditorFullscreen(false);
     if (screenAdminFisios) screenAdminFisios.classList.remove("hidden");
+    renderManagedProfiles(app);
     const nav = $("navFisios");
     if (nav) nav.classList.add("active");
     return;
@@ -2314,12 +3414,18 @@ function renderState(app) {
   if (view === "fisios_form") {
     setVisualEditorFullscreen(false);
     if (screenAdminFisiosForm) screenAdminFisiosForm.classList.remove("hidden");
+    renderManagedProfiles(app);
     const nav = $("navFisios");
     if (nav) nav.classList.add("active");
     return;
   }
 
   if (view === "modulos") {
+    if (isOwnerRole(app.currentProfile?.role)) {
+      app.view = "dashboard";
+      renderState(app);
+      return;
+    }
     setVisualEditorFullscreen(false);
     if (screenAdminModulos) screenAdminModulos.classList.remove("hidden");
     renderModulesList(app);
@@ -2759,9 +3865,8 @@ function renderState(app) {
     $("btnBack").disabled = !hasHistory;
     $("btnBack").classList.toggle("hidden", isFinalizerNode || isDiagnosisNode);
   }
-  if ($("btnReavaliar")) {
-    $("btnReavaliar").disabled = !hasHistory && session.currentNodeId === flow.startNodeId;
-    $("btnReavaliar").classList.toggle("hidden", isFinalizerNode || isDiagnosisNode);
+  if ($("btnExitFlow")) {
+    $("btnExitFlow").classList.remove("hidden");
   }
 
   if ($("footerHint")) $("footerHint").textContent = `${flow.name} • ${session.currentNodeId}`;
@@ -2988,6 +4093,10 @@ async function mount() {
     const app = {
       protocol: null,
       session: null,
+      authSession: null,
+      currentUser: null,
+      currentProfile: null,
+      supabaseModules: [],
       selectedFlowId: null,
       builderDraft: createEmptyBuilderDraft(),
       selectedBuilderNodeId: "pergunta_1",
@@ -2998,7 +4107,9 @@ async function mount() {
       editorMode: "simple",
       currentModuleId: null,
       editorOriginalFlowId: null,
-      view: "modulos"
+      managedProfiles: [],
+      crefitoValidation: null,
+      view: "login"
     };
 
   updateFlowSelect(app);
@@ -3028,13 +4139,84 @@ async function mount() {
 
   updateFlowSelect(app);
   updateJsonStatus(app);
+  try {
+    const authContext = await loadAuthContext();
+    app.authSession = authContext.session;
+    app.currentUser = authContext.user;
+    app.currentProfile = authContext.profile;
+    if (authContext.session) {
+      await refreshSupabaseModules(app, { seedStarterForAdmin: true });
+      await loadManagedProfiles(app);
+    }
+    app.view = authContext.session ? getDefaultViewForRole(authContext.profile?.role) : "login";
+  } catch (authError) {
+    console.error("Erro ao carregar sessão do Supabase", authError);
+    app.view = "login";
+    setLoginError("Nao foi possivel validar a sessao com o Supabase.");
+  }
   renderState(app);
+
+  const formLogin = $("formLogin");
+  if (formLogin) {
+    formLogin.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const email = String($("loginEmail")?.value ?? "").trim();
+      const password = String($("loginPassword")?.value ?? "");
+      const submitButton = formLogin.querySelector('button[type="submit"]');
+      if (!email || !password) {
+        setLoginError("Preencha e-mail e senha.");
+        return;
+      }
+
+      try {
+        setLoginError("");
+        if (submitButton) submitButton.disabled = true;
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+
+        const authContext = await loadAuthContext();
+        app.authSession = authContext.session;
+        app.currentUser = authContext.user;
+        app.currentProfile = authContext.profile;
+        await refreshSupabaseModules(app, { seedStarterForAdmin: true });
+        await loadManagedProfiles(app);
+        app.view = getDefaultViewForRole(authContext.profile?.role);
+        renderState(app);
+      } catch (loginError) {
+        console.error("Erro ao fazer login", loginError);
+        setLoginError(getReadableAuthError(loginError));
+      } finally {
+        if (submitButton) submitButton.disabled = false;
+      }
+    });
+  }
+
+  const btnLogout = $("btnLogout");
+  if (btnLogout) {
+    btnLogout.addEventListener("click", async () => {
+      await supabase.auth.signOut();
+      app.authSession = null;
+      app.currentUser = null;
+      app.currentProfile = null;
+      app.supabaseModules = [];
+      app.managedProfiles = [];
+      app.view = "login";
+      setLoginError("");
+      renderState(app);
+    });
+  }
 
   // Navegação Global Sidebar
   const navDashboard = $("navDashboard");
   if (navDashboard) {
-    navDashboard.addEventListener("click", () => {
+    navDashboard.addEventListener("click", async () => {
       console.log("Clicou em Dashboard");
+      try {
+        await refreshSupabaseModules(app);
+        await loadManagedProfiles(app);
+      } catch (error) {
+        console.error("Erro ao atualizar dados do dashboard", error);
+      }
       app.view = "dashboard";
       renderState(app);
     });
@@ -3042,8 +4224,14 @@ async function mount() {
 
   const navFisios = $("navFisios");
   if (navFisios) {
-    navFisios.addEventListener("click", () => {
+    navFisios.addEventListener("click", async () => {
       console.log("Clicou em Fisioterapeutas");
+      try {
+        await loadManagedProfiles(app);
+      } catch (error) {
+        console.error("Erro ao carregar perfis gerenciados", error);
+        alert("Nao foi possivel carregar a lista de perfis: " + (error instanceof Error ? error.message : String(error)));
+      }
       app.view = "fisios";
       renderState(app);
     });
@@ -3051,8 +4239,13 @@ async function mount() {
 
   const navModulos = $("navModulos");
   if (navModulos) {
-    navModulos.addEventListener("click", () => {
+    navModulos.addEventListener("click", async () => {
       console.log("Clicou em Módulos");
+      try {
+        await refreshSupabaseModules(app);
+      } catch (error) {
+        console.error("Erro ao atualizar módulos do Supabase", error);
+      }
       app.view = "modulos";
       renderState(app);
     });
@@ -3062,6 +4255,7 @@ async function mount() {
   const btnNewFisio = $("btnNewFisio");
   if (btnNewFisio) {
     btnNewFisio.addEventListener("click", () => {
+      resetFisioForm(app);
       app.view = "fisios_form";
       renderState(app);
     });
@@ -3071,71 +4265,59 @@ async function mount() {
   if (btnBackFisios) {
     btnBackFisios.addEventListener("click", (e) => {
       e.preventDefault(); // Prevenir comportamento de submit de formulário, caso esteja dentro de um
+      resetFisioForm(app);
       app.view = "fisios";
       renderState(app);
     });
   }
 
-  // Validação Simulada de CREFITO via Delegation (para funcionar mesmo se escondido no load)
-  document.body.addEventListener("click", (e) => {
-    if (e.target && e.target.id === "btnValidateCrefito") {
-      const crefitoInput = $("crefitoInput");
-      const crefitoStatus = $("crefitoStatus");
-      
-      if (!crefitoInput || !crefitoStatus) return;
+  const formFisio = $("formFisio");
+  if (formFisio) {
+    formFisio.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const submitButton = $("btnSubmitFisioForm");
+      try {
+        setFisioFormStatus("");
+        if (submitButton) submitButton.disabled = true;
+        await ensureManagedProfileCrefitoBeforeSave(app);
+        const createdProfile = await createManagedProfileFromForm(app);
+        await loadManagedProfiles(app);
+        setFisioFormStatus(`Cadastro criado com sucesso para ${createdProfile.email}.`, "success");
+        resetFisioForm(app);
+        app.view = "fisios";
+        renderState(app);
+      } catch (error) {
+        console.error("Erro ao cadastrar perfil pelo app", error);
+        setFisioFormStatus(getReadableRuntimeError(error, "Nao foi possivel cadastrar o perfil."), "error");
+      } finally {
+        if (submitButton) submitButton.disabled = false;
+      }
+    });
+  }
 
-      const val = crefitoInput.value.trim();
-      if (!val) {
-        crefitoStatus.textContent = "Digite um CREFITO antes de validar.";
-        crefitoStatus.style.color = "var(--laranja-hover)";
+  const btnValidateCrefito = $("btnValidateCrefito");
+  if (btnValidateCrefito) {
+    btnValidateCrefito.addEventListener("click", async (e) => {
+      e.preventDefault();
+      const crefitoInput = $("crefitoInput");
+      if (!String(crefitoInput?.value ?? "").trim()) {
+        setCrefitoStatus("Digite um CREFITO antes de validar.", "warning");
         return;
       }
+      await validateManagedProfileCrefito(app, { allowNameAutofill: true });
+    });
+  }
 
-      // Simulação de carregamento
-      crefitoStatus.textContent = "Consultando base do COFFITO...";
-      crefitoStatus.style.color = "var(--muted)";
-      e.target.disabled = true;
-
-      // Simulação de delay de rede
-      setTimeout(() => {
-        e.target.disabled = false;
-        
-        // Expressão Regular Rigorosa: Aceita de 4 a 6 dígitos seguidos exatamente por -F ou -TO
-        // Ex: 12345-F, 123456-TO. Não aceita letras no meio dos números.
-        const regexCrefito = /^\d{4,6}-(F|TO)$/i;
-        
-        if (regexCrefito.test(val.toUpperCase())) {
-          crefitoStatus.textContent = "✓ CREFITO Válido e Ativo";
-          crefitoStatus.style.color = "var(--verde-border)";
-          
-          // Banco de Dados Simulado (MOCK) para retornar nome baseado no CREFITO
-          const mockDB = {
-            "12345-F": "Denis Tosta",
-            "98765-F": "Maria Souza",
-            "11111-TO": "João Silva",
-            "212658-F": "Novo Fisioterapeuta"
-          };
-          
-          const nomeFisioInput = $("nomeFisioInput");
-          if (nomeFisioInput) {
-            // Se encontrar no mockDB, preenche o nome. Se não, preenche um nome genérico
-            nomeFisioInput.value = mockDB[val.toUpperCase()] || "Dr(a). Fisioterapeuta " + val;
-            
-            // Efeito visual para mostrar que foi auto-preenchido
-            nomeFisioInput.style.backgroundColor = "#e8f5e9";
-            setTimeout(() => { nomeFisioInput.style.backgroundColor = ""; }, 1500);
-          }
-          
-        } else {
-          crefitoStatus.textContent = "✕ Formato inválido. Use apenas números e a letra (ex: 12345-F)";
-          crefitoStatus.style.color = "red";
-          
-          const nomeFisioInput = $("nomeFisioInput");
-          if (nomeFisioInput) nomeFisioInput.value = "";
-        }
-      }, 1500);
-    }
-  });
+  const crefitoInput = $("crefitoInput");
+  if (crefitoInput) {
+    crefitoInput.addEventListener("input", () => {
+      resetManagedProfileCrefitoState(app, { clearStatus: true });
+    });
+    crefitoInput.addEventListener("blur", () => {
+      const parsed = parseCrefitoInput(crefitoInput.value);
+      if (parsed) crefitoInput.value = parsed.raw;
+    });
+  }
 
   // Lógica de CEP Inteligente (ViaCEP) via Delegation
   document.body.addEventListener("blur", async (e) => {
@@ -3183,7 +4365,7 @@ async function mount() {
 
   const btnSaveEditor = $("btnSaveEditor");
   if (btnSaveEditor) {
-    btnSaveEditor.addEventListener("click", () => {
+    btnSaveEditor.addEventListener("click", async () => {
       try {
         app.builderDraft = ensureBuilderDraftConsistency(app.builderDraft);
         const issues = getBuilderValidationIssues(app.builderDraft);
@@ -3210,6 +4392,13 @@ async function mount() {
           defaultFlowId,
           moduleBlueprints
         });
+        if (app.authSession) {
+          await upsertSupabaseModule(app, flow, app.visualDraft);
+          if (app.editorOriginalFlowId && app.editorOriginalFlowId !== flow.id) {
+            await deleteSupabaseModuleBySlug(app, app.editorOriginalFlowId);
+          }
+          await refreshSupabaseModules(app);
+        }
         app.selectedFlowId = flow.id;
         app.session = initSession(flow.id, flow.startNodeId);
         app.editorOriginalFlowId = flow.id;
@@ -3739,7 +4928,7 @@ async function mount() {
     if (actionEl) {
       const moduleId = actionEl.getAttribute("data-module-id");
       const action = actionEl.getAttribute("data-module-action");
-      const module = getProtocolModules(app.protocol).find((item) => item.id === moduleId);
+      const module = getModulesForView(app).find((item) => item.id === moduleId);
       if (!module) return;
 
       if (action === "test") {
@@ -3950,15 +5139,10 @@ async function mount() {
     });
   }
 
-  const btnReavaliar = $("btnReavaliar");
-  if (btnReavaliar) {
-    btnReavaliar.addEventListener("click", () => {
-      if (!app.protocol) return;
-      if (!app.session) return;
-      const flow = app.protocol.flowsById[app.session.flowId];
-      if (!flow) return;
-      app.session = restartAt(app.protocol, app.session, flow.startNodeId);
-      saveSessionToStorage(app.session);
+  const btnExitFlow = $("btnExitFlow");
+  if (btnExitFlow) {
+    btnExitFlow.addEventListener("click", () => {
+      exitFlow(app);
       renderState(app);
     });
   }
