@@ -1,5 +1,11 @@
 const CREFITO3_DETAILS_URL = "https://www.crefito3.org.br/dsn/consultapf/detalhes.asp?tb=ni";
+const CREFITO2_URL = "https://www.crefito2.com.br/spw/consultacadastral/TelaConsultaPublicaCompleta.aspx";
 const ZENROWS_API_URL = "https://api.zenrows.com/v1/";
+const DEFAULT_SOURCE_CHAIN = ["crefito3", "crefito2"];
+const DEFAULT_HEADERS = {
+  "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+  "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome Safari"
+};
 
 function stripAccents(value) {
   return String(value ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "");
@@ -51,27 +57,6 @@ function deriveStatus(rawStatus) {
   return "unknown";
 }
 
-function buildMessage(status, officialStatus, officialName) {
-  if (status === "active") {
-    return officialName
-      ? `CREFITO ativo no CREFITO-3 para ${officialName}.`
-      : "CREFITO ativo no CREFITO-3.";
-  }
-
-  if (status === "inactive") {
-    const label = officialStatus || "INATIVO";
-    return officialName
-      ? `CREFITO localizado, mas consta como ${label} no CREFITO-3 para ${officialName}.`
-      : `CREFITO localizado, mas consta como ${label} no CREFITO-3.`;
-  }
-
-  if (status === "not_found") {
-    return "Nenhum profissional foi localizado no CREFITO-3 com esse registro.";
-  }
-
-  return "O registro foi localizado, mas o status nao pode ser classificado automaticamente.";
-}
-
 function parseRequestBody(req) {
   if (req.body && typeof req.body === "object") return req.body;
   if (typeof req.body === "string" && req.body.trim()) {
@@ -91,68 +76,61 @@ function parseCrefito(crefito) {
     raw: `${number}-${suffix}`,
     number,
     suffix,
-    typeCode: suffix === "TO" ? "3" : "4"
+    paddedNumber: number.padStart(6, "0"),
+    typeCode: suffix === "TO" ? "3" : "4",
+    professionType: suffix === "TO" ? "Terapeuta Ocupacional" : "Fisioterapeuta"
   };
 }
 
-function parseCrefitoHtml(html, parsed, name) {
-  const normalizedHtml = normalizeComparableText(html);
-
-  if (normalizedHtml.includes("NAO FORAM LOCALIZADOS PROFISSIONAIS COM OS DADOS INFORMADOS")) {
-    return {
-      source: "crefito3",
-      crefito: parsed.raw,
-      status: "not_found",
-      officialName: "",
-      officialStatus: "",
-      professionType: parsed.suffix === "TO" ? "Terapeuta Ocupacional" : "Fisioterapeuta",
-      canProceed: false,
-      nameMatches: null,
-      message: buildMessage("not_found", "", "")
-    };
+function buildMessage(sourceLabel, status, officialStatus, officialName) {
+  if (status === "active") {
+    return officialName
+      ? `CREFITO ativo no ${sourceLabel} para ${officialName}.`
+      : `CREFITO ativo no ${sourceLabel}.`;
   }
 
-  const officialName = firstMatch(html, [
-    /Doutor\(a\)\s*<b>([\s\S]*?)<\/b>/i
-  ]);
-  const professionType = firstMatch(html, [
-    /<em>([\s\S]*?)<\/em>/i
-  ]) || (parsed.suffix === "TO" ? "Terapeuta Ocupacional" : "Fisioterapeuta");
-  const rawStatus = firstMatch(html, [
-    /Exerc[^<]{0,40}<b[^>]*>([\s\S]*?)<\/b>/i
-  ]);
-
-  if (!officialName && !rawStatus) {
-    return {
-      source: "crefito3",
-      crefito: parsed.raw,
-      status: "not_found",
-      officialName: "",
-      officialStatus: "",
-      professionType,
-      canProceed: false,
-      nameMatches: null,
-      message: buildMessage("not_found", "", "")
-    };
+  if (status === "inactive") {
+    const label = officialStatus || "INATIVO";
+    return officialName
+      ? `CREFITO localizado, mas consta como ${label} no ${sourceLabel} para ${officialName}.`
+      : `CREFITO localizado, mas consta como ${label} no ${sourceLabel}.`;
   }
 
-  const status = deriveStatus(rawStatus);
+  if (status === "not_found") {
+    return `Nenhum profissional foi localizado no ${sourceLabel} com esse registro.`;
+  }
+
+  return `O registro foi localizado no ${sourceLabel}, mas o status nao pode ser classificado automaticamente.`;
+}
+
+function buildResult({ source, sourceLabel, parsed, status, officialName = "", officialStatus = "", professionType = "", name, canProceed }) {
   const providedName = String(name ?? "").trim();
+  const resolvedProfessionType = professionType || parsed.professionType;
   const nameMatches = providedName
     ? normalizeComparableText(providedName) === normalizeComparableText(officialName)
     : null;
 
   return {
-    source: "crefito3",
+    source,
+    sourceLabel,
     crefito: parsed.raw,
     status,
     officialName,
-    officialStatus: rawStatus.toUpperCase(),
-    professionType,
-    canProceed: status === "active",
+    officialStatus,
+    professionType: resolvedProfessionType,
+    canProceed: typeof canProceed === "boolean" ? canProceed : status === "active",
     nameMatches,
-    message: buildMessage(status, rawStatus.toUpperCase(), officialName)
+    message: buildMessage(sourceLabel, status, officialStatus, officialName)
   };
+}
+
+function getSourceChain() {
+  const configured = String(process.env.CREFITO_VALIDATION_SOURCES || "")
+    .split(",")
+    .map((item) => item.trim().toLowerCase())
+    .filter(Boolean);
+
+  return configured.length > 0 ? configured : DEFAULT_SOURCE_CHAIN;
 }
 
 async function fetchDirectHtml(parsed) {
@@ -164,16 +142,15 @@ async function fetchDirectHtml(parsed) {
   const response = await fetch(CREFITO3_DETAILS_URL, {
     method: "POST",
     headers: {
-      "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-      "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome Safari"
+      ...DEFAULT_HEADERS,
+      "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8"
     },
     body: body.toString()
   });
 
   if (!response.ok) {
     const bodyPreview = await response.text().catch(() => "");
-    throw new Error(`CREFITO upstream ${response.status}: ${bodyPreview.slice(0, 180)}`);
+    throw new Error(`CREFITO-3 upstream ${response.status}: ${bodyPreview.slice(0, 180)}`);
   }
 
   const buffer = Buffer.from(await response.arrayBuffer());
@@ -183,7 +160,7 @@ async function fetchDirectHtml(parsed) {
 async function fetchZenRowsHtml(parsed) {
   const apiKey = process.env.ZENROWS_API_KEY;
   if (!apiKey) {
-    throw new Error("ZENROWS_API_KEY não configurada na Vercel.");
+    throw new Error("ZENROWS_API_KEY nao configurada na Vercel.");
   }
 
   const targetUrl = new URL(CREFITO3_DETAILS_URL);
@@ -204,9 +181,8 @@ async function fetchZenRowsHtml(parsed) {
   const response = await fetch(scraperUrl, {
     method: "POST",
     headers: {
-      "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-      "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome Safari"
+      ...DEFAULT_HEADERS,
+      "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8"
     },
     body: body.toString()
   });
@@ -217,6 +193,170 @@ async function fetchZenRowsHtml(parsed) {
   }
 
   return response.text();
+}
+
+function parseCrefito3Html(html, parsed, name) {
+  const normalizedHtml = normalizeComparableText(html);
+
+  if (normalizedHtml.includes("NAO FORAM LOCALIZADOS PROFISSIONAIS COM OS DADOS INFORMADOS")) {
+    return buildResult({
+      source: "crefito3",
+      sourceLabel: "CREFITO-3",
+      parsed,
+      status: "not_found",
+      name
+    });
+  }
+
+  const officialName = firstMatch(html, [/Doutor\(a\)\s*<b>([\s\S]*?)<\/b>/i]);
+  const professionType = firstMatch(html, [/<em>([\s\S]*?)<\/em>/i]) || parsed.professionType;
+  const rawStatus = firstMatch(html, [/Exerc[^<]{0,40}<b[^>]*>([\s\S]*?)<\/b>/i]);
+
+  if (!officialName && !rawStatus) {
+    return buildResult({
+      source: "crefito3",
+      sourceLabel: "CREFITO-3",
+      parsed,
+      status: "not_found",
+      name
+    });
+  }
+
+  return buildResult({
+    source: "crefito3",
+    sourceLabel: "CREFITO-3",
+    parsed,
+    status: deriveStatus(rawStatus),
+    officialName,
+    officialStatus: rawStatus.toUpperCase(),
+    professionType,
+    name
+  });
+}
+
+function extractHiddenValue(html, fieldName) {
+  const match = html.match(new RegExp(`name="${fieldName.replace(/[$]/g, "\\$")}"[^>]*value="([^"]*)"`, "i"));
+  return match?.[1] ?? "";
+}
+
+function buildCrefito2Form(html, parsed) {
+  return new URLSearchParams({
+    "__VIEWSTATE": extractHiddenValue(html, "__VIEWSTATE"),
+    "__VIEWSTATEGENERATOR": extractHiddenValue(html, "__VIEWSTATEGENERATOR"),
+    "__EVENTVALIDATION": extractHiddenValue(html, "__EVENTVALIDATION"),
+    "cbousuario_VI": "1",
+    "ctl00$ContentPlaceHolder1$Callbackconsulta$cbousuario": "Profissional",
+    "ctl00$ContentPlaceHolder1$Callbackconsulta$cbousuario$DDD$L": "1",
+    "ContentPlaceHolder1_Callbackconsulta_cboTipoBusca_VI": "NumRegistro",
+    "ctl00$ContentPlaceHolder1$Callbackconsulta$cboTipoBusca": "Num. Registro",
+    "ctl00$ContentPlaceHolder1$Callbackconsulta$cboTipoBusca$DDD$L": "NumRegistro",
+    "ctl00$ContentPlaceHolder1$Callbackconsulta$txtConsultaTotal": parsed.paddedNumber,
+    "ContentPlaceHolder1_Callbackconsulta_cboCidade_VI": "TODOS",
+    "ctl00$ContentPlaceHolder1$Callbackconsulta$cboCidade": "TODOS",
+    "ctl00$ContentPlaceHolder1$Callbackconsulta$cboCidade$DDD$L": "TODOS",
+    "ctl00$ContentPlaceHolder1$Callbackconsulta$btnConsultaTotal": "Pesquisar"
+  });
+}
+
+function parseCrefito2Html(html, parsed, name) {
+  const normalizedHtml = normalizeComparableText(html);
+
+  if (normalizedHtml.includes("FACA UMA SELECAO")) {
+    throw new Error("CREFITO-2 retornou a tela inicial sem executar a pesquisa.");
+  }
+
+  if (normalizedHtml.includes("NAO FORAM LOCALIZADOS") || normalizedHtml.includes("NENHUM REGISTRO ENCONTRADO")) {
+    return buildResult({
+      source: "crefito2",
+      sourceLabel: "CREFITO-2",
+      parsed,
+      status: "not_found",
+      name
+    });
+  }
+
+  const officialName = firstMatch(html, [
+    /<td[^>]*>\s*Nome\s*<\/td>\s*<td[^>]*>([\s\S]*?)<\/td>/i,
+    /<td[^>]*>\s*Nome\s*<\/td>[\s\S]{0,400}?<td[^>]*>([\s\S]*?)<\/td>/i
+  ]);
+  const rawStatus = firstMatch(html, [
+    /<td[^>]*>\s*Situa(?:ç|c)ao\s*<\/td>\s*<td[^>]*>([\s\S]*?)<\/td>/i,
+    /DescSitCadastralWEB[^>]*>([\s\S]*?)<\/td>/i
+  ]);
+  const professionType = firstMatch(html, [
+    /<td[^>]*>\s*Profiss[aã]o\s*<\/td>\s*<td[^>]*>([\s\S]*?)<\/td>/i
+  ]) || parsed.professionType;
+
+  if (!officialName && !rawStatus) {
+    throw new Error("Nao foi possivel interpretar o retorno do CREFITO-2.");
+  }
+
+  return buildResult({
+    source: "crefito2",
+    sourceLabel: "CREFITO-2",
+    parsed,
+    status: deriveStatus(rawStatus),
+    officialName,
+    officialStatus: rawStatus.toUpperCase(),
+    professionType,
+    name
+  });
+}
+
+async function queryCrefito3(parsed, name) {
+  const provider = String(process.env.CREFITO_PROXY_PROVIDER || "direct").trim().toLowerCase();
+  const attempts = [];
+
+  if (provider === "zenrows") {
+    try {
+      const html = await fetchZenRowsHtml(parsed);
+      return parseCrefito3Html(html, parsed, name);
+    } catch (error) {
+      attempts.push(error instanceof Error ? error.message : String(error));
+    }
+  }
+
+  try {
+    const html = await fetchDirectHtml(parsed);
+    return parseCrefito3Html(html, parsed, name);
+  } catch (error) {
+    attempts.push(error instanceof Error ? error.message : String(error));
+  }
+
+  const failure = new Error("Nao foi possivel consultar o CREFITO-3 agora.");
+  failure.details = { provider, attempts };
+  throw failure;
+}
+
+async function queryCrefito2(parsed, name) {
+  const initialResponse = await fetch(CREFITO2_URL, {
+    method: "GET",
+    headers: DEFAULT_HEADERS
+  });
+
+  if (!initialResponse.ok) {
+    throw new Error(`CREFITO-2 GET ${initialResponse.status}`);
+  }
+
+  const initialHtml = await initialResponse.text();
+  const formBody = buildCrefito2Form(initialHtml, parsed);
+
+  const searchResponse = await fetch(CREFITO2_URL, {
+    method: "POST",
+    headers: {
+      ...DEFAULT_HEADERS,
+      "Content-Type": "application/x-www-form-urlencoded"
+    },
+    body: formBody.toString()
+  });
+
+  if (!searchResponse.ok) {
+    const preview = await searchResponse.text().catch(() => "");
+    throw new Error(`CREFITO-2 POST ${searchResponse.status}: ${preview.slice(0, 180)}`);
+  }
+
+  const html = await searchResponse.text();
+  return parseCrefito2Html(html, parsed, name);
 }
 
 module.exports = async (req, res) => {
@@ -239,30 +379,53 @@ module.exports = async (req, res) => {
     return res.status(400).json({ error: "Formato de CREFITO invalido." });
   }
 
-  const provider = String(process.env.CREFITO_PROXY_PROVIDER || "direct").trim().toLowerCase();
-  const errors = [];
+  const sourceChain = getSourceChain();
+  const attempts = [];
 
-  if (provider === "zenrows") {
+  for (const source of sourceChain) {
     try {
-      const html = await fetchZenRowsHtml(parsed);
-      return res.status(200).json(parseCrefitoHtml(html, parsed, body?.name));
+      if (source === "crefito3") {
+        const result = await queryCrefito3(parsed, body?.name);
+        if (result.status !== "not_found") {
+          return res.status(200).json(result);
+        }
+        attempts.push({ source, status: result.status, message: result.message });
+        continue;
+      }
+
+      if (source === "crefito2") {
+        const result = await queryCrefito2(parsed, body?.name);
+        if (result.status !== "not_found") {
+          return res.status(200).json(result);
+        }
+        attempts.push({ source, status: result.status, message: result.message });
+        continue;
+      }
     } catch (error) {
-      errors.push(error instanceof Error ? error.message : String(error));
+      attempts.push({
+        source,
+        error: error instanceof Error ? error.message : String(error),
+        details: error?.details ?? null
+      });
     }
   }
 
-  try {
-    const html = await fetchDirectHtml(parsed);
-    return res.status(200).json(parseCrefitoHtml(html, parsed, body?.name));
-  } catch (error) {
-    errors.push(error instanceof Error ? error.message : String(error));
+  const foundNotFound = attempts.find((item) => item.status === "not_found");
+  if (foundNotFound) {
+    return res.status(200).json(buildResult({
+      source: foundNotFound.source,
+      sourceLabel: foundNotFound.source === "crefito2" ? "CREFITO-2" : "CREFITO-3",
+      parsed,
+      status: "not_found",
+      name: body?.name
+    }));
   }
 
   return res.status(502).json({
-    error: "Nao foi possivel consultar o CREFITO-3 agora.",
+    error: "Nao foi possivel consultar os CREFITOs configurados agora.",
     debug: {
-      provider,
-      attempts: errors
+      sources: sourceChain,
+      attempts
     }
   });
 };
