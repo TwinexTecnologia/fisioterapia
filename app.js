@@ -201,9 +201,9 @@ function getReadableCrefitoLookupError(error) {
     ?? error
     ?? ""
   ).trim();
-  if (!message) return "Nao foi possivel consultar o CREFITO-3 agora.";
+  if (!message) return "Nao foi possivel consultar os CREFITOs agora.";
   if (/aborted|timeout/i.test(message)) {
-    return "A consulta ao CREFITO-3 demorou mais do que o esperado. Tente novamente.";
+    return "A consulta aos CREFITOs demorou mais do que o esperado. Tente novamente.";
   }
   if (/failed to fetch|networkerror|load failed/i.test(message)) {
     return "Nao foi possivel acessar o validador do CREFITO agora. Verifique se o ambiente local ou a rota da Vercel estao ativos.";
@@ -214,6 +214,7 @@ function getReadableCrefitoLookupError(error) {
 function applyCrefitoLookupToForm(result, options = {}) {
   const allowNameAutofill = options.allowNameAutofill !== false;
   const nomeInput = $("nomeFisioInput");
+  const sourceLabel = String(result?.sourceLabel ?? "").trim() || "CREFITO";
 
   if (result.status === "active") {
     if (allowNameAutofill && nomeInput && !String(nomeInput.value ?? "").trim() && result.officialName) {
@@ -221,9 +222,9 @@ function applyCrefitoLookupToForm(result, options = {}) {
       highlightInputTemporarily(nomeInput, "#ecfdf5");
     }
 
-    let message = "CREFITO ativo no CREFITO-3.";
+    let message = `CREFITO ativo no ${sourceLabel}.`;
     if (result.officialName) {
-      message = `CREFITO ativo no CREFITO-3 para ${result.officialName}.`;
+      message = `CREFITO ativo no ${sourceLabel} para ${result.officialName}.`;
     }
     if (result.nameMatches === false) {
       message += " O nome digitado nao bate exatamente com o cadastro oficial.";
@@ -237,7 +238,7 @@ function applyCrefitoLookupToForm(result, options = {}) {
   if (result.status === "inactive") {
     const label = result.officialStatus || "INATIVO";
     const suffix = result.officialName ? ` Registro localizado para ${result.officialName}.` : "";
-    setCrefitoStatus(`CREFITO localizado, mas consta como ${label} no CREFITO-3.${suffix}`, "warning");
+    setCrefitoStatus(`CREFITO localizado, mas consta como ${label} no ${sourceLabel}.${suffix}`, "warning");
     return;
   }
 
@@ -254,15 +255,17 @@ function applyCrefitoLookupToForm(result, options = {}) {
     return;
   }
 
-  const fallbackMessage = result.message || "Nao foi possivel consultar o CREFITO-3 agora.";
+  const fallbackMessage = result.message || "Nao foi possivel consultar os CREFITOs agora.";
   setCrefitoStatus(fallbackMessage, result.status === "lookup_error" ? "warning" : "info");
 }
 
 function buildCrefitoProceedMessage(result) {
+  const sourceLabel = String(result?.sourceLabel ?? "").trim() || "CREFITO";
+
   if (result.status === "inactive") {
     const label = result.officialStatus || "INATIVO";
     const officialName = result.officialName ? `\nProfissional localizado: ${result.officialName}` : "";
-    return `O CREFITO informado foi localizado, mas esta como ${label} no CREFITO-3.${officialName}\n\nDeseja continuar o cadastro mesmo assim?`;
+    return `O CREFITO informado foi localizado, mas esta como ${label} no ${sourceLabel}.${officialName}\n\nDeseja continuar o cadastro mesmo assim?`;
   }
 
   if (result.status === "not_found") {
@@ -279,7 +282,7 @@ function buildCrefitoProceedMessage(result) {
     return "O formato do CREFITO esta invalido.\n\nDeseja continuar o cadastro mesmo assim?";
   }
 
-  const fallbackMessage = result.message || "Nao foi possivel validar o CREFITO-3 agora.";
+  const fallbackMessage = result.message || "Nao foi possivel validar os CREFITOs agora.";
   return `${fallbackMessage}\n\nDeseja continuar o cadastro mesmo assim?`;
 }
 
@@ -296,12 +299,12 @@ async function validateManagedProfileCrefito(app, options = {}) {
 
   const validateButton = $("btnValidateCrefito");
   const typedName = String($("nomeFisioInput")?.value ?? "").trim();
-  setCrefitoStatus("Consultando CREFITO-3...", "info");
+  setCrefitoStatus("Consultando CREFITOs...", "info");
   if (validateButton) validateButton.disabled = true;
 
   try {
     const controller = new AbortController();
-    const timeoutId = window.setTimeout(() => controller.abort(), 12000);
+    const timeoutId = window.setTimeout(() => controller.abort(), 20000);
     const response = await fetch(CREFITO_LOCAL_API_URL, {
       method: "POST",
       headers: {
@@ -316,14 +319,14 @@ async function validateManagedProfileCrefito(app, options = {}) {
     window.clearTimeout(timeoutId);
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) {
-      throw new Error(String(payload?.error ?? "Nao foi possivel consultar o CREFITO-3 agora."));
+      throw new Error(String(payload?.error ?? "Nao foi possivel consultar os CREFITOs agora."));
     }
 
     const result = rememberCrefitoValidation(app, normalizeCrefitoLookupResult(payload, parsed.raw));
     applyCrefitoLookupToForm(result, options);
     return result;
   } catch (error) {
-    console.error("Erro ao validar CREFITO-3", error);
+    console.error("Erro ao validar CREFITO", error);
     const result = rememberCrefitoValidation(app, {
       status: "lookup_error",
       message: getReadableCrefitoLookupError(error)
