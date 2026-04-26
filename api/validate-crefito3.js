@@ -268,10 +268,6 @@ function buildCrefito2Form(html, parsed) {
 function parseCrefito2Html(html, parsed, name) {
   const normalizedHtml = normalizeComparableText(html);
 
-  if (normalizedHtml.includes("FACA UMA SELECAO")) {
-    throw new Error("CREFITO-2 retornou a tela inicial sem executar a pesquisa.");
-  }
-
   if (normalizedHtml.includes("NAO FORAM LOCALIZADOS") || normalizedHtml.includes("NENHUM REGISTRO ENCONTRADO")) {
     return buildResult({
       source: "crefito2",
@@ -280,6 +276,33 @@ function parseCrefito2Html(html, parsed, name) {
       status: "not_found",
       name
     });
+  }
+
+  const gridRowMatch = html.match(/<tr id="ContentPlaceHolder1_Callbackconsulta_gridConsulta_DXDataRow\d+"[\s\S]*?<\/tr>/i);
+  if (gridRowMatch?.[0]) {
+    const rowCells = Array.from(
+      gridRowMatch[0]
+        .replace(/<script[\s\S]*?<\/script>/gi, " ")
+        .matchAll(/<td\b[^>]*>([\s\S]*?)<\/td>/gi)
+    )
+      .map((match) => cleanHtmlText(match[1]))
+      .filter(Boolean);
+
+    if (rowCells.length >= 4) {
+      const [officialRegistration, officialName, professionType, rawStatus] = rowCells;
+      const result = buildResult({
+        source: "crefito2",
+        sourceLabel: "CREFITO-2",
+        parsed,
+        status: deriveStatus(rawStatus),
+        officialName,
+        officialStatus: rawStatus.toUpperCase(),
+        professionType,
+        name
+      });
+      result.officialRegistration = officialRegistration;
+      return result;
+    }
   }
 
   const officialName = firstMatch(html, [
