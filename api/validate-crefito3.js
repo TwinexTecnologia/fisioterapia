@@ -2,8 +2,8 @@ const CREFITO3_DETAILS_URL = "https://www.crefito3.org.br/dsn/consultapf/detalhe
 const CREFITO2_URL = "https://www.crefito2.com.br/spw/consultacadastral/TelaConsultaPublicaCompleta.aspx";
 const ZENROWS_API_URL = "https://api.zenrows.com/v1/";
 const DEFAULT_SOURCE_CHAIN = ["crefito3", "crefito2"];
-const CREFITO3_DIRECT_TIMEOUT_MS = 4500;
-const CREFITO3_PROXY_TIMEOUT_MS = 7000;
+const CREFITO3_DIRECT_TIMEOUT_MS = 9000;
+const CREFITO3_PROXY_TIMEOUT_MS = 12000;
 const CREFITO2_TIMEOUT_MS = 6000;
 const DEFAULT_HEADERS = {
   "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
