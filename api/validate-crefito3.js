@@ -2,10 +2,32 @@ const CREFITO3_DETAILS_URL = "https://www.crefito3.org.br/dsn/consultapf/detalhe
 const CREFITO2_URL = "https://www.crefito2.com.br/spw/consultacadastral/TelaConsultaPublicaCompleta.aspx";
 const ZENROWS_API_URL = "https://api.zenrows.com/v1/";
 const DEFAULT_SOURCE_CHAIN = ["crefito3", "crefito2"];
+const CREFITO3_DIRECT_TIMEOUT_MS = 4500;
+const CREFITO3_PROXY_TIMEOUT_MS = 7000;
+const CREFITO2_TIMEOUT_MS = 6000;
 const DEFAULT_HEADERS = {
   "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
   "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome Safari"
 };
+
+async function fetchWithTimeout(url, options, timeoutMs, label) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    return await fetch(url, {
+      ...options,
+      signal: controller.signal
+    });
+  } catch (error) {
+    if (error?.name === "AbortError") {
+      throw new Error(`${label} timeout after ${timeoutMs}ms`);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
 
 function stripAccents(value) {
   return String(value ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "");
@@ -146,14 +168,14 @@ async function fetchDirectHtml(parsed) {
     xc: parsed.typeCode
   });
 
-  const response = await fetch(CREFITO3_DETAILS_URL, {
+  const response = await fetchWithTimeout(CREFITO3_DETAILS_URL, {
     method: "POST",
     headers: {
       ...DEFAULT_HEADERS,
       "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8"
     },
     body: body.toString()
-  });
+  }, CREFITO3_DIRECT_TIMEOUT_MS, "CREFITO-3");
 
   if (!response.ok) {
     const bodyPreview = await response.text().catch(() => "");
@@ -185,14 +207,14 @@ async function fetchZenRowsHtml(parsed) {
   scraperUrl.searchParams.set("custom_headers", "true");
   scraperUrl.searchParams.set("original_status", "true");
 
-  const response = await fetch(scraperUrl, {
+  const response = await fetchWithTimeout(scraperUrl, {
     method: "POST",
     headers: {
       ...DEFAULT_HEADERS,
       "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8"
     },
     body: body.toString()
-  });
+  }, CREFITO3_PROXY_TIMEOUT_MS, "ZenRows/CREFITO-3");
 
   if (!response.ok) {
     const bodyPreview = await response.text().catch(() => "");
@@ -268,10 +290,6 @@ function buildCrefito2Form(html, parsed) {
 function parseCrefito2Html(html, parsed, name) {
   const normalizedHtml = normalizeComparableText(html);
 
-  if (normalizedHtml.includes("FACA UMA SELECAO")) {
-    throw new Error("CREFITO-2 retornou a tela inicial sem executar a pesquisa.");
-  }
-
   if (normalizedHtml.includes("NAO FORAM LOCALIZADOS") || normalizedHtml.includes("NENHUM REGISTRO ENCONTRADO")) {
     return buildResult({
       source: "crefito2",
@@ -280,6 +298,33 @@ function parseCrefito2Html(html, parsed, name) {
       status: "not_found",
       name
     });
+  }
+
+  const gridRowMatch = html.match(/<tr id="ContentPlaceHolder1_Callbackconsulta_gridConsulta_DXDataRow\d+"[\s\S]*?<\/tr>/i);
+  if (gridRowMatch?.[0]) {
+    const rowCells = Array.from(
+      gridRowMatch[0]
+        .replace(/<script[\s\S]*?<\/script>/gi, " ")
+        .matchAll(/<td\b[^>]*>([\s\S]*?)<\/td>/gi)
+    )
+      .map((match) => cleanHtmlText(match[1]))
+      .filter(Boolean);
+
+    if (rowCells.length >= 4) {
+      const [officialRegistration, officialName, professionType, rawStatus] = rowCells;
+      const result = buildResult({
+        source: "crefito2",
+        sourceLabel: "CREFITO-2",
+        parsed,
+        status: deriveStatus(rawStatus),
+        officialName,
+        officialStatus: rawStatus.toUpperCase(),
+        professionType,
+        name
+      });
+      result.officialRegistration = officialRegistration;
+      return result;
+    }
   }
 
   const officialName = firstMatch(html, [
@@ -336,10 +381,10 @@ async function queryCrefito3(parsed, name) {
 }
 
 async function queryCrefito2(parsed, name) {
-  const initialResponse = await fetch(CREFITO2_URL, {
+  const initialResponse = await fetchWithTimeout(CREFITO2_URL, {
     method: "GET",
     headers: DEFAULT_HEADERS
-  });
+  }, CREFITO2_TIMEOUT_MS, "CREFITO-2 GET");
 
   if (!initialResponse.ok) {
     throw new Error(`CREFITO-2 GET ${initialResponse.status}`);
@@ -348,14 +393,14 @@ async function queryCrefito2(parsed, name) {
   const initialHtml = await initialResponse.text();
   const formBody = buildCrefito2Form(initialHtml, parsed);
 
-  const searchResponse = await fetch(CREFITO2_URL, {
+  const searchResponse = await fetchWithTimeout(CREFITO2_URL, {
     method: "POST",
     headers: {
       ...DEFAULT_HEADERS,
       "Content-Type": "application/x-www-form-urlencoded"
     },
     body: formBody.toString()
-  });
+  }, CREFITO2_TIMEOUT_MS, "CREFITO-2 POST");
 
   if (!searchResponse.ok) {
     const preview = await searchResponse.text().catch(() => "");
