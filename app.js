@@ -182,7 +182,8 @@ function rememberCrefitoValidation(app, result) {
 
 function normalizeCrefitoLookupResult(data, fallbackCrefito = "") {
   return {
-    source: "crefito3",
+    source: String(data?.source ?? "").trim().toLowerCase() || "crefito3",
+    sourceLabel: String(data?.sourceLabel ?? "").trim(),
     crefito: String(data?.crefito ?? fallbackCrefito ?? "").trim().toUpperCase(),
     status: String(data?.status ?? "").trim().toLowerCase() || "lookup_error",
     officialName: String(data?.officialName ?? "").trim(),
@@ -190,7 +191,9 @@ function normalizeCrefitoLookupResult(data, fallbackCrefito = "") {
     professionType: String(data?.professionType ?? "").trim(),
     message: String(data?.message ?? "").trim(),
     canProceed: Boolean(data?.canProceed),
-    nameMatches: typeof data?.nameMatches === "boolean" ? data.nameMatches : null
+    nameMatches: typeof data?.nameMatches === "boolean" ? data.nameMatches : null,
+    searchedSources: Array.isArray(data?.searchedSources) ? data.searchedSources : [],
+    searchedSourceLabels: Array.isArray(data?.searchedSourceLabels) ? data.searchedSourceLabels : []
   };
 }
 
@@ -222,9 +225,9 @@ function applyCrefitoLookupToForm(result, options = {}) {
       highlightInputTemporarily(nomeInput, "#ecfdf5");
     }
 
-    let message = `CREFITO ativo no ${sourceLabel}.`;
+    let message = `Validacao concluida via ${sourceLabel}. CREFITO ativo.`;
     if (result.officialName) {
-      message = `CREFITO ativo no ${sourceLabel} para ${result.officialName}.`;
+      message = `Validacao concluida via ${sourceLabel}. CREFITO ativo para ${result.officialName}.`;
     }
     if (result.nameMatches === false) {
       message += " O nome digitado nao bate exatamente com o cadastro oficial.";
@@ -238,7 +241,7 @@ function applyCrefitoLookupToForm(result, options = {}) {
   if (result.status === "inactive") {
     const label = result.officialStatus || "INATIVO";
     const suffix = result.officialName ? ` Registro localizado para ${result.officialName}.` : "";
-    setCrefitoStatus(`CREFITO localizado, mas consta como ${label} no ${sourceLabel}.${suffix}`, "warning");
+    setCrefitoStatus(`Validacao concluida via ${sourceLabel}. O registro foi localizado, mas consta como ${label}.${suffix}`, "warning");
     return;
   }
 
@@ -265,7 +268,7 @@ function buildCrefitoProceedMessage(result) {
   if (result.status === "inactive") {
     const label = result.officialStatus || "INATIVO";
     const officialName = result.officialName ? `\nProfissional localizado: ${result.officialName}` : "";
-    return `O CREFITO informado foi localizado, mas esta como ${label} no ${sourceLabel}.${officialName}\n\nDeseja continuar o cadastro mesmo assim?`;
+    return `O CREFITO informado foi localizado via ${sourceLabel}, mas esta como ${label}.${officialName}\n\nDeseja continuar o cadastro mesmo assim?`;
   }
 
   if (result.status === "not_found") {
