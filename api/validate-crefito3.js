@@ -2,6 +2,8 @@ const CREFITO3_DETAILS_URL = "https://www.crefito3.org.br/dsn/consultapf/detalhe
 const CREFITO2_URL = "https://www.crefito2.com.br/spw/consultacadastral/TelaConsultaPublicaCompleta.aspx";
 const ZENROWS_API_URL = "https://api.zenrows.com/v1/";
 const DEFAULT_SOURCE_CHAIN = ["crefito3", "crefito2"];
+const CREFITO3_DIRECT_TIMEOUT_MS = 9000;
+const CREFITO3_PROXY_TIMEOUT_MS = 12000;
 const CREFITO2_TIMEOUT_MS = 6000;
 const DEFAULT_HEADERS = {
   "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
@@ -149,6 +151,13 @@ function getSourceLabel(source) {
   if (source === "crefito3") return "CREFITO-3";
   if (source === "coffito") return "COFFITO";
   return String(source ?? "").toUpperCase() || "fonte";
+}
+
+function normalizeRegistration(value) {
+  return String(value ?? "")
+    .trim()
+    .toUpperCase()
+    .replace(/\s+/g, "");
 }
 
 function getSourceChain() {
@@ -310,6 +319,20 @@ function parseCrefito2Html(html, parsed, name) {
 
     if (rowCells.length >= 4) {
       const [officialRegistration, officialName, professionType, rawStatus] = rowCells;
+
+      if (
+        officialRegistration &&
+        normalizeRegistration(officialRegistration) !== normalizeRegistration(parsed.raw)
+      ) {
+        return buildResult({
+          source: "crefito2",
+          sourceLabel: "CREFITO-2",
+          parsed,
+          status: "not_found",
+          name
+        });
+      }
+
       const result = buildResult({
         source: "crefito2",
         sourceLabel: "CREFITO-2",
@@ -445,10 +468,15 @@ module.exports = async (req, res) => {
 
       if (source === "crefito2") {
         const result = await queryCrefito2(parsed, body?.name);
-        if (result.status !== "not_found") {
+        if (result.status === "active" || result.status === "inactive") {
           return res.status(200).json(result);
         }
-        attempts.push({ source, status: result.status, message: result.message });
+        attempts.push({
+          source,
+          status: result.status,
+          message: result.message,
+          officialRegistration: result.officialRegistration ?? null
+        });
         continue;
       }
     } catch (error) {
