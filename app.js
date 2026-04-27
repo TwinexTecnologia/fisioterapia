@@ -615,10 +615,17 @@ async function refreshSupabaseModules(app, options = {}) {
     rows = await loadSupabaseModuleRows();
   }
 
-  app.supabaseModules = rows;
-  app.protocol = mergeProtocolWithSupabaseModules(app.protocol, rows);
+  app.supabaseModules = filterModulesForCurrentProfile(
+    app,
+    rows.map((row) => ({
+      ...row,
+      flowId: String(row?.protocol_json?.id ?? row?.slug ?? row?.id ?? ""),
+      startFlowId: String(row?.protocol_json?.id ?? row?.slug ?? row?.id ?? "")
+    }))
+  ).map(({ flowId, startFlowId, ...row }) => row);
+  app.protocol = mergeProtocolWithSupabaseModules(app.protocol, app.supabaseModules);
   if (app.protocol) saveProtocolToStorage(app.protocol);
-  return rows;
+  return app.supabaseModules;
 }
 
 async function loadProtocolFromUrl(url) {
@@ -2876,10 +2883,75 @@ function getSupabaseBackedModules(app) {
   });
 }
 
+function canEditModules(role) {
+  return isFisioAdminRole(role);
+}
+
+function buildAllowedModuleLookup(profile) {
+  const values = new Set();
+  const allowed = Array.isArray(profile?.allowed_modules) ? profile.allowed_modules : [];
+
+  for (const entry of allowed) {
+    const raw = String(entry ?? "").trim();
+    const normalizedName = normalizeDashboardModuleName(raw);
+    const candidates = [
+      raw,
+      raw.toLowerCase(),
+      normalizedName,
+      normalizedName.toLowerCase(),
+      slugifyText(raw),
+      slugifyText(normalizedName)
+    ];
+
+    for (const candidate of candidates) {
+      if (candidate) values.add(candidate);
+    }
+  }
+
+  return values;
+}
+
+function isModuleAllowedForCurrentProfile(app, module) {
+  if (!isFisioPacienteRole(app.currentProfile?.role)) return true;
+  if (!isManagedProfileActive(app.currentProfile)) return false;
+
+  const allowed = buildAllowedModuleLookup(app.currentProfile);
+  if (allowed.size === 0) return false;
+
+  const normalizedName = normalizeDashboardModuleName(module?.name ?? "");
+  const candidates = [
+    module?.id,
+    module?.slug,
+    module?.flowId,
+    module?.startFlowId,
+    module?.name,
+    normalizedName,
+    String(module?.id ?? "").toLowerCase(),
+    String(module?.slug ?? "").toLowerCase(),
+    String(module?.flowId ?? "").toLowerCase(),
+    String(module?.startFlowId ?? "").toLowerCase(),
+    String(module?.name ?? "").toLowerCase(),
+    normalizedName.toLowerCase(),
+    slugifyText(module?.name ?? ""),
+    slugifyText(normalizedName),
+    slugifyText(module?.slug ?? ""),
+    slugifyText(module?.flowId ?? ""),
+    slugifyText(module?.startFlowId ?? "")
+  ];
+
+  return candidates.some((candidate) => candidate && allowed.has(candidate));
+}
+
+function filterModulesForCurrentProfile(app, modules) {
+  const list = Array.isArray(modules) ? modules : [];
+  if (!isFisioPacienteRole(app.currentProfile?.role)) return list;
+  return list.filter((module) => isModuleAllowedForCurrentProfile(app, module));
+}
+
 function getModulesForView(app) {
   const supabaseModules = getSupabaseBackedModules(app);
-  if (supabaseModules.length > 0) return supabaseModules;
-  return getProtocolModules(app.protocol).map((module) => ({
+  if (supabaseModules.length > 0) return filterModulesForCurrentProfile(app, supabaseModules);
+  const localModules = getProtocolModules(app.protocol).map((module) => ({
     ...module,
     source: "local",
     status: "local",
@@ -2888,6 +2960,7 @@ function getModulesForView(app) {
     slug: module.id,
     ownerId: String(app.currentUser?.id ?? "")
   }));
+  return filterModulesForCurrentProfile(app, localModules);
 }
 
 function formatModuleDate(dateValue) {
@@ -2910,22 +2983,31 @@ function renderModulesList(app) {
   const statTotal = $("modulesStatTotal");
   const statPublished = $("modulesStatPublished");
   const statSteps = $("modulesStatSteps");
+  const btnCreateNew = $("btnCreateNew");
+  const createCard = btnCreateNew?.closest(".dash-card--new");
   const modules = getModulesForView(app);
+  const canEdit = canEditModules(app.currentProfile?.role);
   modules.sort((a, b) => String(a.name).localeCompare(String(b.name)));
   const publishedCount = modules.filter((module) => module.status === "published").length;
   const totalSteps = modules.reduce((sum, module) => sum + Number(module.nodeCount ?? 0), 0);
 
+  if (createCard) createCard.classList.toggle("hidden", !canEdit);
+
   if (subtitle) {
-    subtitle.textContent = modules.some((module) => module.source === "supabase")
-      ? "Sua biblioteca clinica mostra os módulos cadastrados, com status e estrutura atualizados."
-      : "Crie ou edite os roteiros clínicos que serão disponibilizados aos fisioterapeutas.";
+    if (!canEdit) {
+      subtitle.textContent = "Sua biblioteca clinica mostra apenas os módulos liberados para o seu acesso.";
+    } else {
+      subtitle.textContent = modules.some((module) => module.source === "supabase")
+        ? "Sua biblioteca clinica mostra os módulos cadastrados, com status e estrutura atualizados."
+        : "Crie ou edite os roteiros clínicos que serão disponibilizados aos fisioterapeutas.";
+    }
   }
   if (statTotal) statTotal.textContent = String(modules.length);
   if (statPublished) statPublished.textContent = String(publishedCount);
   if (statSteps) statSteps.textContent = String(totalSteps);
 
   if (modules.length === 0) {
-    list.innerHTML = `<div class="dashboard-empty">Nenhum módulo encontrado ainda. Clique em "Criar Passo a Passo" para começar.</div>`;
+    list.innerHTML = `<div class="dashboard-empty">${canEdit ? 'Nenhum módulo encontrado ainda. Clique em "Criar Passo a Passo" para começar.' : "Nenhum módulo foi liberado para o seu acesso ainda."}</div>`;
     return;
   }
 
@@ -2953,8 +3035,8 @@ function renderModulesList(app) {
         <span class="module-card__date">Atualizado em ${dateLabel}</span>
       </div>
       <div class="dash-card-actions module-card__actions">
-        <button class="btn btn--start-sm" type="button" data-module-action="test" data-module-id="${module.id}">Testar Fluxo</button>
-        <button class="btn btn--ghost" type="button" data-module-action="edit" data-module-id="${module.id}">Editar Passo a Passo</button>
+        <button class="btn btn--start-sm" type="button" data-module-action="test" data-module-id="${module.id}">${canEdit ? "Testar Fluxo" : "Abrir Módulo"}</button>
+        ${canEdit ? `<button class="btn btn--ghost" type="button" data-module-action="edit" data-module-id="${module.id}">Editar Passo a Passo</button>` : ""}
       </div>
     `;
     list.appendChild(card);
@@ -3450,6 +3532,11 @@ function renderState(app) {
   }
   
   if (view === "editor") {
+    if (!canEditModules(app.currentProfile?.role)) {
+      app.view = "modulos";
+      renderState(app);
+      return;
+    }
     if (screenEditor) screenEditor.classList.remove("hidden");
     setEditorMode(app, app.editorMode ?? "simple");
     const nav = $("navModulos");
@@ -4364,6 +4451,7 @@ async function mount() {
   const btnCreateNew = $("btnCreateNew");
   if (btnCreateNew) {
     btnCreateNew.addEventListener("click", () => {
+      if (!canEditModules(app.currentProfile?.role)) return;
       app.editorMode = "simple";
       app.currentModuleId = null;
       app.editorOriginalFlowId = null;
@@ -4956,6 +5044,7 @@ async function mount() {
       }
 
       if (action === "edit") {
+        if (!canEditModules(app.currentProfile?.role)) return;
         app.currentModuleId = module.id;
         app.editorMode = "simple";
         const flow = app.protocol.flowsById[module.startFlowId];
