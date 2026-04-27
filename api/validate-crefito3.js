@@ -494,9 +494,15 @@ module.exports = async (req, res) => {
       if (source === "crefito4") {
         const result = await queryCrefito4(parsed, body?.name);
         if (result.status !== "not_found") {
+
           return res.status(200).json(result);
         }
-        attempts.push({ source, status: result.status, message: result.message });
+        attempts.push({
+          source,
+          status: result.status,
+          message: result.message,
+          officialRegistration: result.officialRegistration ?? null
+        });
         continue;
       }
     } catch (error) {
