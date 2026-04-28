@@ -3057,6 +3057,7 @@ function renderViewerModulesHome(app, modules) {
   const heroPanel = $("viewerHeroPanel");
   const toolbar = $("viewerModulesToolbar");
   const searchInput = $("viewerModuleSearch");
+  const searchClear = $("viewerModuleSearchClear");
   const summary = $("viewerModulesSummary");
   const heroTitle = $("viewerHeroTitle");
   const heroSubtitle = $("viewerHeroSubtitle");
@@ -3070,7 +3071,7 @@ function renderViewerModulesHome(app, modules) {
   const totalLabel = modules.length === 1 ? "1 protocolo liberado" : `${modules.length} protocolos liberados`;
   const searchTerm = normalizeSearchText(app.viewerModuleSearch);
   const visibleModules = searchTerm
-    ? modules.filter((module) => normalizeSearchText(`${module.name} ${module.description ?? ""}`).includes(searchTerm))
+    ? modules.filter((module) => normalizeSearchText(`${module.name} ${module.description ?? ""} ${module.slug ?? ""} ${module.flowId ?? ""}`).includes(searchTerm))
     : modules;
   const visibleLabel = visibleModules.length === 1 ? "1 resultado" : `${visibleModules.length} resultados`;
   const displayName = getUserDisplayName(app.currentProfile, app.currentUser);
@@ -3087,6 +3088,7 @@ function renderViewerModulesHome(app, modules) {
   if (heroTitle) heroTitle.textContent = `Ola, ${displayName.split(" ")[0] || "Fisio"}. Seu atendimento começa aqui.`;
   if (heroSubtitle) heroSubtitle.textContent = "Acesse seus protocolos autorizados com busca rapida, identidade clinica e um fluxo leve para consulta.";
   if (searchInput && searchInput.value !== String(app.viewerModuleSearch ?? "")) searchInput.value = String(app.viewerModuleSearch ?? "");
+  if (searchClear) searchClear.classList.toggle("hidden", !String(app.viewerModuleSearch ?? "").trim());
   if (summary) summary.textContent = searchTerm ? `${visibleLabel} para "${String(app.viewerModuleSearch ?? "").trim()}"` : totalLabel;
   if (statsGrid) statsGrid.classList.add("hidden");
   if (createWrap) createWrap.classList.add("hidden");
@@ -3204,7 +3206,33 @@ async function saveViewerOwnProfile(app) {
 function showViewerNotifications(app) {
   const moduleCount = getModulesForView(app).length;
   const displayName = getUserDisplayName(app.currentProfile, app.currentUser);
-  alert(`${displayName}, voce tem ${moduleCount} ${moduleCount === 1 ? "protocolo liberado" : "protocolos liberados"} no momento.`);
+  const popover = $("viewerNotificationPopover");
+  const title = $("viewerNotificationTitle");
+  const text = $("viewerNotificationText");
+  const count = $("viewerNotificationCount");
+  const footnote = $("viewerNotificationFootnote");
+  if (!popover) return;
+  if (title) title.textContent = `Ola, ${displayName.split(" ")[0] || "Fisio"}`;
+  if (text) text.textContent = moduleCount === 0
+    ? "No momento voce ainda nao possui protocolos liberados. Fale com o fisioterapeuta responsavel para liberar seu atendimento."
+    : `Voce tem ${moduleCount} ${moduleCount === 1 ? "protocolo liberado" : "protocolos liberados"} para continuar seu atendimento agora.`;
+  if (count) count.textContent = String(moduleCount);
+  if (footnote) footnote.textContent = moduleCount === 0
+    ? "Assim que um protocolo for liberado, ele aparece aqui."
+    : "Tudo liberado para uso no seu perfil.";
+  popover.classList.remove("hidden");
+  requestAnimationFrame(() => popover.classList.add("viewer-notification-popover--open"));
+}
+
+function hideViewerNotifications() {
+  const popover = $("viewerNotificationPopover");
+  if (!popover) return;
+  popover.classList.remove("viewer-notification-popover--open");
+  window.setTimeout(() => {
+    if (!popover.classList.contains("viewer-notification-popover--open")) {
+      popover.classList.add("hidden");
+    }
+  }, 180);
 }
 
 function getModulesForView(app) {
@@ -4660,23 +4688,80 @@ async function mount() {
 
   const viewerNotificationsBtn = $("viewerNotificationsBtn");
   if (viewerNotificationsBtn) {
-    viewerNotificationsBtn.addEventListener("click", () => showViewerNotifications(app));
+    viewerNotificationsBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const popover = $("viewerNotificationPopover");
+      if (popover && !popover.classList.contains("hidden")) {
+        hideViewerNotifications();
+        return;
+      }
+      showViewerNotifications(app);
+    });
   }
 
   const viewerProfileNotificationsBtn = $("viewerProfileNotificationsBtn");
   if (viewerProfileNotificationsBtn) {
-    viewerProfileNotificationsBtn.addEventListener("click", () => showViewerNotifications(app));
+    viewerProfileNotificationsBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const popover = $("viewerNotificationPopover");
+      if (popover && !popover.classList.contains("hidden")) {
+        hideViewerNotifications();
+        return;
+      }
+      showViewerNotifications(app);
+    });
+  }
+
+  const viewerNotificationClose = $("viewerNotificationClose");
+  if (viewerNotificationClose) {
+    viewerNotificationClose.addEventListener("click", () => hideViewerNotifications());
   }
 
   const viewerModuleSearch = $("viewerModuleSearch");
   if (viewerModuleSearch) {
     viewerModuleSearch.addEventListener("input", (e) => {
-      app.viewerModuleSearch = String(e.target?.value ?? "");
+      app.viewerModuleSearch = String(e.currentTarget?.value ?? "");
+      if (app.view === "modulos" && isFisioPacienteRole(app.currentProfile?.role)) {
+        renderModulesList(app);
+      }
+    });
+    viewerModuleSearch.addEventListener("search", (e) => {
+      app.viewerModuleSearch = String(e.currentTarget?.value ?? "");
       if (app.view === "modulos" && isFisioPacienteRole(app.currentProfile?.role)) {
         renderModulesList(app);
       }
     });
   }
+
+  const viewerModuleSearchClear = $("viewerModuleSearchClear");
+  if (viewerModuleSearchClear) {
+    viewerModuleSearchClear.addEventListener("click", () => {
+      app.viewerModuleSearch = "";
+      if ($("viewerModuleSearch")) $("viewerModuleSearch").value = "";
+      if (app.view === "modulos" && isFisioPacienteRole(app.currentProfile?.role)) {
+        renderModulesList(app);
+      }
+      $("viewerModuleSearch")?.focus();
+    });
+  }
+
+  document.addEventListener("click", (e) => {
+    const popover = $("viewerNotificationPopover");
+    if (!popover || popover.classList.contains("hidden")) return;
+    const target = e.target;
+    const clickedInsidePopover = target instanceof Node && popover.contains(target);
+    const clickedToggle = target instanceof Element && (
+      target.closest("#viewerNotificationsBtn") ||
+      target.closest("#viewerProfileNotificationsBtn")
+    );
+    if (!clickedInsidePopover && !clickedToggle) {
+      hideViewerNotifications();
+    }
+  });
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") hideViewerNotifications();
+  });
 
   const btnUploadViewerAvatar = $("btnUploadViewerAvatar");
   const viewerAvatarFile = $("viewerAvatarFile");

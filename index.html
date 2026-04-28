@@ -333,7 +333,12 @@
           <div id="viewerModulesToolbar" class="viewer-toolbar hidden">
             <label class="viewer-toolbar__search">
               <span>Buscar protocolo</span>
-              <input id="viewerModuleSearch" type="text" class="input-text" placeholder="Digite o nome do protocolo" />
+              <div class="viewer-searchbox">
+                <span class="viewer-searchbox__icon" aria-hidden="true">🔎</span>
+                <input id="viewerModuleSearch" type="search" class="input-text viewer-searchbox__input" placeholder="Digite o nome do protocolo" />
+                <button id="viewerModuleSearchClear" class="viewer-searchbox__clear hidden" type="button" aria-label="Limpar busca">Limpar</button>
+              </div>
+              <small class="viewer-toolbar__hint">Busque pelo nome do protocolo ou por palavras da descricao.</small>
             </label>
             <div id="viewerModulesSummary" class="viewer-toolbar__summary">0 protocolos</div>
           </div>
@@ -1001,6 +1006,31 @@
           </div>
         </section>
       </main>
+
+      <div id="viewerNotificationPopover" class="viewer-notification-popover hidden" role="dialog" aria-live="polite" aria-label="Notificacoes">
+        <div class="viewer-notification-popover__header">
+          <div>
+            <span class="viewer-notification-popover__eyebrow">Central de avisos</span>
+            <strong id="viewerNotificationTitle">Atualizacoes do seu acesso</strong>
+          </div>
+          <button id="viewerNotificationClose" class="viewer-notification-popover__close" type="button" aria-label="Fechar notificacoes">✕</button>
+        </div>
+        <p id="viewerNotificationText" class="viewer-notification-popover__text">Seus protocolos liberados aparecerao aqui.</p>
+        <div class="viewer-notification-popover__stats">
+          <div class="viewer-notification-chip">
+            <span class="viewer-notification-chip__label">Protocolos</span>
+            <strong id="viewerNotificationCount">0</strong>
+          </div>
+          <div class="viewer-notification-chip">
+            <span class="viewer-notification-chip__label">Status</span>
+            <strong>Autorizado</strong>
+          </div>
+        </div>
+        <div class="viewer-notification-popover__footer">
+          <span class="viewer-notification-popover__dot"></span>
+          <small id="viewerNotificationFootnote">Acompanhe seus acessos por aqui.</small>
+        </div>
+      </div>
 
       <footer class="footer">
         <div id="footerHint" class="muted"></div>
