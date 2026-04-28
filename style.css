@@ -513,6 +513,10 @@ body {
   box-shadow: 0 0 0 3px rgba(255,255,255,0.88);
 }
 
+.viewer-topbar__badge-dot.hidden {
+  display: none;
+}
+
 .viewer-topbar__profile {
   display: inline-flex;
   align-items: center;

@@ -2,7 +2,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const STORAGE = {
   protocol: "thompson.protocol.v1",
-  session: "thompson.session.v1"
+  session: "thompson.session.v1",
+  viewerNotificationsSeen: "thompson.viewer.notifications.seen.v1"
 };
 
 const DEFAULT_PROTOCOL_URL = "./protocol.generated.json";
@@ -550,11 +551,30 @@ async function loadAuthContext() {
     return { session: null, user: null, profile: null };
   }
 
-  const { data: profile, error: profileError } = await supabase
+  const extendedSelect = "id, full_name, role, parent_admin_id, login_email, crefito, is_active, allowed_modules, phone, clinic_name, bio, avatar_url";
+  const fallbackSelect = "id, full_name, role, parent_admin_id, login_email, crefito, is_active, allowed_modules";
+
+  let profile = null;
+  let profileError = null;
+
+  const extendedResult = await supabase
     .from("profiles")
-    .select("id, full_name, role, parent_admin_id, login_email, crefito, is_active, allowed_modules")
+    .select(extendedSelect)
     .eq("id", session.user.id)
     .single();
+
+  profile = extendedResult.data;
+  profileError = extendedResult.error;
+
+  if (profileError && getMissingManagedProfileColumnsMessage(profileError)) {
+    const fallbackResult = await supabase
+      .from("profiles")
+      .select(fallbackSelect)
+      .eq("id", session.user.id)
+      .single();
+    profile = fallbackResult.data;
+    profileError = fallbackResult.error;
+  }
 
   if (profileError) throw profileError;
   return { session, user: session.user, profile };
@@ -3090,6 +3110,7 @@ function renderViewerModulesHome(app, modules) {
   if (searchInput && searchInput.value !== String(app.viewerModuleSearch ?? "")) searchInput.value = String(app.viewerModuleSearch ?? "");
   if (searchClear) searchClear.classList.toggle("hidden", !String(app.viewerModuleSearch ?? "").trim());
   if (summary) summary.textContent = searchTerm ? `${visibleLabel} para "${String(app.viewerModuleSearch ?? "").trim()}"` : totalLabel;
+  syncViewerNotificationBadge(app);
   if (statsGrid) statsGrid.classList.add("hidden");
   if (createWrap) createWrap.classList.add("hidden");
   if (statTotal) statTotal.textContent = String(modules.length);
@@ -3132,13 +3153,13 @@ function renderViewerModulesHome(app, modules) {
 function fillViewerProfileForm(app) {
   const displayName = getUserDisplayName(app.currentProfile, app.currentUser);
   const metadata = getViewerProfileMetadata(app.currentUser);
-  const avatarUrl = metadata.avatarUrl || getUserAvatarUrl(app.currentProfile, app.currentUser);
+  const avatarUrl = String(app.currentProfile?.avatar_url ?? "").trim() || metadata.avatarUrl || getUserAvatarUrl(app.currentProfile, app.currentUser);
   if ($("viewerProfileName")) $("viewerProfileName").value = app.currentProfile?.full_name || metadata.fullName || displayName;
-  if ($("viewerProfilePhone")) $("viewerProfilePhone").value = metadata.phone;
+  if ($("viewerProfilePhone")) $("viewerProfilePhone").value = String(app.currentProfile?.phone ?? "").trim() || metadata.phone;
   if ($("viewerProfileEmail")) $("viewerProfileEmail").value = String(app.currentProfile?.login_email ?? app.currentUser?.email ?? "");
   if ($("viewerProfileCrefito")) $("viewerProfileCrefito").value = String(app.currentProfile?.crefito ?? "");
-  if ($("viewerProfileClinic")) $("viewerProfileClinic").value = metadata.clinic;
-  if ($("viewerProfileBio")) $("viewerProfileBio").value = metadata.bio;
+  if ($("viewerProfileClinic")) $("viewerProfileClinic").value = String(app.currentProfile?.clinic_name ?? "").trim() || metadata.clinic;
+  if ($("viewerProfileBio")) $("viewerProfileBio").value = String(app.currentProfile?.bio ?? "").trim() || metadata.bio;
   if ($("viewerProfileAvatarUrl")) $("viewerProfileAvatarUrl").value = avatarUrl;
   if ($("viewerProfileCardName")) $("viewerProfileCardName").textContent = app.currentProfile?.full_name || metadata.fullName || displayName;
   if ($("viewerProfileCardRole")) $("viewerProfileCardRole").textContent = getRoleLabel(app.currentProfile?.role);
@@ -3147,6 +3168,7 @@ function fillViewerProfileForm(app) {
 
 function renderViewerProfileScreen(app) {
   fillViewerProfileForm(app);
+  syncViewerNotificationBadge(app);
   const nav = $("navPerfil");
   if (nav) nav.classList.add("active");
 }
@@ -3176,6 +3198,25 @@ async function saveViewerOwnProfile(app) {
     throw new Error("Informe seu nome completo para salvar o perfil.");
   }
 
+  const { error: profileError } = await supabase
+    .from("profiles")
+    .update({
+      full_name: name,
+      phone,
+      clinic_name: clinic,
+      bio,
+      avatar_url: avatarUrl
+    })
+    .eq("id", app.currentUser.id);
+
+  if (profileError) {
+    const missingColumnsMessage = getMissingManagedProfileColumnsMessage(profileError);
+    if (missingColumnsMessage) {
+      throw new Error("Para salvar telefone, clinica, bio e foto na tabela profiles, rode o SQL atualizado do projeto no Supabase primeiro.");
+    }
+    throw profileError;
+  }
+
   const metadata = {
     ...(app.currentUser?.user_metadata ?? {}),
     full_name: name,
@@ -3190,16 +3231,14 @@ async function saveViewerOwnProfile(app) {
   });
   if (authError) throw authError;
 
-  const { error: profileError } = await supabase
-    .from("profiles")
-    .update({ full_name: name })
-    .eq("id", app.currentUser.id);
-  if (profileError) throw profileError;
-
   if (authUpdate?.user) app.currentUser = authUpdate.user;
   app.currentProfile = {
     ...(app.currentProfile ?? {}),
-    full_name: name
+    full_name: name,
+    phone,
+    clinic_name: clinic,
+    bio,
+    avatar_url: avatarUrl
   };
 }
 
@@ -3220,6 +3259,8 @@ function showViewerNotifications(app) {
   if (footnote) footnote.textContent = moduleCount === 0
     ? "Assim que um protocolo for liberado, ele aparece aqui."
     : "Tudo liberado para uso no seu perfil.";
+  markViewerNotificationsSeen(app);
+  syncViewerNotificationBadge(app);
   popover.classList.remove("hidden");
   requestAnimationFrame(() => popover.classList.add("viewer-notification-popover--open"));
 }
@@ -3233,6 +3274,51 @@ function hideViewerNotifications() {
       popover.classList.add("hidden");
     }
   }, 180);
+}
+
+function getViewerNotificationFingerprint(app) {
+  const modules = getModulesForView(app);
+  return modules
+    .map((module) => `${module.id}|${module.updatedAt ?? module.createdAt ?? ""}|${module.status ?? ""}`)
+    .sort()
+    .join("||");
+}
+
+function markViewerNotificationsSeen(app) {
+  const userId = String(app.currentUser?.id ?? "anon");
+  const fingerprint = getViewerNotificationFingerprint(app);
+  const payload = { [userId]: fingerprint };
+  let merged = payload;
+  try {
+    const previous = safeJsonParse(localStorage.getItem(STORAGE.viewerNotificationsSeen) || "{}");
+    if (previous.ok && previous.value && typeof previous.value === "object") {
+      merged = { ...previous.value, ...payload };
+    }
+  } catch {}
+  try {
+    localStorage.setItem(STORAGE.viewerNotificationsSeen, JSON.stringify(merged));
+  } catch {}
+}
+
+function hasUnreadViewerNotifications(app) {
+  const userId = String(app.currentUser?.id ?? "anon");
+  const current = getViewerNotificationFingerprint(app);
+  if (!current) return false;
+  try {
+    const parsed = safeJsonParse(localStorage.getItem(STORAGE.viewerNotificationsSeen) || "{}");
+    if (!parsed.ok || !parsed.value || typeof parsed.value !== "object") return true;
+    const seen = String(parsed.value[userId] ?? "");
+    return seen !== current;
+  } catch {
+    return true;
+  }
+}
+
+function syncViewerNotificationBadge(app) {
+  const hasUnread = hasUnreadViewerNotifications(app);
+  document
+    .querySelectorAll(".viewer-topbar__badge-dot")
+    .forEach((el) => el.classList.toggle("hidden", !hasUnread));
 }
 
 function getModulesForView(app) {
@@ -4819,6 +4905,7 @@ async function mount() {
         await saveViewerOwnProfile(app);
         applyAuthUi(app);
         fillViewerProfileForm(app);
+        syncViewerNotificationBadge(app);
         setViewerProfileStatus("Perfil atualizado com sucesso.", "success");
       } catch (error) {
         setViewerProfileStatus(getReadableRuntimeError(error, "Nao foi possivel salvar o perfil."), "error");
