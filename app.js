@@ -629,7 +629,6 @@ function getMissingManagedProfileColumnsMessage(error) {
 function getUserDisplayName(profile, user) {
   return String(
     profile?.full_name
-    ?? user?.user_metadata?.full_name
     ?? user?.email?.split("@")[0]
     ?? "Usuario"
   ).trim();
@@ -638,7 +637,6 @@ function getUserDisplayName(profile, user) {
 function getUserAvatarUrl(profile, user) {
   return String(
     profile?.avatar_url
-    ?? user?.user_metadata?.avatar_url
     ?? ""
   ).trim();
 }
@@ -669,13 +667,12 @@ function setAvatarElement(el, name, avatarUrl) {
 }
 
 function getViewerProfileMetadata(user) {
-  const metadata = user?.user_metadata ?? {};
   return {
-    fullName: String(metadata.full_name ?? "").trim(),
-    phone: String(metadata.phone ?? "").trim(),
-    clinic: String(metadata.clinic_name ?? "").trim(),
-    bio: String(metadata.bio ?? "").trim(),
-    avatarUrl: String(metadata.avatar_url ?? "").trim()
+    fullName: "",
+    phone: "",
+    clinic: "",
+    bio: "",
+    avatarUrl: ""
   };
 }
 
@@ -3848,29 +3845,6 @@ async function saveViewerOwnProfile(app) {
     }
     throw profileError;
   }
-
-  const metadata = {
-    ...(app.currentUser?.user_metadata ?? {}),
-    full_name: name,
-    phone,
-    clinic_name: clinic,
-    bio
-  };
-
-  const { data: authUpdate, error: authError } = await supabase.auth.updateUser({
-    data: metadata
-  });
-  if (authError) throw authError;
-
-  if (authUpdate?.user) {
-    app.currentUser = {
-      ...authUpdate.user,
-      user_metadata: {
-        ...(authUpdate.user.user_metadata ?? {}),
-        avatar_url: avatarUrl
-      }
-    };
-  }
   app.currentProfile = {
     ...(app.currentProfile ?? {}),
     full_name: name,
@@ -3902,13 +3876,6 @@ async function saveViewerAvatarOnly(app, avatarUrl) {
   app.currentProfile = {
     ...(app.currentProfile ?? {}),
     avatar_url: safeAvatarUrl
-  };
-  app.currentUser = {
-    ...(app.currentUser ?? {}),
-    user_metadata: {
-      ...(app.currentUser?.user_metadata ?? {}),
-      avatar_url: safeAvatarUrl
-    }
   };
   app.ownProfileDetailsLoadedFor = String(app.currentUser?.id ?? "").trim();
 }
