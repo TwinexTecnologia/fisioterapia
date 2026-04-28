@@ -428,8 +428,8 @@ function getUserDisplayName(profile, user) {
 
 function getUserAvatarUrl(profile, user) {
   return String(
-    user?.user_metadata?.avatar_url
-    ?? profile?.avatar_url
+    profile?.avatar_url
+    ?? user?.user_metadata?.avatar_url
     ?? ""
   ).trim();
 }
@@ -3309,8 +3309,7 @@ async function saveViewerOwnProfile(app) {
     full_name: name,
     phone,
     clinic_name: clinic,
-    bio,
-    avatar_url: avatarUrl
+    bio
   };
 
   const { data: authUpdate, error: authError } = await supabase.auth.updateUser({
@@ -3318,7 +3317,15 @@ async function saveViewerOwnProfile(app) {
   });
   if (authError) throw authError;
 
-  if (authUpdate?.user) app.currentUser = authUpdate.user;
+  if (authUpdate?.user) {
+    app.currentUser = {
+      ...authUpdate.user,
+      user_metadata: {
+        ...(authUpdate.user.user_metadata ?? {}),
+        avatar_url: avatarUrl
+      }
+    };
+  }
   app.currentProfile = {
     ...(app.currentProfile ?? {}),
     full_name: name,
@@ -3327,6 +3334,43 @@ async function saveViewerOwnProfile(app) {
     bio,
     avatar_url: avatarUrl
   };
+}
+
+async function saveViewerAvatarOnly(app, avatarUrl) {
+  const safeAvatarUrl = String(avatarUrl ?? "").trim();
+  const { error } = await supabase
+    .from("profiles")
+    .update({
+      avatar_url: safeAvatarUrl
+    })
+    .eq("id", app.currentUser.id);
+
+  if (error) {
+    const missingColumnsMessage = getMissingManagedProfileColumnsMessage(error);
+    if (missingColumnsMessage) {
+      throw new Error("Para salvar a foto na tabela profiles, rode o SQL atualizado do projeto no Supabase primeiro.");
+    }
+    throw error;
+  }
+
+  app.currentProfile = {
+    ...(app.currentProfile ?? {}),
+    avatar_url: safeAvatarUrl
+  };
+  app.currentUser = {
+    ...(app.currentUser ?? {}),
+    user_metadata: {
+      ...(app.currentUser?.user_metadata ?? {}),
+      avatar_url: safeAvatarUrl
+    }
+  };
+}
+
+function refreshViewerAvatarPreview(app, avatarUrl) {
+  const displayName = getUserDisplayName(app.currentProfile, app.currentUser);
+  const safeAvatarUrl = String(avatarUrl ?? "").trim();
+  if ($("viewerProfileAvatarUrl")) $("viewerProfileAvatarUrl").value = safeAvatarUrl;
+  setAvatarElement($("viewerProfileAvatarPreview"), displayName, safeAvatarUrl);
 }
 
 function showViewerNotifications(app) {
@@ -4943,23 +4987,33 @@ async function mount() {
     viewerAvatarFile.addEventListener("change", async () => {
       const file = viewerAvatarFile.files?.[0];
       if (!file) return;
+      const previousAvatarUrl = String($("viewerProfileAvatarUrl")?.value ?? "").trim();
       try {
+        btnUploadViewerAvatar.disabled = true;
+        const btnClearViewerAvatar = $("btnClearViewerAvatar");
+        if (btnClearViewerAvatar) btnClearViewerAvatar.disabled = true;
+        setViewerProfileStatus("Preparando e salvando a foto...", "success");
         const dataUrl = await readAvatarFileAsOptimizedDataUrl(file);
-        if ($("viewerProfileAvatarUrl")) $("viewerProfileAvatarUrl").value = dataUrl;
-        fillViewerProfileForm({
-          ...app,
-          currentUser: {
-            ...(app.currentUser ?? {}),
-            user_metadata: {
-              ...(app.currentUser?.user_metadata ?? {}),
-              avatar_url: dataUrl
-            }
-          }
-        });
-        setViewerProfileStatus("Foto ajustada automaticamente para caber no avatar redondo.", "success");
+        app.currentProfile = {
+          ...(app.currentProfile ?? {}),
+          avatar_url: dataUrl
+        };
+        refreshViewerAvatarPreview(app, dataUrl);
+        await saveViewerAvatarOnly(app, dataUrl);
+        applyAuthUi(app);
+        refreshViewerAvatarPreview(app, dataUrl);
+        setViewerProfileStatus("Foto salva com sucesso.", "success");
       } catch (error) {
+        app.currentProfile = {
+          ...(app.currentProfile ?? {}),
+          avatar_url: previousAvatarUrl
+        };
+        refreshViewerAvatarPreview(app, previousAvatarUrl);
         setViewerProfileStatus(getReadableRuntimeError(error, "Nao foi possivel carregar a foto."), "error");
       } finally {
+        btnUploadViewerAvatar.disabled = false;
+        const btnClearViewerAvatar = $("btnClearViewerAvatar");
+        if (btnClearViewerAvatar) btnClearViewerAvatar.disabled = false;
         viewerAvatarFile.value = "";
       }
     });
@@ -4967,18 +5021,35 @@ async function mount() {
 
   const btnClearViewerAvatar = $("btnClearViewerAvatar");
   if (btnClearViewerAvatar) {
-    btnClearViewerAvatar.addEventListener("click", () => {
-      if ($("viewerProfileAvatarUrl")) $("viewerProfileAvatarUrl").value = "";
-      fillViewerProfileForm({
-        ...app,
-        currentUser: {
-          ...(app.currentUser ?? {}),
-          user_metadata: {
-            ...(app.currentUser?.user_metadata ?? {}),
-            avatar_url: ""
-          }
-        }
-      });
+    btnClearViewerAvatar.addEventListener("click", async () => {
+      const previousAvatarUrl = String($("viewerProfileAvatarUrl")?.value ?? "").trim();
+      if (!previousAvatarUrl) {
+        setViewerProfileStatus("Nenhuma foto cadastrada para remover.", "success");
+        return;
+      }
+      try {
+        btnClearViewerAvatar.disabled = true;
+        if (btnUploadViewerAvatar) btnUploadViewerAvatar.disabled = true;
+        app.currentProfile = {
+          ...(app.currentProfile ?? {}),
+          avatar_url: ""
+        };
+        refreshViewerAvatarPreview(app, "");
+        await saveViewerAvatarOnly(app, "");
+        applyAuthUi(app);
+        refreshViewerAvatarPreview(app, "");
+        setViewerProfileStatus("Foto removida com sucesso.", "success");
+      } catch (error) {
+        app.currentProfile = {
+          ...(app.currentProfile ?? {}),
+          avatar_url: previousAvatarUrl
+        };
+        refreshViewerAvatarPreview(app, previousAvatarUrl);
+        setViewerProfileStatus(getReadableRuntimeError(error, "Nao foi possivel remover a foto."), "error");
+      } finally {
+        btnClearViewerAvatar.disabled = false;
+        if (btnUploadViewerAvatar) btnUploadViewerAvatar.disabled = false;
+      }
     });
   }
 
