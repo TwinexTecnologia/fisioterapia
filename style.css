@@ -2524,6 +2524,14 @@ body {
   background: linear-gradient(180deg, rgba(255,255,255,0.94) 0%, rgba(248,250,252,0.9) 100%);
 }
 
+.flow-editor-sidebar__header-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 .flow-editor-sidebar__subtitle {
   margin: 6px 0 0;
   font-size: 13px;
@@ -2723,6 +2731,12 @@ body {
   box-shadow: 0 24px 60px rgba(15, 23, 42, 0.25);
 }
 
+.builder-modal__dialog--danger {
+  background:
+    radial-gradient(circle at top right, rgba(248, 113, 113, 0.18), transparent 30%),
+    linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(254,242,242,0.98) 100%);
+}
+
 .builder-modal__options {
   display: grid;
   gap: 10px;
@@ -2747,6 +2761,47 @@ body {
 .builder-modal__fields {
   display: grid;
   gap: 14px;
+}
+
+.delete-module-modal__hero {
+  display: grid;
+  grid-template-columns: 74px 1fr;
+  gap: 16px;
+  align-items: center;
+  margin-top: 20px;
+  padding: 18px;
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(248, 113, 113, 0.18);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.9);
+}
+
+.delete-module-modal__icon {
+  width: 74px;
+  height: 74px;
+  border-radius: 22px;
+  display: grid;
+  place-items: center;
+  font-size: 36px;
+  background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+  box-shadow: 0 14px 30px rgba(239, 68, 68, 0.16);
+}
+
+.delete-module-modal__copy {
+  display: grid;
+  gap: 6px;
+}
+
+.delete-module-modal__copy strong {
+  font-size: 24px;
+  color: #7f1d1d;
+}
+
+.delete-module-modal__copy p {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.6;
+  color: #7c2d12;
 }
 
 .timeline-builder {

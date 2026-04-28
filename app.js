@@ -785,6 +785,130 @@ function showAppToast(message = "", tone = "success", options = {}) {
   }, Number(options.durationMs ?? 3200));
 }
 
+function closeDeleteModuleModal(app) {
+  app.pendingDeleteModuleId = null;
+  const modal = $("deleteModuleModal");
+  if (modal) modal.classList.add("hidden");
+}
+
+function openDeleteModuleModal(app, module) {
+  if (!module) return;
+  app.pendingDeleteModuleId = String(module.id ?? "");
+  const modal = $("deleteModuleModal");
+  if (!modal) return;
+  const nameEl = $("deleteModuleModalName");
+  const subtitleEl = $("deleteModuleModalSubtitle");
+  if (nameEl) nameEl.textContent = normalizeDashboardModuleName(module.name || "Módulo");
+  if (subtitleEl) {
+    subtitleEl.textContent = "Essa ação remove o módulo da plataforma e não poderá ser desfeita.";
+  }
+  modal.classList.remove("hidden");
+}
+
+async function deleteModule(app, module) {
+  if (!module) return;
+
+  const flowIds = Array.isArray(module.flowIds) && module.flowIds.length > 0
+    ? module.flowIds.map((flowId) => String(flowId ?? "").trim()).filter(Boolean)
+    : [String(module.startFlowId ?? module.flowId ?? module.slug ?? module.id ?? "").trim()].filter(Boolean);
+
+  if (app.authSession && (module.slug || module.flowId || module.startFlowId)) {
+    await deleteSupabaseModuleBySlug(app, String(module.slug ?? module.flowId ?? module.startFlowId ?? "").trim());
+  }
+
+  if (Array.isArray(app.supabaseModules)) {
+    const moduleId = String(module.id ?? "").trim();
+    const moduleSlug = String(module.slug ?? module.flowId ?? module.startFlowId ?? "").trim();
+    app.supabaseModules = app.supabaseModules.filter((row) => {
+      const rowId = String(row?.id ?? "").trim();
+      const rowSlug = String(row?.slug ?? row?.protocol_json?.id ?? "").trim();
+      return rowId !== moduleId && rowSlug !== moduleSlug;
+    });
+  }
+
+  const flowsById = { ...(app.protocol?.flowsById ?? {}) };
+  const moduleBlueprints = { ...(app.protocol?.moduleBlueprints ?? {}) };
+  for (const flowId of flowIds) {
+    delete flowsById[flowId];
+    delete moduleBlueprints[flowId];
+  }
+  const remainingFlowIds = Object.keys(flowsById);
+  if (remainingFlowIds.length > 0) {
+    const currentDefaultFlowId = String(app.protocol?.defaultFlowId ?? "").trim();
+    const nextDefaultFlowId = flowsById[currentDefaultFlowId] ? currentDefaultFlowId : remainingFlowIds[0];
+    app.protocol = normalizeProtocol({
+      flowsById,
+      defaultFlowId: nextDefaultFlowId,
+      moduleBlueprints
+    });
+    saveProtocolToStorage(app.protocol);
+  }
+
+  if (String(app.currentModuleId ?? "").trim() === String(module.id ?? "").trim()) {
+    app.currentModuleId = null;
+  }
+  if (String(app.selectedFlowId ?? "").trim() === String(module.startFlowId ?? module.flowId ?? "").trim()) {
+    app.selectedFlowId = null;
+  }
+  app.view = "modulos";
+  renderState(app);
+  showAppToast("O módulo foi excluído com sucesso.", "success", {
+    title: "Módulo excluído",
+    eyebrow: "Biblioteca clínica"
+  });
+}
+
+async function saveEditorModule(app) {
+  app.builderDraft = ensureBuilderDraftConsistency(app.builderDraft);
+  const issues = getBuilderValidationIssues(app.builderDraft);
+  renderBuilderValidation(app);
+  if (issues.length > 0) {
+    showAppToast(
+      "Revise os pontos destacados no editor antes de salvar novamente.",
+      "warning",
+      { title: "Ajuste o modulo" }
+    );
+    return;
+  }
+
+  syncVisualDraftFromDom(app);
+  const flow = buildFlowFromBuilderDraft(app.builderDraft);
+  const flowsById = { ...(app.protocol?.flowsById ?? {}) };
+  const moduleBlueprints = { ...(app.protocol?.moduleBlueprints ?? {}) };
+  if (app.editorOriginalFlowId && app.editorOriginalFlowId !== flow.id) {
+    delete flowsById[app.editorOriginalFlowId];
+    delete moduleBlueprints[app.editorOriginalFlowId];
+  }
+  flowsById[flow.id] = flow;
+  moduleBlueprints[flow.id] = normalizeModuleBlueprint(app.visualDraft);
+  const defaultFlowId = app.protocol?.defaultFlowId && flowsById[app.protocol.defaultFlowId]
+    ? app.protocol.defaultFlowId
+    : flow.id;
+  app.protocol = normalizeProtocol({
+    flowsById,
+    defaultFlowId,
+    moduleBlueprints
+  });
+  if (app.authSession) {
+    await upsertSupabaseModule(app, flow, app.visualDraft);
+    if (app.editorOriginalFlowId && app.editorOriginalFlowId !== flow.id) {
+      await deleteSupabaseModuleBySlug(app, app.editorOriginalFlowId);
+    }
+    await refreshSupabaseModules(app);
+  }
+  app.selectedFlowId = flow.id;
+  app.currentModuleId = app.currentModuleId ?? flow.id;
+  app.session = initSession(flow.id, flow.startNodeId);
+  app.editorOriginalFlowId = flow.id;
+  saveProtocolToStorage(app.protocol);
+  showAppToast("Modulo salvo com sucesso!", "success", {
+    title: normalizeDashboardModuleName(flow.name || "Modulo"),
+    eyebrow: "Editor de modulos"
+  });
+  app.view = "modulos";
+  renderState(app);
+}
+
 function setLoginError(message = "") {
   const loginError = $("loginError");
   if (!loginError) return;
@@ -1002,6 +1126,7 @@ async function refreshSupabaseModules(app, options = {}) {
       startFlowId: String(row?.protocol_json?.id ?? row?.slug ?? row?.id ?? "")
     }))
   ).map(({ flowId, startFlowId, ...row }) => row);
+  app.hasLoadedSupabaseModules = true;
   app.protocol = mergeProtocolWithSupabaseModules(app.protocol, app.supabaseModules);
   if (app.protocol) saveProtocolToStorage(app.protocol);
   return app.supabaseModules;
@@ -3760,6 +3885,9 @@ function syncViewerNotificationBadge(app) {
 
 function getModulesForView(app) {
   const supabaseModules = getSupabaseBackedModules(app);
+  if (app.authSession && app.hasLoadedSupabaseModules) {
+    return filterModulesForCurrentProfile(app, supabaseModules);
+  }
   if (supabaseModules.length > 0) return filterModulesForCurrentProfile(app, supabaseModules);
   const localModules = getProtocolModules(app.protocol).map((module) => ({
     ...module,
@@ -3867,6 +3995,7 @@ function renderModulesList(app) {
       <div class="dash-card-actions module-card__actions">
         <button class="btn btn--start-sm" type="button" data-module-action="test" data-module-id="${module.id}">Testar Fluxo</button>
         <button class="btn btn--ghost" type="button" data-module-action="edit" data-module-id="${module.id}">Editar Passo a Passo</button>
+        <button class="btn btn--danger" type="button" data-module-action="delete" data-module-id="${module.id}">Excluir Módulo</button>
       </div>
     `;
     list.appendChild(card);
@@ -5106,6 +5235,7 @@ async function mount() {
       currentUser: null,
       currentProfile: null,
       supabaseModules: [],
+      hasLoadedSupabaseModules: false,
       selectedFlowId: null,
       builderDraft: createEmptyBuilderDraft(),
       selectedBuilderNodeId: "pergunta_1",
@@ -5211,6 +5341,7 @@ async function mount() {
       app.currentUser = null;
       app.currentProfile = null;
       app.supabaseModules = [];
+      app.hasLoadedSupabaseModules = false;
       app.managedProfiles = [];
       app.view = "login";
       setLoginError("");
@@ -5315,6 +5446,43 @@ async function mount() {
     appToastClose.addEventListener("click", () => hideAppToast());
   }
 
+  const btnCloseDeleteModuleModal = $("btnCloseDeleteModuleModal");
+  if (btnCloseDeleteModuleModal) {
+    btnCloseDeleteModuleModal.addEventListener("click", () => closeDeleteModuleModal(app));
+  }
+
+  const btnCancelDeleteModule = $("btnCancelDeleteModule");
+  if (btnCancelDeleteModule) {
+    btnCancelDeleteModule.addEventListener("click", () => closeDeleteModuleModal(app));
+  }
+
+  const btnConfirmDeleteModule = $("btnConfirmDeleteModule");
+  if (btnConfirmDeleteModule) {
+    btnConfirmDeleteModule.addEventListener("click", async () => {
+      const pendingId = String(app.pendingDeleteModuleId ?? "").trim();
+      if (!pendingId) {
+        closeDeleteModuleModal(app);
+        return;
+      }
+      const module = getModulesForView(app).find((item) => String(item?.id ?? "").trim() === pendingId);
+      if (!module) {
+        closeDeleteModuleModal(app);
+        return;
+      }
+      try {
+        await deleteModule(app, module);
+        closeDeleteModuleModal(app);
+      } catch (e) {
+        closeDeleteModuleModal(app);
+        showAppToast(
+          e instanceof Error ? e.message : String(e),
+          "error",
+          { title: "Erro ao excluir módulo", eyebrow: "Biblioteca clínica", durationMs: 4200 }
+        );
+      }
+    });
+  }
+
   const viewerModuleSearch = $("viewerModuleSearch");
   if (viewerModuleSearch) {
     viewerModuleSearch.addEventListener("input", (e) => {
@@ -5327,6 +5495,21 @@ async function mount() {
       app.viewerModuleSearch = String(e.currentTarget?.value ?? "");
       if (app.view === "modulos" && isFisioPacienteRole(app.currentProfile?.role)) {
         renderModulesList(app);
+      }
+    });
+  }
+
+  const btnSaveBuilderSidebar = $("btnSaveBuilderSidebar");
+  if (btnSaveBuilderSidebar) {
+    btnSaveBuilderSidebar.addEventListener("click", async () => {
+      try {
+        await saveEditorModule(app);
+      } catch (e) {
+        showAppToast(
+          e instanceof Error ? e.message : String(e),
+          "error",
+          { title: "Erro ao salvar modulo", eyebrow: "Editor de modulos", durationMs: 4200 }
+        );
       }
     });
   }
@@ -5612,53 +5795,7 @@ async function mount() {
   if (btnSaveEditor) {
     btnSaveEditor.addEventListener("click", async () => {
       try {
-        app.builderDraft = ensureBuilderDraftConsistency(app.builderDraft);
-        const issues = getBuilderValidationIssues(app.builderDraft);
-        renderBuilderValidation(app);
-        if (issues.length > 0) {
-          showAppToast(
-            "Revise os pontos destacados no editor antes de salvar novamente.",
-            "warning",
-            { title: "Ajuste o modulo" }
-          );
-          return;
-        }
-        syncVisualDraftFromDom(app);
-        const flow = buildFlowFromBuilderDraft(app.builderDraft);
-        const flowsById = { ...(app.protocol?.flowsById ?? {}) };
-        const moduleBlueprints = { ...(app.protocol?.moduleBlueprints ?? {}) };
-        if (app.editorOriginalFlowId && app.editorOriginalFlowId !== flow.id) {
-          delete flowsById[app.editorOriginalFlowId];
-          delete moduleBlueprints[app.editorOriginalFlowId];
-        }
-        flowsById[flow.id] = flow;
-        moduleBlueprints[flow.id] = normalizeModuleBlueprint(app.visualDraft);
-        const defaultFlowId = app.protocol?.defaultFlowId && flowsById[app.protocol.defaultFlowId]
-          ? app.protocol.defaultFlowId
-          : flow.id;
-        app.protocol = normalizeProtocol({
-          flowsById,
-          defaultFlowId,
-          moduleBlueprints
-        });
-        if (app.authSession) {
-          await upsertSupabaseModule(app, flow, app.visualDraft);
-          if (app.editorOriginalFlowId && app.editorOriginalFlowId !== flow.id) {
-            await deleteSupabaseModuleBySlug(app, app.editorOriginalFlowId);
-          }
-          await refreshSupabaseModules(app);
-        }
-        app.selectedFlowId = flow.id;
-        app.currentModuleId = app.currentModuleId ?? flow.id;
-        app.session = initSession(flow.id, flow.startNodeId);
-        app.editorOriginalFlowId = flow.id;
-        saveProtocolToStorage(app.protocol);
-        showAppToast("Modulo salvo com sucesso!", "success", {
-          title: normalizeDashboardModuleName(flow.name || "Modulo"),
-          eyebrow: "Editor de modulos"
-        });
-        app.view = "modulos";
-        renderState(app);
+        await saveEditorModule(app);
       } catch (e) {
         showAppToast(
           e instanceof Error ? e.message : String(e),
@@ -6243,6 +6380,17 @@ async function mount() {
         app.view = "editor";
         renderState(app);
       }
+
+      if (action === "delete") {
+        if (!canEditModules(app.currentProfile?.role)) return;
+        openDeleteModuleModal(app, module);
+      }
+      return;
+    }
+
+    const closeDeleteModuleEl = e.target?.closest?.("[data-action='close-delete-module-modal']");
+    if (closeDeleteModuleEl) {
+      closeDeleteModuleModal(app);
       return;
     }
 
