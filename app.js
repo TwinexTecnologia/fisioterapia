@@ -629,7 +629,6 @@ function getMissingManagedProfileColumnsMessage(error) {
 function getUserDisplayName(profile, user) {
   return String(
     profile?.full_name
-    ?? user?.user_metadata?.full_name
     ?? user?.email?.split("@")[0]
     ?? "Usuario"
   ).trim();
@@ -638,7 +637,6 @@ function getUserDisplayName(profile, user) {
 function getUserAvatarUrl(profile, user) {
   return String(
     profile?.avatar_url
-    ?? user?.user_metadata?.avatar_url
     ?? ""
   ).trim();
 }
@@ -669,13 +667,12 @@ function setAvatarElement(el, name, avatarUrl) {
 }
 
 function getViewerProfileMetadata(user) {
-  const metadata = user?.user_metadata ?? {};
   return {
-    fullName: String(metadata.full_name ?? "").trim(),
-    phone: String(metadata.phone ?? "").trim(),
-    clinic: String(metadata.clinic_name ?? "").trim(),
-    bio: String(metadata.bio ?? "").trim(),
-    avatarUrl: String(metadata.avatar_url ?? "").trim()
+    fullName: "",
+    phone: "",
+    clinic: "",
+    bio: "",
+    avatarUrl: ""
   };
 }
 
@@ -997,6 +994,9 @@ function setLoginError(message = "") {
 function getReadableAuthError(error) {
   const rawMessage = String(error?.message ?? error ?? "").trim();
   if (!rawMessage) return "Nao foi possivel entrar.";
+  if (/acesso esta inativo|acesso está inativo/i.test(rawMessage)) {
+    return "Seu acesso esta inativo no momento. Fale com o administrador responsavel.";
+  }
   if (/invalid login credentials/i.test(rawMessage)) {
     return "Credenciais invalidas. Confira o e-mail e a senha cadastrados.";
   }
@@ -1086,6 +1086,19 @@ async function loadAuthContext() {
 
   if (profileError) throw profileError;
   return { session, user: session.user, profile };
+}
+
+async function ensureActiveAuthContext(authContext) {
+  if (!authContext?.session || !authContext?.profile) return authContext;
+  if (isManagedProfileActive(authContext.profile)) return authContext;
+
+  try {
+    await supabase.auth.signOut();
+  } catch (error) {
+    console.error("Erro ao encerrar sessao de perfil inativo", error);
+  }
+
+  throw new Error("Seu acesso esta inativo. Fale com o administrador responsavel.");
 }
 
 async function hydrateAuthenticatedApp(app) {
@@ -3848,29 +3861,6 @@ async function saveViewerOwnProfile(app) {
     }
     throw profileError;
   }
-
-  const metadata = {
-    ...(app.currentUser?.user_metadata ?? {}),
-    full_name: name,
-    phone,
-    clinic_name: clinic,
-    bio
-  };
-
-  const { data: authUpdate, error: authError } = await supabase.auth.updateUser({
-    data: metadata
-  });
-  if (authError) throw authError;
-
-  if (authUpdate?.user) {
-    app.currentUser = {
-      ...authUpdate.user,
-      user_metadata: {
-        ...(authUpdate.user.user_metadata ?? {}),
-        avatar_url: avatarUrl
-      }
-    };
-  }
   app.currentProfile = {
     ...(app.currentProfile ?? {}),
     full_name: name,
@@ -3902,13 +3892,6 @@ async function saveViewerAvatarOnly(app, avatarUrl) {
   app.currentProfile = {
     ...(app.currentProfile ?? {}),
     avatar_url: safeAvatarUrl
-  };
-  app.currentUser = {
-    ...(app.currentUser ?? {}),
-    user_metadata: {
-      ...(app.currentUser?.user_metadata ?? {}),
-      avatar_url: safeAvatarUrl
-    }
   };
   app.ownProfileDetailsLoadedFor = String(app.currentUser?.id ?? "").trim();
 }
@@ -5482,7 +5465,7 @@ async function mount() {
   updateFlowSelect(app);
   updateJsonStatus(app);
   try {
-    const authContext = await loadAuthContext();
+    const authContext = await ensureActiveAuthContext(await loadAuthContext());
     app.authSession = authContext.session;
     app.currentUser = authContext.user;
     app.currentProfile = authContext.profile;
@@ -5493,7 +5476,7 @@ async function mount() {
   } catch (authError) {
     console.error("Erro ao carregar sessão do Supabase", authError);
     app.view = "login";
-    setLoginError("Nao foi possivel validar a sessao com o Supabase.");
+    setLoginError(getReadableAuthError(authError));
   }
   renderState(app);
 
@@ -5515,7 +5498,7 @@ async function mount() {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
 
-        const authContext = await loadAuthContext();
+        const authContext = await ensureActiveAuthContext(await loadAuthContext());
         app.authSession = authContext.session;
         app.currentUser = authContext.user;
         app.currentProfile = authContext.profile;
