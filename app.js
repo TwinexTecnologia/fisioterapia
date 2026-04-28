@@ -508,6 +508,25 @@ async function loadAuthContext() {
   return { session, user: session.user, profile };
 }
 
+async function hydrateAuthenticatedApp(app) {
+  if (!app?.authSession) return;
+
+  try {
+    await refreshSupabaseModules(app, { seedStarterForAdmin: true });
+  } catch (error) {
+    console.error("Erro ao carregar modulos apos autenticar", error);
+    app.supabaseModules = [];
+    app.hasLoadedSupabaseModules = false;
+  }
+
+  try {
+    await loadManagedProfiles(app);
+  } catch (error) {
+    console.error("Erro ao carregar perfis gerenciados apos autenticar", error);
+    app.managedProfiles = [];
+  }
+}
+
 function buildModuleDescription(flowId) {
   if (flowId === "roteiro_thompsom") {
     return "Roteiro clinico Thompson pronto para uso na plataforma.";
@@ -4312,8 +4331,7 @@ async function mount() {
     app.currentUser = authContext.user;
     app.currentProfile = authContext.profile;
     if (authContext.session) {
-      await refreshSupabaseModules(app, { seedStarterForAdmin: true });
-      await loadManagedProfiles(app);
+      await hydrateAuthenticatedApp(app);
     }
     app.view = authContext.session ? getDefaultViewForRole(authContext.profile?.role) : "login";
   } catch (authError) {
@@ -4345,8 +4363,7 @@ async function mount() {
         app.authSession = authContext.session;
         app.currentUser = authContext.user;
         app.currentProfile = authContext.profile;
-        await refreshSupabaseModules(app, { seedStarterForAdmin: true });
-        await loadManagedProfiles(app);
+        await hydrateAuthenticatedApp(app);
         app.view = getDefaultViewForRole(authContext.profile?.role);
         renderState(app);
       } catch (loginError) {
