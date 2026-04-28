@@ -2363,6 +2363,13 @@ body {
   font-weight: 900;
   box-shadow: 0 14px 26px rgba(37, 99, 235, 0.24);
   flex-shrink: 0;
+  overflow: hidden;
+}
+
+.admin-person__avatar--image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .admin-person__content {
@@ -2379,6 +2386,13 @@ body {
   font-size: 15px;
   font-weight: 700;
   color: #0f172a;
+}
+
+.admin-table__actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 #screenAdminFisiosForm .h2 {

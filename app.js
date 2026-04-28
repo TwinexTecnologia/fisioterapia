@@ -4111,16 +4111,31 @@ async function loadManagedProfiles(app) {
     return [];
   }
 
+  const extendedSelect = "id, full_name, role, parent_admin_id, login_email, crefito, is_active, allowed_modules, avatar_url, cep, street, address_number, address_complement, neighborhood, city, state, created_at";
+  const fallbackSelect = "id, full_name, role, parent_admin_id, login_email, crefito, is_active, allowed_modules, cep, street, address_number, address_complement, neighborhood, city, state, created_at";
+
   let query = supabase
     .from("profiles")
-    .select("id, full_name, role, parent_admin_id, login_email, crefito, is_active, allowed_modules, cep, street, address_number, address_complement, neighborhood, city, state, created_at")
+    .select(extendedSelect)
     .eq("role", childRole);
 
   if (isFisioAdminRole(app.currentProfile?.role)) {
     query = query.eq("parent_admin_id", app.currentUser.id);
   }
 
-  const { data, error } = await query.order("created_at", { ascending: false });
+  let { data, error } = await query.order("created_at", { ascending: false });
+  if (error && getMissingManagedProfileColumnsMessage(error)) {
+    let fallbackQuery = supabase
+      .from("profiles")
+      .select(fallbackSelect)
+      .eq("role", childRole);
+    if (isFisioAdminRole(app.currentProfile?.role)) {
+      fallbackQuery = fallbackQuery.eq("parent_admin_id", app.currentUser.id);
+    }
+    const fallbackResult = await fallbackQuery.order("created_at", { ascending: false });
+    data = fallbackResult.data;
+    error = fallbackResult.error;
+  }
   if (error) {
     const missingColumnsMessage = getMissingManagedProfileColumnsMessage(error);
     if (missingColumnsMessage) throw new Error(missingColumnsMessage);
@@ -4364,11 +4379,17 @@ function renderManagedProfiles(app) {
     const displayName = String(profile.full_name ?? "Sem nome");
     const email = getManagedProfileEmail(profile);
     const profileInitial = getUserInitial(displayName);
+    const avatarUrl = String(profile.avatar_url ?? "").trim();
+    const avatarMarkup = avatarUrl
+      ? `<img src="${escapeHtml(avatarUrl)}" alt="${escapeHtml(displayName)}" />`
+      : profileInitial;
+    const accessActionLabel = isActive ? "Inativar" : "Reativar";
+    const accessActionClass = isActive ? "btn btn--danger btn--sm" : "btn btn--ghost btn--sm";
     const row = document.createElement("tr");
     row.innerHTML = `
       <td>
         <div class="admin-person">
-          <div class="admin-person__avatar">${profileInitial}</div>
+          <div class="admin-person__avatar ${avatarUrl ? "admin-person__avatar--image" : ""}">${avatarMarkup}</div>
           <div class="admin-person__content">
             <strong>${displayName}</strong>
             <small class="muted">${crefito ? `CREFITO: ${crefito}` : "Sem CREFITO informado"}</small>
@@ -4383,7 +4404,12 @@ function renderManagedProfiles(app) {
       </td>
       <td>${moduleHtml}</td>
       <td><span class="status-badge ${isActive ? "status-active" : "status-inactive"}">${isActive ? "Ativo" : "Inativo"}</span></td>
-      <td><button class="btn btn--ghost btn--sm" type="button" data-managed-profile-action="edit" data-profile-id="${escapeHtml(profile.id)}">Editar</button></td>
+      <td>
+        <div class="admin-table__actions">
+          <button class="btn btn--ghost btn--sm" type="button" data-managed-profile-action="edit" data-profile-id="${escapeHtml(profile.id)}">Editar</button>
+          <button class="${accessActionClass}" type="button" data-managed-profile-action="toggle-access" data-next-active="${isActive ? "false" : "true"}" data-profile-id="${escapeHtml(profile.id)}">${accessActionLabel}</button>
+        </div>
+      </td>
     `;
     tableBody.appendChild(row);
   }
@@ -4561,6 +4587,59 @@ async function updateManagedProfileFromForm(app) {
     id: profilePayload.id,
     email: profilePayload.login_email
   };
+}
+
+async function updateManagedProfileAccess(app, profile, nextActive) {
+  if (!profile?.id) {
+    throw new Error("Selecione um cadastro valido para alterar o acesso.");
+  }
+
+  const profilePayload = {
+    id: String(profile.id ?? "").trim(),
+    full_name: String(profile.full_name ?? "").trim(),
+    role: String(profile.role ?? getManagedChildRole(app.currentProfile?.role) ?? "").trim(),
+    parent_admin_id: profile.parent_admin_id ?? (isFisioAdminRole(app.currentProfile?.role) ? app.currentUser.id : null),
+    login_email: getManagedProfileEmail(profile),
+    crefito: String(profile.crefito ?? "").trim().toUpperCase(),
+    is_active: Boolean(nextActive),
+    allowed_modules: getManagedProfileModules(profile),
+    cep: String(profile.cep ?? "").trim(),
+    street: String(profile.street ?? "").trim(),
+    address_number: String(profile.address_number ?? "").trim(),
+    address_complement: String(profile.address_complement ?? "").trim(),
+    neighborhood: String(profile.neighborhood ?? "").trim(),
+    city: String(profile.city ?? "").trim(),
+    state: String(profile.state ?? "").trim().toUpperCase()
+  };
+
+  const { error } = await supabase.rpc("save_managed_profile", {
+    p_profile_id: profilePayload.id,
+    p_full_name: profilePayload.full_name,
+    p_role: profilePayload.role,
+    p_parent_admin_id: profilePayload.parent_admin_id,
+    p_login_email: profilePayload.login_email,
+    p_crefito: profilePayload.crefito,
+    p_is_active: profilePayload.is_active,
+    p_allowed_modules: profilePayload.allowed_modules,
+    p_cep: profilePayload.cep,
+    p_street: profilePayload.street,
+    p_address_number: profilePayload.address_number,
+    p_address_complement: profilePayload.address_complement,
+    p_neighborhood: profilePayload.neighborhood,
+    p_city: profilePayload.city,
+    p_state: profilePayload.state
+  });
+  if (error) {
+    const missingColumnsMessage = getMissingManagedProfileColumnsMessage(error);
+    if (missingColumnsMessage) throw new Error(missingColumnsMessage);
+    throw error;
+  }
+
+  app.managedProfiles = Array.isArray(app.managedProfiles)
+    ? app.managedProfiles.map((item) => String(item?.id ?? "").trim() === profilePayload.id
+      ? { ...item, is_active: profilePayload.is_active }
+      : item)
+    : [];
 }
 
 function renderState(app) {
@@ -5803,13 +5882,15 @@ async function mount() {
 
   const managedProfilesTableBody = $("adminFisiosTableBody");
   if (managedProfilesTableBody) {
-    managedProfilesTableBody.addEventListener("click", (event) => {
+    managedProfilesTableBody.addEventListener("click", async (event) => {
       const target = event.target;
       if (!(target instanceof Element)) return;
       const editButton = target.closest('[data-managed-profile-action="edit"]');
-      if (!editButton) return;
+      const toggleAccessButton = target.closest('[data-managed-profile-action="toggle-access"]');
+      const actionButton = editButton ?? toggleAccessButton;
+      if (!actionButton) return;
 
-      const profileId = String(editButton.getAttribute("data-profile-id") ?? "").trim();
+      const profileId = String(actionButton.getAttribute("data-profile-id") ?? "").trim();
       const profile = Array.isArray(app.managedProfiles)
         ? app.managedProfiles.find((item) => String(item?.id ?? "").trim() === profileId)
         : null;
@@ -5818,9 +5899,46 @@ async function mount() {
         return;
       }
 
-      fillManagedProfileFormForEdit(app, profile);
-      app.view = "fisios_form";
-      renderState(app);
+      if (editButton) {
+        fillManagedProfileFormForEdit(app, profile);
+        app.view = "fisios_form";
+        renderState(app);
+        return;
+      }
+
+      const nextActive = String(toggleAccessButton?.getAttribute("data-next-active") ?? "").trim() === "true";
+      try {
+        if (toggleAccessButton instanceof HTMLButtonElement) toggleAccessButton.disabled = true;
+        await updateManagedProfileAccess(app, profile, nextActive);
+        await loadManagedProfiles(app);
+        if (app.view === "dashboard") {
+          renderDashboard(app);
+        } else {
+          renderManagedProfiles(app);
+        }
+        showAppToast(
+          nextActive
+            ? "O acesso do fisioterapeuta foi reativado com sucesso."
+            : "O acesso do fisioterapeuta foi inativado com sucesso.",
+          "success",
+          {
+            title: nextActive ? "Acesso reativado" : "Acesso inativado",
+            eyebrow: "Gestao clinica"
+          }
+        );
+      } catch (error) {
+        showAppToast(
+          getReadableRuntimeError(error, "Nao foi possivel atualizar o acesso."),
+          "error",
+          {
+            title: "Erro ao alterar acesso",
+            eyebrow: "Gestao clinica",
+            durationMs: 4200
+          }
+        );
+      } finally {
+        if (toggleAccessButton instanceof HTMLButtonElement) toggleAccessButton.disabled = false;
+      }
     });
   }
 
