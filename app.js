@@ -493,8 +493,7 @@ function fillManagedProfileFormForEdit(app, profile) {
   if ($("ufInput")) $("ufInput").value = String(profile.state ?? "");
 
   const modules = getManagedProfileModules(profile);
-  if ($("fisioModuleThompson")) $("fisioModuleThompson").checked = modules.includes("Roteiro de Thompson");
-  if ($("fisioModuleAdvanced")) $("fisioModuleAdvanced").checked = modules.includes("Modulo Avancado");
+  renderManagedModuleOptions(app, modules);
 
   resetManagedProfileCrefitoState(app, { clearStatus: true });
   applyManagedProfileFormMode(app);
@@ -539,6 +538,77 @@ function getManagedProfileModules(profile) {
   const directModules = Array.isArray(profile?.allowed_modules) ? profile.allowed_modules : null;
   if (directModules && directModules.length > 0) return directModules;
   return [];
+}
+
+function getAvailableManagedModuleOptions(app) {
+  const supabaseModules = getSupabaseBackedModules(app)
+    .filter((module) => String(module?.status ?? "").trim().toLowerCase() === "published");
+  const sourceModules = supabaseModules.length > 0 ? supabaseModules : getProtocolModules(app?.protocol);
+  const options = [];
+  const seen = new Set();
+
+  for (const module of sourceModules) {
+    const name = normalizeDashboardModuleName(module?.name ?? module?.slug ?? module?.flowId ?? module?.startFlowId ?? "");
+    if (!name) continue;
+    const key = slugifyText(name) || name.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    options.push({
+      key,
+      value: name,
+      label: name
+    });
+  }
+
+  return options;
+}
+
+function getDefaultManagedModuleSelection(app) {
+  const options = getAvailableManagedModuleOptions(app);
+  const starter = options.find((option) => normalizeDashboardModuleName(option.value) === "Roteiro de Thompson");
+  return starter ? [starter.value] : [];
+}
+
+function renderManagedModuleOptions(app, selectedModules = null) {
+  const container = $("managedModulesOptions");
+  if (!container) return;
+
+  const options = getAvailableManagedModuleOptions(app);
+  const selectedLookup = new Set(
+    (Array.isArray(selectedModules) ? selectedModules : getDefaultManagedModuleSelection(app))
+      .map((entry) => normalizeDashboardModuleName(entry))
+      .filter(Boolean)
+  );
+
+  if (options.length === 0) {
+    container.innerHTML = `<div class="muted">Nenhum modulo real disponivel para liberar no momento.</div>`;
+    return;
+  }
+
+  container.innerHTML = options.map((option) => {
+    const checked = selectedLookup.has(normalizeDashboardModuleName(option.value)) ? "checked" : "";
+    return `
+      <label class="checkbox-label">
+        <input type="checkbox" data-managed-module-option value="${escapeHtml(option.value)}" ${checked}>
+        ${escapeHtml(option.label)}
+      </label>
+    `;
+  }).join("");
+}
+
+function getSelectedManagedModuleValues() {
+  const selected = [];
+  const seen = new Set();
+  document
+    .querySelectorAll('[data-managed-module-option]:checked')
+    .forEach((input) => {
+      const value = normalizeDashboardModuleName(input?.value ?? "");
+      const key = slugifyText(value) || value.toLowerCase();
+      if (!value || seen.has(key)) return;
+      seen.add(key);
+      selected.push(value);
+    });
+  return selected;
 }
 
 function getMissingManagedProfileColumnsMessage(error) {
@@ -4023,9 +4093,7 @@ async function createManagedProfileFromForm(app) {
   const city = String($("cidadeInput")?.value ?? "").trim();
   const state = String($("ufInput")?.value ?? "").trim().toUpperCase();
   const childRole = getManagedChildRole(app.currentProfile?.role);
-  const selectedModules = [];
-  if ($("fisioModuleThompson")?.checked) selectedModules.push("Roteiro de Thompson");
-  if ($("fisioModuleAdvanced")?.checked) selectedModules.push("Modulo Avancado");
+  const selectedModules = getSelectedManagedModuleValues();
 
   if (!name) throw new Error("Preencha o nome completo.");
   if (!email) throw new Error("Preencha o e-mail de acesso.");
@@ -4131,9 +4199,7 @@ async function updateManagedProfileFromForm(app) {
   const neighborhood = String($("bairroInput")?.value ?? "").trim();
   const city = String($("cidadeInput")?.value ?? "").trim();
   const state = String($("ufInput")?.value ?? "").trim().toUpperCase();
-  const selectedModules = [];
-  if ($("fisioModuleThompson")?.checked) selectedModules.push("Roteiro de Thompson");
-  if ($("fisioModuleAdvanced")?.checked) selectedModules.push("Modulo Avancado");
+  const selectedModules = getSelectedManagedModuleValues();
 
   if (!name) throw new Error("Preencha o nome completo.");
 
@@ -4257,6 +4323,12 @@ function renderState(app) {
   if (view === "fisios_form") {
     setVisualEditorFullscreen(false);
     if (screenAdminFisiosForm) screenAdminFisiosForm.classList.remove("hidden");
+    renderManagedModuleOptions(
+      app,
+      getEditingManagedProfile(app)
+        ? getManagedProfileModules(getEditingManagedProfile(app))
+        : null
+    );
     renderManagedProfiles(app);
     const nav = $("navFisios");
     if (nav) nav.classList.add("active");
