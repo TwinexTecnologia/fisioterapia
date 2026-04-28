@@ -375,7 +375,91 @@ function setFisioFormStatus(message = "", variant = "") {
 function resetFisioForm(app = null) {
   const form = $("formFisio");
   if (form) form.reset();
+  if (app) {
+    app.editingManagedProfileId = null;
+  }
+  const emailInput = $("emailFisioInput");
+  const passwordInput = $("senhaFisioInput");
+  const submitButton = $("btnSubmitFisioForm");
+  if (emailInput) {
+    emailInput.disabled = false;
+    emailInput.readOnly = false;
+  }
+  if (passwordInput) {
+    passwordInput.disabled = false;
+    passwordInput.required = true;
+    passwordInput.placeholder = "Crie uma senha inicial";
+    passwordInput.value = "";
+  }
+  if (submitButton) submitButton.textContent = "Salvar Cadastro";
   resetManagedProfileCrefitoState(app, { clearStatus: true });
+  setFisioFormStatus("");
+}
+
+function getEditingManagedProfile(app) {
+  const editingId = String(app?.editingManagedProfileId ?? "").trim();
+  if (!editingId) return null;
+  const profiles = Array.isArray(app?.managedProfiles) ? app.managedProfiles : [];
+  return profiles.find((profile) => String(profile?.id ?? "").trim() === editingId) ?? null;
+}
+
+function applyManagedProfileFormMode(app) {
+  const editingProfile = getEditingManagedProfile(app);
+  const context = getManagedProfileContext(app?.currentProfile?.role);
+  const formTitle = $("fisioFormTitle");
+  const formSubtitle = $("fisioFormSubtitle");
+  const submitButton = $("btnSubmitFisioForm");
+  const emailInput = $("emailFisioInput");
+  const passwordInput = $("senhaFisioInput");
+
+  if (formTitle) {
+    formTitle.textContent = editingProfile
+      ? `Editar ${context.childLabel}`
+      : context.formTitle;
+  }
+  if (formSubtitle) {
+    formSubtitle.textContent = editingProfile
+      ? "Atualize os dados do acesso selecionado."
+      : context.formSubtitle;
+  }
+  if (submitButton) {
+    submitButton.textContent = editingProfile ? "Salvar Alteracoes" : "Salvar Cadastro";
+  }
+  if (emailInput) {
+    emailInput.disabled = Boolean(editingProfile);
+    emailInput.readOnly = Boolean(editingProfile);
+  }
+  if (passwordInput) {
+    passwordInput.disabled = Boolean(editingProfile);
+    passwordInput.required = !editingProfile;
+    passwordInput.placeholder = editingProfile
+      ? "Senha mantida na edicao"
+      : "Crie uma senha inicial";
+    if (editingProfile) passwordInput.value = "";
+  }
+}
+
+function fillManagedProfileFormForEdit(app, profile) {
+  if (!profile) return;
+  app.editingManagedProfileId = String(profile.id ?? "").trim();
+  if ($("nomeFisioInput")) $("nomeFisioInput").value = String(profile.full_name ?? "");
+  if ($("emailFisioInput")) $("emailFisioInput").value = getManagedProfileEmail(profile);
+  if ($("senhaFisioInput")) $("senhaFisioInput").value = "";
+  if ($("crefitoInput")) $("crefitoInput").value = String(profile.crefito ?? "");
+  if ($("cepInput")) $("cepInput").value = String(profile.cep ?? "");
+  if ($("ruaInput")) $("ruaInput").value = String(profile.street ?? "");
+  if ($("numeroInput")) $("numeroInput").value = String(profile.address_number ?? "");
+  if ($("complementoInput")) $("complementoInput").value = String(profile.address_complement ?? "");
+  if ($("bairroInput")) $("bairroInput").value = String(profile.neighborhood ?? "");
+  if ($("cidadeInput")) $("cidadeInput").value = String(profile.city ?? "");
+  if ($("ufInput")) $("ufInput").value = String(profile.state ?? "");
+
+  const modules = getManagedProfileModules(profile);
+  if ($("fisioModuleThompson")) $("fisioModuleThompson").checked = modules.includes("Roteiro de Thompson");
+  if ($("fisioModuleAdvanced")) $("fisioModuleAdvanced").checked = modules.includes("Modulo Avancado");
+
+  resetManagedProfileCrefitoState(app, { clearStatus: true });
+  applyManagedProfileFormMode(app);
   setFisioFormStatus("");
 }
 
@@ -3792,6 +3876,7 @@ function renderManagedProfiles(app) {
   if (formTitle) formTitle.textContent = context.formTitle;
   if (formSubtitle) formSubtitle.textContent = context.formSubtitle;
   if (newButton) newButton.textContent = context.buttonLabel;
+  applyManagedProfileFormMode(app);
 
   const profiles = Array.isArray(app.managedProfiles) ? app.managedProfiles : [];
   const activeProfiles = profiles.filter((profile) => isManagedProfileActive(profile));
@@ -3841,7 +3926,7 @@ function renderManagedProfiles(app) {
       </td>
       <td>${moduleHtml}</td>
       <td><span class="status-badge ${isActive ? "status-active" : "status-inactive"}">${isActive ? "Ativo" : "Inativo"}</span></td>
-      <td><button class="btn btn--ghost btn--sm" type="button" disabled>Editar</button></td>
+      <td><button class="btn btn--ghost btn--sm" type="button" data-managed-profile-action="edit" data-profile-id="${escapeHtml(profile.id)}">Editar</button></td>
     `;
     tableBody.appendChild(row);
   }
@@ -3954,6 +4039,74 @@ async function createManagedProfileFromForm(app) {
     id: managedUserId,
     email,
     modules: selectedModules
+  };
+}
+
+async function updateManagedProfileFromForm(app) {
+  const editingProfile = getEditingManagedProfile(app);
+  if (!editingProfile) {
+    throw new Error("Selecione um cadastro valido para editar.");
+  }
+
+  const name = String($("nomeFisioInput")?.value ?? "").trim();
+  const crefito = String($("crefitoInput")?.value ?? "").trim().toUpperCase();
+  const cep = String($("cepInput")?.value ?? "").trim();
+  const street = String($("ruaInput")?.value ?? "").trim();
+  const addressNumber = String($("numeroInput")?.value ?? "").trim();
+  const addressComplement = String($("complementoInput")?.value ?? "").trim();
+  const neighborhood = String($("bairroInput")?.value ?? "").trim();
+  const city = String($("cidadeInput")?.value ?? "").trim();
+  const state = String($("ufInput")?.value ?? "").trim().toUpperCase();
+  const selectedModules = [];
+  if ($("fisioModuleThompson")?.checked) selectedModules.push("Roteiro de Thompson");
+  if ($("fisioModuleAdvanced")?.checked) selectedModules.push("Modulo Avancado");
+
+  if (!name) throw new Error("Preencha o nome completo.");
+
+  const profilePayload = {
+    id: String(editingProfile.id ?? "").trim(),
+    full_name: name,
+    role: String(editingProfile.role ?? getManagedChildRole(app.currentProfile?.role) ?? "").trim(),
+    parent_admin_id: editingProfile.parent_admin_id ?? (isFisioAdminRole(app.currentProfile?.role) ? app.currentUser.id : null),
+    login_email: getManagedProfileEmail(editingProfile),
+    crefito,
+    is_active: isManagedProfileActive(editingProfile),
+    allowed_modules: selectedModules,
+    cep,
+    street,
+    address_number: addressNumber,
+    address_complement: addressComplement,
+    neighborhood,
+    city,
+    state
+  };
+
+  const { error } = await supabase.rpc("save_managed_profile", {
+    p_profile_id: profilePayload.id,
+    p_full_name: profilePayload.full_name,
+    p_role: profilePayload.role,
+    p_parent_admin_id: profilePayload.parent_admin_id,
+    p_login_email: profilePayload.login_email,
+    p_crefito: profilePayload.crefito,
+    p_is_active: profilePayload.is_active,
+    p_allowed_modules: profilePayload.allowed_modules,
+    p_cep: profilePayload.cep,
+    p_street: profilePayload.street,
+    p_address_number: profilePayload.address_number,
+    p_address_complement: profilePayload.address_complement,
+    p_neighborhood: profilePayload.neighborhood,
+    p_city: profilePayload.city,
+    p_state: profilePayload.state
+  });
+  if (error) {
+    const missingColumnsMessage = getMissingManagedProfileColumnsMessage(error);
+    if (missingColumnsMessage) throw new Error(missingColumnsMessage);
+    throw error;
+  }
+
+  return {
+    id: profilePayload.id,
+    email: profilePayload.login_email
   };
 }
 
@@ -5070,6 +5223,7 @@ async function mount() {
   if (btnNewFisio) {
     btnNewFisio.addEventListener("click", () => {
       resetFisioForm(app);
+      applyManagedProfileFormMode(app);
       app.view = "fisios_form";
       renderState(app);
     });
@@ -5090,22 +5244,59 @@ async function mount() {
     formFisio.addEventListener("submit", async (e) => {
       e.preventDefault();
       const submitButton = $("btnSubmitFisioForm");
+      const editingProfile = getEditingManagedProfile(app);
       try {
         setFisioFormStatus("");
         if (submitButton) submitButton.disabled = true;
         await ensureManagedProfileCrefitoBeforeSave(app);
-        const createdProfile = await createManagedProfileFromForm(app);
+        const savedProfile = editingProfile
+          ? await updateManagedProfileFromForm(app)
+          : await createManagedProfileFromForm(app);
         await loadManagedProfiles(app);
-        setFisioFormStatus(`Cadastro criado com sucesso para ${createdProfile.email}.`, "success");
+        setFisioFormStatus(
+          editingProfile
+            ? `Cadastro atualizado com sucesso para ${savedProfile.email}.`
+            : `Cadastro criado com sucesso para ${savedProfile.email}.`,
+          "success"
+        );
         resetFisioForm(app);
         app.view = "fisios";
         renderState(app);
       } catch (error) {
-        console.error("Erro ao cadastrar perfil pelo app", error);
-        setFisioFormStatus(getReadableRuntimeError(error, "Nao foi possivel cadastrar o perfil."), "error");
+        console.error("Erro ao salvar perfil pelo app", error);
+        setFisioFormStatus(
+          getReadableRuntimeError(
+            error,
+            editingProfile ? "Nao foi possivel atualizar o perfil." : "Nao foi possivel cadastrar o perfil."
+          ),
+          "error"
+        );
       } finally {
         if (submitButton) submitButton.disabled = false;
       }
+    });
+  }
+
+  const managedProfilesTableBody = $("adminFisiosTableBody");
+  if (managedProfilesTableBody) {
+    managedProfilesTableBody.addEventListener("click", (event) => {
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+      const editButton = target.closest('[data-managed-profile-action="edit"]');
+      if (!editButton) return;
+
+      const profileId = String(editButton.getAttribute("data-profile-id") ?? "").trim();
+      const profile = Array.isArray(app.managedProfiles)
+        ? app.managedProfiles.find((item) => String(item?.id ?? "").trim() === profileId)
+        : null;
+      if (!profile) {
+        alert("Nao foi possivel localizar o cadastro para edicao.");
+        return;
+      }
+
+      fillManagedProfileFormForEdit(app, profile);
+      app.view = "fisios_form";
+      renderState(app);
     });
   }
 
