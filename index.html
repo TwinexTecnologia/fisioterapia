@@ -393,32 +393,6 @@
             </div>
           </div>
 
-          <div id="deleteModuleModal" class="builder-modal hidden" aria-hidden="true">
-            <div class="builder-modal__backdrop" data-action="close-delete-module-modal"></div>
-            <div class="builder-modal__dialog builder-modal__dialog--danger" role="dialog" aria-modal="true" aria-labelledby="deleteModuleModalTitle">
-              <div class="row row--between">
-                <div>
-                  <h3 id="deleteModuleModalTitle" class="flow-editor-panel__title">Excluir módulo?</h3>
-                  <p id="deleteModuleModalSubtitle" class="muted">Essa ação remove o módulo da plataforma e não poderá ser desfeita.</p>
-                </div>
-                <button id="btnCloseDeleteModuleModal" class="btn btn--ghost btn--sm" type="button" style="flex: 0;">Fechar</button>
-              </div>
-
-              <div class="delete-module-modal__hero">
-                <span class="delete-module-modal__icon" aria-hidden="true">🗑️</span>
-                <div class="delete-module-modal__copy">
-                  <strong id="deleteModuleModalName">Módulo selecionado</strong>
-                  <p>Tem certeza que deseja excluir este módulo? Depois disso, não será mais possível recuperar o conteúdo salvo.</p>
-                </div>
-              </div>
-
-              <div class="row" style="justify-content:flex-end; margin-top: 20px; gap: 12px;">
-                <button id="btnCancelDeleteModule" class="btn btn--ghost" type="button">Cancelar</button>
-                <button id="btnConfirmDeleteModule" class="btn btn--danger" type="button">Excluir módulo</button>
-              </div>
-            </div>
-          </div>
-
           <div class="viewer-profile-grid">
             <div class="card form-card viewer-profile-card viewer-profile-card--hero">
               <div class="viewer-profile-card__avatar-wrap">
@@ -1071,6 +1045,32 @@
           <p id="appToastMessage" class="app-toast__message">Operacao concluida.</p>
         </div>
         <button id="appToastClose" class="app-toast__close" type="button" aria-label="Fechar aviso">OK</button>
+      </div>
+
+      <div id="deleteModuleModal" class="builder-modal hidden" aria-hidden="true">
+        <div class="builder-modal__backdrop" data-action="close-delete-module-modal"></div>
+        <div class="builder-modal__dialog builder-modal__dialog--danger" role="dialog" aria-modal="true" aria-labelledby="deleteModuleModalTitle">
+          <div class="row row--between">
+            <div>
+              <h3 id="deleteModuleModalTitle" class="flow-editor-panel__title">Excluir módulo?</h3>
+              <p id="deleteModuleModalSubtitle" class="muted">Essa ação remove o módulo da plataforma e não poderá ser desfeita.</p>
+            </div>
+            <button id="btnCloseDeleteModuleModal" class="btn btn--ghost btn--sm" type="button" style="flex: 0;">Fechar</button>
+          </div>
+
+          <div class="delete-module-modal__hero">
+            <span class="delete-module-modal__icon" aria-hidden="true">🗑️</span>
+            <div class="delete-module-modal__copy">
+              <strong id="deleteModuleModalName">Módulo selecionado</strong>
+              <p>Tem certeza que deseja excluir este módulo? Depois disso, não será mais possível recuperar o conteúdo salvo.</p>
+            </div>
+          </div>
+
+          <div class="row" style="justify-content:flex-end; margin-top: 20px; gap: 12px;">
+            <button id="btnCancelDeleteModule" class="btn btn--ghost" type="button">Cancelar</button>
+            <button id="btnConfirmDeleteModule" class="btn btn--danger" type="button">Excluir módulo</button>
+          </div>
+        </div>
       </div>
 
       <footer class="footer">
