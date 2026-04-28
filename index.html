@@ -846,8 +846,8 @@
             <div id="homeTopline" class="home-topline">Usuario, usuario@email.com</div>
             <div class="home-welcome">Seja bem vindo ao</div>
             <div class="home-hero">
-              <h1 class="home-title">ROTEIRO DE<br>THOMPSOM</h1>
-              <div class="home-apple" aria-hidden="true">🍎</div>
+              <h1 id="homeTitle" class="home-title">ROTEIRO DE<br>THOMPSOM</h1>
+              <div id="homeApple" class="home-apple" aria-hidden="true">🍎</div>
             </div>
 
             <h2 class="home-subtitle">Como utilizar</h2>
@@ -1033,6 +1033,15 @@
           <span class="viewer-notification-popover__dot"></span>
           <small id="viewerNotificationFootnote">Acompanhe seus acessos por aqui.</small>
         </div>
+      </div>
+
+      <div id="appToast" class="app-toast hidden" role="status" aria-live="polite">
+        <div class="app-toast__copy">
+          <span id="appToastEyebrow" class="app-toast__eyebrow">Editor de modulos</span>
+          <strong id="appToastTitle" class="app-toast__title">Tudo certo</strong>
+          <p id="appToastMessage" class="app-toast__message">Operacao concluida.</p>
+        </div>
+        <button id="appToastClose" class="app-toast__close" type="button" aria-label="Fechar aviso">OK</button>
       </div>
 
       <footer class="footer">
