@@ -994,6 +994,9 @@ function setLoginError(message = "") {
 function getReadableAuthError(error) {
   const rawMessage = String(error?.message ?? error ?? "").trim();
   if (!rawMessage) return "Nao foi possivel entrar.";
+  if (/acesso esta inativo|acesso está inativo/i.test(rawMessage)) {
+    return "Seu acesso esta inativo no momento. Fale com o administrador responsavel.";
+  }
   if (/invalid login credentials/i.test(rawMessage)) {
     return "Credenciais invalidas. Confira o e-mail e a senha cadastrados.";
   }
@@ -1083,6 +1086,19 @@ async function loadAuthContext() {
 
   if (profileError) throw profileError;
   return { session, user: session.user, profile };
+}
+
+async function ensureActiveAuthContext(authContext) {
+  if (!authContext?.session || !authContext?.profile) return authContext;
+  if (isManagedProfileActive(authContext.profile)) return authContext;
+
+  try {
+    await supabase.auth.signOut();
+  } catch (error) {
+    console.error("Erro ao encerrar sessao de perfil inativo", error);
+  }
+
+  throw new Error("Seu acesso esta inativo. Fale com o administrador responsavel.");
 }
 
 async function hydrateAuthenticatedApp(app) {
@@ -5449,7 +5465,7 @@ async function mount() {
   updateFlowSelect(app);
   updateJsonStatus(app);
   try {
-    const authContext = await loadAuthContext();
+    const authContext = await ensureActiveAuthContext(await loadAuthContext());
     app.authSession = authContext.session;
     app.currentUser = authContext.user;
     app.currentProfile = authContext.profile;
@@ -5460,7 +5476,7 @@ async function mount() {
   } catch (authError) {
     console.error("Erro ao carregar sessão do Supabase", authError);
     app.view = "login";
-    setLoginError("Nao foi possivel validar a sessao com o Supabase.");
+    setLoginError(getReadableAuthError(authError));
   }
   renderState(app);
 
@@ -5482,7 +5498,7 @@ async function mount() {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
 
-        const authContext = await loadAuthContext();
+        const authContext = await ensureActiveAuthContext(await loadAuthContext());
         app.authSession = authContext.session;
         app.currentUser = authContext.user;
         app.currentProfile = authContext.profile;
