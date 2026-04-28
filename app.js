@@ -551,30 +551,21 @@ async function loadAuthContext() {
     return { session: null, user: null, profile: null };
   }
 
-  const extendedSelect = "id, full_name, role, parent_admin_id, login_email, crefito, is_active, allowed_modules, phone, clinic_name, bio, avatar_url";
-  const fallbackSelect = "id, full_name, role, parent_admin_id, login_email, crefito, is_active, allowed_modules";
+  // Keep login/session hydration lightweight so a large avatar or profile text
+  // stored in managed fields does not block the patient from entering the app.
+  const profileSelect = "id, full_name, role, parent_admin_id, login_email, crefito, is_active, allowed_modules";
 
   let profile = null;
   let profileError = null;
 
-  const extendedResult = await supabase
+  const profileResult = await supabase
     .from("profiles")
-    .select(extendedSelect)
+    .select(profileSelect)
     .eq("id", session.user.id)
     .single();
 
-  profile = extendedResult.data;
-  profileError = extendedResult.error;
-
-  if (profileError && getMissingManagedProfileColumnsMessage(profileError)) {
-    const fallbackResult = await supabase
-      .from("profiles")
-      .select(fallbackSelect)
-      .eq("id", session.user.id)
-      .single();
-    profile = fallbackResult.data;
-    profileError = fallbackResult.error;
-  }
+  profile = profileResult.data;
+  profileError = profileResult.error;
 
   if (profileError) throw profileError;
   return { session, user: session.user, profile };
