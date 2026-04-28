@@ -3452,7 +3452,9 @@ body {
   flex-direction: column;
   align-items: center;
   text-align: center;
-  padding: 12px 16px 20px;
+  width: min(1180px, 100%);
+  margin: 0 auto;
+  padding: 28px 32px 40px;
   overflow: hidden;
 }
 
@@ -3482,74 +3484,75 @@ body {
 .home-topline {
   align-self: stretch;
   text-align: left;
-  font-size: 11px;
+  font-size: 15px;
   font-weight: 700;
   color: #303030;
-  margin-bottom: 4px;
+  margin-bottom: 10px;
 }
 
 .home-welcome {
   align-self: flex-start;
-  font-size: 20px;
+  font-size: 32px;
   font-weight: 500;
-  margin-bottom: 6px;
+  margin-bottom: 12px;
 }
 
 .home-hero {
   width: 100%;
-  max-width: 720px;
+  max-width: 1080px;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 12px;
+  gap: 28px;
+  margin-bottom: 24px;
 }
 
 .home-title {
-  font-size: 38px;
+  font-size: clamp(56px, 7vw, 88px);
   font-weight: 900;
   text-transform: uppercase;
-  line-height: 1.2;
+  line-height: 1.06;
   margin: 0;
-  letter-spacing: 1px;
+  letter-spacing: 1.8px;
   text-align: left;
 }
 
 .home-apple {
   flex-shrink: 0;
-  font-size: 76px;
+  font-size: clamp(110px, 12vw, 160px);
   line-height: 1;
   filter: drop-shadow(0 3px 0 rgba(0, 0, 0, 0.2));
 }
 
 .home-subtitle {
-  font-size: 20px;
+  font-size: 34px;
   font-weight: 800;
-  margin: 0 0 22px 0;
+  margin: 0 0 34px 0;
 }
 
 .legend-list {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 20px;
   width: 100%;
-  max-width: 600px;
+  max-width: 980px;
   text-align: left;
-  margin-bottom: 24px;
+  margin-bottom: 34px;
 }
 
 .legend-item {
   display: flex;
   align-items: center;
-  gap: 15px;
+  gap: 22px;
 }
 
 .legend-color {
-  width: 100px;
-  padding: 8px 0;
+  width: 132px;
+  padding: 12px 0;
   text-align: center;
-  border-radius: 8px;
+  border-radius: 14px;
   font-weight: 800;
+  font-size: 20px;
   border: 2px solid var(--border);
   box-shadow: 2px 2px 0px rgba(0,0,0,0.2);
   flex-shrink: 0;
@@ -3562,41 +3565,41 @@ body {
 .legend-preto { background: var(--preto); color: var(--preto-text); }
 
 .legend-icon {
-  width: 100px;
+  width: 132px;
   text-align: center;
-  font-size: 48px;
+  font-size: 62px;
   flex-shrink: 0;
 }
 
 .legend-text {
-  font-size: 14px;
-  line-height: 1.4;
+  font-size: 22px;
+  line-height: 1.5;
 }
 
 .home-tips {
   text-align: left;
-  font-size: 14px;
+  font-size: 21px;
   color: #555;
   width: 100%;
-  max-width: 600px;
-  margin-bottom: 26px;
+  max-width: 980px;
+  margin-bottom: 36px;
 }
 
 .home-tips p {
-  margin: 8px 0;
+  margin: 12px 0;
 }
 
 .home-footer {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 28px;
+  gap: 34px;
   width: 100%;
-  margin-bottom: 12px;
+  margin-bottom: 18px;
 }
 
 .home-greetings {
-  font-size: 20px;
+  font-size: 34px;
   font-weight: 800;
   text-align: right;
   line-height: 1.2;
@@ -3606,8 +3609,8 @@ body {
   background: #39b54a; /* Verde forte do botão START */
   color: white;
   border-radius: 999px;
-  font-size: 26px;
-  padding: 8px 46px;
+  font-size: 34px;
+  padding: 18px 64px;
   border: 3px solid #1a1a1a;
   box-shadow: var(--shadow-drop);
 }
@@ -3616,10 +3619,10 @@ body {
 }
 
 .home-credits {
-  font-size: 12px;
+  font-size: 18px;
   font-weight: bold;
   color: #444;
-  margin-top: 4px;
+  margin-top: 8px;
 }
 
 /* CARDS E CORES */
@@ -4272,6 +4275,62 @@ body {
 }
 
 @media (max-width: 720px) {
+  .home-cover {
+    padding: 18px 16px 28px;
+  }
+  .home-topline {
+    font-size: 12px;
+  }
+  .home-welcome {
+    font-size: 22px;
+  }
+  .home-hero {
+    gap: 14px;
+    margin-bottom: 16px;
+  }
+  .home-title {
+    font-size: 42px;
+    letter-spacing: 1px;
+  }
+  .home-apple {
+    font-size: 82px;
+  }
+  .home-subtitle {
+    font-size: 24px;
+    margin-bottom: 20px;
+  }
+  .legend-list {
+    gap: 14px;
+    margin-bottom: 24px;
+  }
+  .legend-item {
+    gap: 12px;
+  }
+  .legend-color,
+  .legend-icon {
+    width: 88px;
+  }
+  .legend-color {
+    font-size: 14px;
+    padding: 10px 0;
+  }
+  .legend-icon {
+    font-size: 40px;
+  }
+  .legend-text,
+  .home-tips {
+    font-size: 15px;
+  }
+  .home-greetings {
+    font-size: 24px;
+  }
+  .btn--start {
+    font-size: 24px;
+    padding: 12px 34px;
+  }
+  .home-credits {
+    font-size: 13px;
+  }
   .runtime-actions {
     flex-direction: column;
     align-items: stretch;
