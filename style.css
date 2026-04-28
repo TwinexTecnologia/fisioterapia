@@ -1376,6 +1376,97 @@ body {
   margin-right: auto;
 }
 
+.app--viewer-runtime .home-cover {
+  width: min(1020px, 100%);
+  padding: 16px 20px 22px;
+}
+
+.app--viewer-runtime .home-topline {
+  font-size: 13px;
+  margin-bottom: 6px;
+}
+
+.app--viewer-runtime .home-welcome {
+  font-size: 24px;
+  margin-bottom: 8px;
+}
+
+.app--viewer-runtime .home-hero {
+  max-width: 920px;
+  gap: 18px;
+  margin-bottom: 14px;
+}
+
+.app--viewer-runtime .home-title {
+  font-size: clamp(42px, 5.5vw, 64px);
+  line-height: 1.02;
+  letter-spacing: 1px;
+}
+
+.app--viewer-runtime .home-apple {
+  font-size: clamp(82px, 9vw, 118px);
+}
+
+.app--viewer-runtime .home-subtitle {
+  font-size: 24px;
+  margin: 0 0 18px 0;
+}
+
+.app--viewer-runtime .legend-list {
+  max-width: 920px;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.app--viewer-runtime .legend-item {
+  gap: 14px;
+}
+
+.app--viewer-runtime .legend-color {
+  width: 112px;
+  padding: 10px 0;
+  font-size: 17px;
+}
+
+.app--viewer-runtime .legend-icon {
+  width: 112px;
+  font-size: 52px;
+}
+
+.app--viewer-runtime .legend-text {
+  font-size: 18px;
+  line-height: 1.35;
+}
+
+.app--viewer-runtime .home-tips {
+  max-width: 920px;
+  font-size: 17px;
+  margin-bottom: 20px;
+}
+
+.app--viewer-runtime .home-tips p {
+  margin: 8px 0;
+}
+
+.app--viewer-runtime .home-footer {
+  gap: 22px;
+  margin-bottom: 10px;
+}
+
+.app--viewer-runtime .home-greetings {
+  font-size: 26px;
+}
+
+.app--viewer-runtime .btn--start {
+  font-size: 26px;
+  padding: 14px 44px;
+}
+
+.app--viewer-runtime .home-credits {
+  font-size: 14px;
+  margin-top: 4px;
+}
+
 .main--admin.main--editor {
   max-width: none;
   margin: 0;
