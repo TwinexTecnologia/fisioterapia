@@ -1394,6 +1394,10 @@ body {
   width: min(1180px, 100%);
 }
 
+.app--viewer-runtime .breadcrumbWrap {
+  display: none;
+}
+
 .app--viewer-runtime .breadcrumb {
   width: min(1040px, 100%);
 }
@@ -1408,9 +1412,17 @@ body {
 .app--viewer-runtime .options,
 .app--viewer-runtime .areas-container,
 .app--viewer-runtime .runtime-actions {
-  width: min(1040px, 100%);
+  width: min(720px, 100%);
   margin-left: auto;
   margin-right: auto;
+}
+
+.app--viewer-runtime .runtime-actions {
+  justify-content: center;
+}
+
+.app--viewer-runtime .runtime-actions .btn {
+  flex: 0 1 320px;
 }
 
 .app--viewer-runtime .home-cover {
