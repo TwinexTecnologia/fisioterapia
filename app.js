@@ -377,6 +377,7 @@ function resetFisioForm(app = null) {
   if (form) form.reset();
   if (app) {
     app.editingManagedProfileId = null;
+    app.editingManagedProfileAvatarUrl = "";
   }
   const emailInput = $("emailFisioInput");
   const passwordInput = $("senhaFisioInput");
@@ -392,6 +393,7 @@ function resetFisioForm(app = null) {
     passwordInput.value = "";
   }
   if (submitButton) submitButton.textContent = "Salvar Cadastro";
+  refreshManagedProfileAvatarPreview(app);
   resetManagedProfileCrefitoState(app, { clearStatus: true });
   setFisioFormStatus("");
 }
@@ -401,6 +403,40 @@ function getEditingManagedProfile(app) {
   if (!editingId) return null;
   const profiles = Array.isArray(app?.managedProfiles) ? app.managedProfiles : [];
   return profiles.find((profile) => String(profile?.id ?? "").trim() === editingId) ?? null;
+}
+
+function refreshManagedProfileAvatarPreview(app, profile = null) {
+  const currentProfile = profile ?? getEditingManagedProfile(app);
+  const displayName = String(currentProfile?.full_name ?? $("nomeFisioInput")?.value ?? "Paciente").trim() || "Paciente";
+  const avatarUrl = String(
+    currentProfile?.avatar_url
+    ?? app?.editingManagedProfileAvatarUrl
+    ?? ""
+  ).trim();
+  const preview = $("managedProfileAvatarPreview");
+  const caption = $("managedProfileAvatarCaption");
+  setAvatarElement(preview, displayName, avatarUrl);
+  if (caption) {
+    caption.textContent = avatarUrl
+      ? "Foto atual do cadastro"
+      : "Sem foto cadastrada";
+  }
+}
+
+async function loadManagedProfileAvatarUrl(profileId) {
+  const safeProfileId = String(profileId ?? "").trim();
+  if (!safeProfileId) return "";
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("avatar_url")
+    .eq("id", safeProfileId)
+    .single();
+  if (error) {
+    const missingColumnsMessage = getMissingManagedProfileColumnsMessage(error);
+    if (missingColumnsMessage) return "";
+    throw error;
+  }
+  return String(data?.avatar_url ?? "").trim();
 }
 
 function applyManagedProfileFormMode(app) {
@@ -437,11 +473,13 @@ function applyManagedProfileFormMode(app) {
       : "Crie uma senha inicial";
     if (editingProfile) passwordInput.value = "";
   }
+  refreshManagedProfileAvatarPreview(app, editingProfile);
 }
 
 function fillManagedProfileFormForEdit(app, profile) {
   if (!profile) return;
   app.editingManagedProfileId = String(profile.id ?? "").trim();
+  app.editingManagedProfileAvatarUrl = "";
   if ($("nomeFisioInput")) $("nomeFisioInput").value = String(profile.full_name ?? "");
   if ($("emailFisioInput")) $("emailFisioInput").value = getManagedProfileEmail(profile);
   if ($("senhaFisioInput")) $("senhaFisioInput").value = "";
@@ -460,7 +498,20 @@ function fillManagedProfileFormForEdit(app, profile) {
 
   resetManagedProfileCrefitoState(app, { clearStatus: true });
   applyManagedProfileFormMode(app);
+  refreshManagedProfileAvatarPreview(app, profile);
   setFisioFormStatus("");
+
+  const profileId = String(profile.id ?? "").trim();
+  if (!profileId) return;
+  loadManagedProfileAvatarUrl(profileId)
+    .then((avatarUrl) => {
+      if (String(app.editingManagedProfileId ?? "").trim() !== profileId) return;
+      app.editingManagedProfileAvatarUrl = avatarUrl;
+      refreshManagedProfileAvatarPreview(app, { ...profile, avatar_url: avatarUrl });
+    })
+    .catch((error) => {
+      console.error("Erro ao carregar foto do perfil gerenciado", error);
+    });
 }
 
 function isManagedProfileActive(profile) {
@@ -4887,6 +4938,8 @@ async function mount() {
       currentModuleId: null,
       editorOriginalFlowId: null,
       managedProfiles: [],
+      editingManagedProfileId: null,
+      editingManagedProfileAvatarUrl: "",
       crefitoValidation: null,
       viewerModuleSearch: "",
       view: "login"
@@ -5248,7 +5301,9 @@ async function mount() {
       try {
         setFisioFormStatus("");
         if (submitButton) submitButton.disabled = true;
-        await ensureManagedProfileCrefitoBeforeSave(app);
+        if (!editingProfile) {
+          await ensureManagedProfileCrefitoBeforeSave(app);
+        }
         const savedProfile = editingProfile
           ? await updateManagedProfileFromForm(app)
           : await createManagedProfileFromForm(app);
