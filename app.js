@@ -74,6 +74,10 @@ function canManageProfiles(role) {
   return isOwnerRole(role) || isFisioAdminRole(role);
 }
 
+function canAccessOwnProfile(role) {
+  return isFisioAdminRole(role) || isFisioPacienteRole(role);
+}
+
 function getManagedChildRole(role) {
   if (isOwnerRole(role)) return "fisio_admin";
   if (isFisioAdminRole(role)) return "fisio_paciente";
@@ -675,6 +679,80 @@ function getViewerProfileMetadata(user) {
   };
 }
 
+function getOwnProfileViewCopy(role) {
+  if (isFisioAdminRole(role)) {
+    return {
+      eyebrow: "Perfil profissional",
+      title: "Ajuste seu perfil",
+      subtitle: "Atualize sua foto e os dados que aparecem na sua area clinica.",
+      cardHint: "Mantenha seu perfil profissional atualizado para personalizar melhor sua area de trabalho.",
+      showNotifications: false
+    };
+  }
+
+  return {
+    eyebrow: "Seu perfil",
+    title: "Atualize seus dados",
+    subtitle: "Mantenha suas informacoes de atendimento e sua foto sempre atualizadas.",
+    cardHint: "Ajuste seus dados de exibicao para deixar sua area clinica mais personalizada.",
+    showNotifications: true
+  };
+}
+
+function syncOwnProfileScreenCopy(app) {
+  const copy = getOwnProfileViewCopy(app?.currentProfile?.role);
+  if ($("viewerProfileEyebrow")) $("viewerProfileEyebrow").textContent = copy.eyebrow;
+  if ($("viewerProfileTitle")) $("viewerProfileTitle").textContent = copy.title;
+  if ($("viewerProfileSubtitle")) $("viewerProfileSubtitle").textContent = copy.subtitle;
+  if ($("viewerProfileCardHint")) $("viewerProfileCardHint").textContent = copy.cardHint;
+  const topbar = $("viewerProfileTopbar");
+  if (topbar) topbar.classList.toggle("hidden", !copy.showNotifications);
+}
+
+async function loadOwnProfileDetails(app, options = {}) {
+  const profileId = String(app?.currentUser?.id ?? "").trim();
+  if (!profileId) return app?.currentProfile ?? null;
+
+  const force = options.force === true;
+  if (!force && String(app?.ownProfileDetailsLoadedFor ?? "").trim() === profileId) {
+    return app?.currentProfile ?? null;
+  }
+
+  const extendedSelect = "full_name, login_email, crefito, phone, clinic_name, bio, avatar_url";
+  const fallbackSelect = "full_name, login_email, crefito";
+
+  let data = null;
+  let error = null;
+
+  const extendedResult = await supabase
+    .from("profiles")
+    .select(extendedSelect)
+    .eq("id", profileId)
+    .single();
+
+  data = extendedResult.data;
+  error = extendedResult.error;
+
+  if (error && getMissingManagedProfileColumnsMessage(error)) {
+    const fallbackResult = await supabase
+      .from("profiles")
+      .select(fallbackSelect)
+      .eq("id", profileId)
+      .single();
+    data = fallbackResult.data;
+    error = fallbackResult.error;
+  }
+
+  if (error) throw error;
+
+  app.currentProfile = {
+    ...(app.currentProfile ?? {}),
+    ...(data ?? {})
+  };
+  app.ownProfileDetailsLoadedFor = profileId;
+  return app.currentProfile;
+}
+
 function isViewerRuntimeView(app) {
   return isFisioPacienteRole(app?.currentProfile?.role)
     && (app?.view === "intro" || app?.view === "node");
@@ -976,7 +1054,7 @@ function applyAuthUi(app) {
   if (navDashboard) navDashboard.classList.toggle("hidden", !canAccessDashboard(role));
   if (navFisios) navFisios.classList.toggle("hidden", !canManageProfiles(role));
   if (navModulos) navModulos.classList.toggle("hidden", isOwnerRole(role));
-  if (navPerfil) navPerfil.classList.toggle("hidden", !isFisioPacienteRole(role));
+  if (navPerfil) navPerfil.classList.toggle("hidden", !canAccessOwnProfile(role));
   if (viewerProfileShortcutName) viewerProfileShortcutName.textContent = displayName;
   setAvatarElement(viewerProfileShortcutAvatar, displayName, avatarUrl);
 }
@@ -3669,6 +3747,7 @@ function renderViewerModulesHome(app, modules) {
 }
 
 function fillViewerProfileForm(app) {
+  syncOwnProfileScreenCopy(app);
   const displayName = getUserDisplayName(app.currentProfile, app.currentUser);
   const metadata = getViewerProfileMetadata(app.currentUser);
   const avatarUrl = String(app.currentProfile?.avatar_url ?? "").trim() || metadata.avatarUrl || getUserAvatarUrl(app.currentProfile, app.currentUser);
@@ -3685,10 +3764,26 @@ function fillViewerProfileForm(app) {
 }
 
 function renderViewerProfileScreen(app) {
+  syncOwnProfileScreenCopy(app);
   fillViewerProfileForm(app);
-  syncViewerNotificationBadge(app);
+  if (isFisioPacienteRole(app.currentProfile?.role)) {
+    syncViewerNotificationBadge(app);
+  }
   const nav = $("navPerfil");
   if (nav) nav.classList.add("active");
+  loadOwnProfileDetails(app)
+    .then(() => {
+      syncOwnProfileScreenCopy(app);
+      fillViewerProfileForm(app);
+      applyAuthUi(app);
+      if (isFisioPacienteRole(app.currentProfile?.role)) {
+        syncViewerNotificationBadge(app);
+      }
+    })
+    .catch((error) => {
+      console.error("Erro ao carregar perfil completo do usuario", error);
+      setViewerProfileStatus(getReadableRuntimeError(error, "Nao foi possivel carregar seu perfil completo."), "error");
+    });
 }
 
 function setViewerProfileStatus(message = "", tone = "") {
@@ -3765,6 +3860,7 @@ async function saveViewerOwnProfile(app) {
     bio,
     avatar_url: avatarUrl
   };
+  app.ownProfileDetailsLoadedFor = String(app.currentUser?.id ?? "").trim();
 }
 
 async function saveViewerAvatarOnly(app, avatarUrl) {
@@ -3795,6 +3891,7 @@ async function saveViewerAvatarOnly(app, avatarUrl) {
       avatar_url: safeAvatarUrl
     }
   };
+  app.ownProfileDetailsLoadedFor = String(app.currentUser?.id ?? "").trim();
 }
 
 function refreshViewerAvatarPreview(app, avatarUrl) {
@@ -4567,6 +4664,11 @@ function renderState(app) {
   }
 
   if (view === "viewer_profile") {
+    if (!canAccessOwnProfile(app.currentProfile?.role)) {
+      app.view = getDefaultViewForRole(app.currentProfile?.role);
+      renderState(app);
+      return;
+    }
     setVisualEditorFullscreen(false);
     if (screenViewerProfile) screenViewerProfile.classList.remove("hidden");
     renderViewerProfileScreen(app);
