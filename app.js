@@ -698,6 +698,93 @@ function syncRuntimeIntroIdentity(app) {
     : displayName;
 }
 
+let appToastHideTimer = 0;
+
+function getCurrentRuntimeModule(app) {
+  const modules = getModulesForView(app);
+  const currentModuleId = String(app?.currentModuleId ?? "").trim();
+  if (currentModuleId) {
+    const explicitMatch = modules.find((module) => String(module?.id ?? "").trim() === currentModuleId);
+    if (explicitMatch) return explicitMatch;
+  }
+
+  const activeFlowId = String(app?.session?.flowId ?? app?.selectedFlowId ?? "").trim();
+  if (!activeFlowId) return null;
+
+  return modules.find((module) => {
+    const candidates = [
+      module?.id,
+      module?.slug,
+      module?.flowId,
+      module?.startFlowId
+    ].map((value) => String(value ?? "").trim()).filter(Boolean);
+    return candidates.includes(activeFlowId);
+  }) ?? null;
+}
+
+function formatRuntimeModuleTitle(moduleName) {
+  const normalized = normalizeDashboardModuleName(moduleName || "Modulo");
+  const words = normalized.toUpperCase().split(/\s+/).filter(Boolean);
+  if (words.length <= 2) return escapeHtml(words.join(" "));
+
+  const lines = [];
+  for (let index = 0; index < words.length; index += 2) {
+    lines.push(words.slice(index, index + 2).join(" "));
+  }
+  return escapeHtml(lines.join("\n")).replace(/\n/g, "<br>");
+}
+
+function syncRuntimeIntroModule(app) {
+  const homeTitle = $("homeTitle");
+  if (!homeTitle) return;
+
+  const activeModule = getCurrentRuntimeModule(app);
+  const fallbackFlowId = String(app?.session?.flowId ?? app?.selectedFlowId ?? "").trim();
+  const fallbackFlowName = fallbackFlowId
+    ? String(app?.protocol?.flowsById?.[fallbackFlowId]?.name ?? "").trim()
+    : "";
+  const moduleName = normalizeDashboardModuleName(activeModule?.name ?? fallbackFlowName ?? "Roteiro de Thompson");
+
+  homeTitle.innerHTML = formatRuntimeModuleTitle(moduleName);
+}
+
+function hideAppToast() {
+  const toast = $("appToast");
+  if (!toast) return;
+  toast.classList.remove("app-toast--open");
+  toast.classList.add("hidden");
+  if (appToastHideTimer) {
+    window.clearTimeout(appToastHideTimer);
+    appToastHideTimer = 0;
+  }
+}
+
+function showAppToast(message = "", tone = "success", options = {}) {
+  const toast = $("appToast");
+  if (!toast) return;
+
+  const eyebrow = $("appToastEyebrow");
+  const title = $("appToastTitle");
+  const messageEl = $("appToastMessage");
+  if (eyebrow) eyebrow.textContent = String(options.eyebrow ?? "Editor de modulos");
+  if (title) title.textContent = String(options.title ?? "Tudo certo");
+  if (messageEl) messageEl.textContent = String(message ?? "");
+
+  toast.className = "app-toast";
+  toast.classList.add(`app-toast--${tone}`);
+  toast.classList.remove("hidden");
+  requestAnimationFrame(() => toast.classList.add("app-toast--open"));
+
+  if (appToastHideTimer) window.clearTimeout(appToastHideTimer);
+  appToastHideTimer = window.setTimeout(() => {
+    const currentToast = $("appToast");
+    if (!currentToast) return;
+    currentToast.classList.remove("app-toast--open");
+    currentToast.classList.add("hidden");
+    appToastHideTimer = 0;
+  }, Number(options.durationMs ?? 3200));
+}
+
 function setLoginError(message = "") {
   const loginError = $("loginError");
   if (!loginError) return;
@@ -4300,6 +4387,7 @@ function renderState(app) {
   applyAuthUi(app);
   syncViewerRuntimeShell(app);
   syncRuntimeIntroIdentity(app);
+  syncRuntimeIntroModule(app);
   if (appContainer) appContainer.classList.remove("hidden");
 
   if (view === "dashboard") {
@@ -4403,17 +4491,7 @@ function renderState(app) {
     const isFinalizerNode = session.currentNodeId === "alta_fim_sessao"
       || /alta/i.test(String(node.title ?? ""));
     const isTriggerQuestionNode = session.currentNodeId === "pontos_gatilhos_perna_curta_curta";
-    const isDiagnosisNode = [
-      "dx_perna_curta_dois_lados",
-      "dx_perna_curta_ipsilateral",
-      "dx_perna_curta_contralateral",
-      "dx_perna_curta_neutra_direita",
-      "dx_perna_curta_neutra_esquerda",
-      "dx_perna_curta_neutra_dois_lados",
-      "dx_perna_curta_curta",
-      "dx_perna_curta_longa"
-    ].includes(session.currentNodeId)
-      || /síndrome/i.test(String(node.title ?? ""));
+    const isDiagnosisNode = ["interpretacao", "interpretation"].includes(typeLower) && !isFinalizerNode;
     const breadcrumbWrap = document.querySelector(".breadcrumbWrap");
     if (breadcrumbWrap) breadcrumbWrap.classList.toggle("hidden", isFinalizerNode || isDiagnosisNode);
 
@@ -4621,18 +4699,22 @@ function renderState(app) {
   const diagnosisTitle = $("diagnosisTitle");
   const diagnosisImage = $("diagnosisImage");
   const diagnosisActions = $("diagnosisActions");
+  const diagnosisIcon = diagnosisView?.querySelector?.(".diagnosis__icon");
   if (diagnosisView) diagnosisView.classList.toggle("hidden", !isDiagnosisNode);
   if (diagnosisView) diagnosisView.style.fontFamily = runtimeBlueprint.page.fontFamily;
   if (diagnosisTitle && isDiagnosisNode) {
     diagnosisTitle.innerHTML = escapeHtml(cleanTitle).replace(/\n/g, "<br>");
-    diagnosisTitle.classList.toggle("hidden", contentType === "image");
+    diagnosisTitle.classList.toggle("hidden", !cleanTitle);
   }
   if (diagnosisImage) {
     diagnosisImage.src = imageUrl;
     diagnosisImage.classList.toggle("hidden", !(isDiagnosisNode && showNodeImage));
   }
+  if (diagnosisIcon) {
+    diagnosisIcon.classList.toggle("hidden", !isDiagnosisNode || !cleanTitle);
+  }
   if (diagnosisCard) {
-    diagnosisCard.classList.toggle("diagnosis__card--image", Boolean(isDiagnosisNode && showNodeImage && contentType === "image"));
+    diagnosisCard.classList.toggle("diagnosis__card--with-media", Boolean(isDiagnosisNode && showNodeImage));
   }
   if (diagnosisPath) {
     diagnosisPath.innerHTML = "";
@@ -5228,6 +5310,11 @@ async function mount() {
     viewerNotificationClose.addEventListener("click", () => hideViewerNotifications());
   }
 
+  const appToastClose = $("appToastClose");
+  if (appToastClose) {
+    appToastClose.addEventListener("click", () => hideAppToast());
+  }
+
   const viewerModuleSearch = $("viewerModuleSearch");
   if (viewerModuleSearch) {
     viewerModuleSearch.addEventListener("input", (e) => {
@@ -5529,7 +5616,11 @@ async function mount() {
         const issues = getBuilderValidationIssues(app.builderDraft);
         renderBuilderValidation(app);
         if (issues.length > 0) {
-          alert(`Ajuste o módulo antes de salvar:\n\n- ${issues.join("\n- ")}`);
+          showAppToast(
+            "Revise os pontos destacados no editor antes de salvar novamente.",
+            "warning",
+            { title: "Ajuste o modulo" }
+          );
           return;
         }
         syncVisualDraftFromDom(app);
@@ -5558,14 +5649,22 @@ async function mount() {
           await refreshSupabaseModules(app);
         }
         app.selectedFlowId = flow.id;
+        app.currentModuleId = app.currentModuleId ?? flow.id;
         app.session = initSession(flow.id, flow.startNodeId);
         app.editorOriginalFlowId = flow.id;
         saveProtocolToStorage(app.protocol);
-        alert("Roteiro salvo com sucesso!");
+        showAppToast("Modulo salvo com sucesso!", "success", {
+          title: normalizeDashboardModuleName(flow.name || "Modulo"),
+          eyebrow: "Editor de modulos"
+        });
         app.view = "modulos";
         renderState(app);
       } catch (e) {
-        alert("Erro ao salvar módulo: " + (e instanceof Error ? e.message : String(e)));
+        showAppToast(
+          e instanceof Error ? e.message : String(e),
+          "error",
+          { title: "Erro ao salvar modulo", eyebrow: "Editor de modulos", durationMs: 4200 }
+        );
       }
     });
   }
@@ -6120,6 +6219,7 @@ async function mount() {
       if (!module) return;
 
       if (action === "test") {
+        app.currentModuleId = module.id;
         app.selectedFlowId = module.startFlowId;
         const flow = app.protocol.flowsById[module.startFlowId];
         app.session = initSession(flow.id, flow.startNodeId);
