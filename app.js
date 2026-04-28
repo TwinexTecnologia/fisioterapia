@@ -785,6 +785,57 @@ function showAppToast(message = "", tone = "success", options = {}) {
   }, Number(options.durationMs ?? 3200));
 }
 
+async function saveEditorModule(app) {
+  app.builderDraft = ensureBuilderDraftConsistency(app.builderDraft);
+  const issues = getBuilderValidationIssues(app.builderDraft);
+  renderBuilderValidation(app);
+  if (issues.length > 0) {
+    showAppToast(
+      "Revise os pontos destacados no editor antes de salvar novamente.",
+      "warning",
+      { title: "Ajuste o modulo" }
+    );
+    return;
+  }
+
+  syncVisualDraftFromDom(app);
+  const flow = buildFlowFromBuilderDraft(app.builderDraft);
+  const flowsById = { ...(app.protocol?.flowsById ?? {}) };
+  const moduleBlueprints = { ...(app.protocol?.moduleBlueprints ?? {}) };
+  if (app.editorOriginalFlowId && app.editorOriginalFlowId !== flow.id) {
+    delete flowsById[app.editorOriginalFlowId];
+    delete moduleBlueprints[app.editorOriginalFlowId];
+  }
+  flowsById[flow.id] = flow;
+  moduleBlueprints[flow.id] = normalizeModuleBlueprint(app.visualDraft);
+  const defaultFlowId = app.protocol?.defaultFlowId && flowsById[app.protocol.defaultFlowId]
+    ? app.protocol.defaultFlowId
+    : flow.id;
+  app.protocol = normalizeProtocol({
+    flowsById,
+    defaultFlowId,
+    moduleBlueprints
+  });
+  if (app.authSession) {
+    await upsertSupabaseModule(app, flow, app.visualDraft);
+    if (app.editorOriginalFlowId && app.editorOriginalFlowId !== flow.id) {
+      await deleteSupabaseModuleBySlug(app, app.editorOriginalFlowId);
+    }
+    await refreshSupabaseModules(app);
+  }
+  app.selectedFlowId = flow.id;
+  app.currentModuleId = app.currentModuleId ?? flow.id;
+  app.session = initSession(flow.id, flow.startNodeId);
+  app.editorOriginalFlowId = flow.id;
+  saveProtocolToStorage(app.protocol);
+  showAppToast("Modulo salvo com sucesso!", "success", {
+    title: normalizeDashboardModuleName(flow.name || "Modulo"),
+    eyebrow: "Editor de modulos"
+  });
+  app.view = "modulos";
+  renderState(app);
+}
+
 function setLoginError(message = "") {
   const loginError = $("loginError");
   if (!loginError) return;
@@ -5331,6 +5382,21 @@ async function mount() {
     });
   }
 
+  const btnSaveBuilderSidebar = $("btnSaveBuilderSidebar");
+  if (btnSaveBuilderSidebar) {
+    btnSaveBuilderSidebar.addEventListener("click", async () => {
+      try {
+        await saveEditorModule(app);
+      } catch (e) {
+        showAppToast(
+          e instanceof Error ? e.message : String(e),
+          "error",
+          { title: "Erro ao salvar modulo", eyebrow: "Editor de modulos", durationMs: 4200 }
+        );
+      }
+    });
+  }
+
   const viewerModuleSearchClear = $("viewerModuleSearchClear");
   if (viewerModuleSearchClear) {
     viewerModuleSearchClear.addEventListener("click", () => {
@@ -5612,53 +5678,7 @@ async function mount() {
   if (btnSaveEditor) {
     btnSaveEditor.addEventListener("click", async () => {
       try {
-        app.builderDraft = ensureBuilderDraftConsistency(app.builderDraft);
-        const issues = getBuilderValidationIssues(app.builderDraft);
-        renderBuilderValidation(app);
-        if (issues.length > 0) {
-          showAppToast(
-            "Revise os pontos destacados no editor antes de salvar novamente.",
-            "warning",
-            { title: "Ajuste o modulo" }
-          );
-          return;
-        }
-        syncVisualDraftFromDom(app);
-        const flow = buildFlowFromBuilderDraft(app.builderDraft);
-        const flowsById = { ...(app.protocol?.flowsById ?? {}) };
-        const moduleBlueprints = { ...(app.protocol?.moduleBlueprints ?? {}) };
-        if (app.editorOriginalFlowId && app.editorOriginalFlowId !== flow.id) {
-          delete flowsById[app.editorOriginalFlowId];
-          delete moduleBlueprints[app.editorOriginalFlowId];
-        }
-        flowsById[flow.id] = flow;
-        moduleBlueprints[flow.id] = normalizeModuleBlueprint(app.visualDraft);
-        const defaultFlowId = app.protocol?.defaultFlowId && flowsById[app.protocol.defaultFlowId]
-          ? app.protocol.defaultFlowId
-          : flow.id;
-        app.protocol = normalizeProtocol({
-          flowsById,
-          defaultFlowId,
-          moduleBlueprints
-        });
-        if (app.authSession) {
-          await upsertSupabaseModule(app, flow, app.visualDraft);
-          if (app.editorOriginalFlowId && app.editorOriginalFlowId !== flow.id) {
-            await deleteSupabaseModuleBySlug(app, app.editorOriginalFlowId);
-          }
-          await refreshSupabaseModules(app);
-        }
-        app.selectedFlowId = flow.id;
-        app.currentModuleId = app.currentModuleId ?? flow.id;
-        app.session = initSession(flow.id, flow.startNodeId);
-        app.editorOriginalFlowId = flow.id;
-        saveProtocolToStorage(app.protocol);
-        showAppToast("Modulo salvo com sucesso!", "success", {
-          title: normalizeDashboardModuleName(flow.name || "Modulo"),
-          eyebrow: "Editor de modulos"
-        });
-        app.view = "modulos";
-        renderState(app);
+        await saveEditorModule(app);
       } catch (e) {
         showAppToast(
           e instanceof Error ? e.message : String(e),

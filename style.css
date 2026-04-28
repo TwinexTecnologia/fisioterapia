@@ -2561,6 +2561,14 @@ body {
   background: linear-gradient(180deg, rgba(255,255,255,0.94) 0%, rgba(248,250,252,0.9) 100%);
 }
 
+.flow-editor-sidebar__header-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 .flow-editor-sidebar__subtitle {
   margin: 6px 0 0;
   font-size: 13px;
