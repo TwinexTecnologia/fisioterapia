@@ -605,6 +605,29 @@ function getViewerProfileMetadata(user) {
   };
 }
 
+function isViewerRuntimeView(app) {
+  return isFisioPacienteRole(app?.currentProfile?.role)
+    && (app?.view === "intro" || app?.view === "node");
+}
+
+function syncViewerRuntimeShell(app) {
+  const appContainer = $("appContainer");
+  const mainAdmin = $("mainAdmin");
+  const isRuntime = isViewerRuntimeView(app);
+  if (appContainer) appContainer.classList.toggle("app--viewer-runtime", isRuntime);
+  if (mainAdmin) mainAdmin.classList.toggle("main--viewer-runtime", isRuntime);
+}
+
+function syncRuntimeIntroIdentity(app) {
+  const homeTopline = $("homeTopline");
+  if (!homeTopline) return;
+  const displayName = getUserDisplayName(app?.currentProfile, app?.currentUser);
+  const loginEmail = String(app?.currentProfile?.login_email ?? app?.currentUser?.email ?? "").trim();
+  homeTopline.textContent = loginEmail
+    ? `${displayName}, ${loginEmail}`
+    : displayName;
+}
+
 function setLoginError(message = "") {
   const loginError = $("loginError");
   if (!loginError) return;
@@ -4209,6 +4232,8 @@ function renderState(app) {
   }
 
   applyAuthUi(app);
+  syncViewerRuntimeShell(app);
+  syncRuntimeIntroIdentity(app);
   if (appContainer) appContainer.classList.remove("hidden");
 
   if (view === "dashboard") {

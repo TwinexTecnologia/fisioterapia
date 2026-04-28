@@ -1343,6 +1343,39 @@ body {
   min-width: 0;
 }
 
+.app--viewer-runtime .sidebar {
+  display: none;
+}
+
+.app--viewer-runtime .main--admin,
+.main--admin.main--viewer-runtime {
+  padding: 18px 28px 30px;
+}
+
+.app--viewer-runtime #screenProtocolIntro,
+.app--viewer-runtime #screenNode {
+  width: min(1180px, 100%);
+}
+
+.app--viewer-runtime .breadcrumb {
+  width: min(1040px, 100%);
+}
+
+.app--viewer-runtime .node-box,
+.app--viewer-runtime .finalizer {
+  width: min(1040px, 100%);
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.app--viewer-runtime .options,
+.app--viewer-runtime .areas-container,
+.app--viewer-runtime .runtime-actions {
+  width: min(1040px, 100%);
+  margin-left: auto;
+  margin-right: auto;
+}
+
 .main--admin.main--editor {
   max-width: none;
   margin: 0;
@@ -3653,6 +3686,8 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 /* VERDE = PERGUNTA */
