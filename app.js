@@ -4724,7 +4724,7 @@ function renderState(app) {
     $("btnExitFlow").classList.remove("hidden");
   }
 
-  if ($("footerHint")) $("footerHint").textContent = `${flow.name} • ${session.currentNodeId}`;
+  if ($("footerHint")) $("footerHint").textContent = "";
   } // <-- AQUI É A CHAVE FECHANDO O if (view === "node")
   
   } catch (err) {
