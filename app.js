@@ -500,7 +500,7 @@ async function loadAuthContext() {
 
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
-    .select("id, full_name, role, parent_admin_id")
+    .select("id, full_name, role, parent_admin_id, login_email, crefito, is_active, allowed_modules")
     .eq("id", session.user.id)
     .single();
 
@@ -2948,6 +2948,50 @@ function filterModulesForCurrentProfile(app, modules) {
   return list.filter((module) => isModuleAllowedForCurrentProfile(app, module));
 }
 
+function renderViewerModulesHome(app, modules) {
+  const list = $("modulesList");
+  const eyebrow = $("modulesScreenEyebrow");
+  const title = $("modulesScreenTitle");
+  const subtitle = $("modulesScreenSubtitle");
+  const statsGrid = $("modulesStatsGrid");
+  const createWrap = $("modulesCreateWrap");
+  const statTotal = $("modulesStatTotal");
+  const statPublished = $("modulesStatPublished");
+  const statSteps = $("modulesStatSteps");
+  if (!list) return;
+
+  list.classList.add("viewer-modules-grid");
+  if (eyebrow) eyebrow.textContent = "Espaco do Fisio";
+  if (title) title.textContent = "Seus Modulos";
+  if (subtitle) subtitle.textContent = "Escolha abaixo o roteiro liberado para o seu acesso e continue seu atendimento.";
+  if (statsGrid) statsGrid.classList.add("hidden");
+  if (createWrap) createWrap.classList.add("hidden");
+  if (statTotal) statTotal.textContent = String(modules.length);
+  if (statPublished) statPublished.textContent = String(modules.filter((module) => module.status === "published").length);
+  if (statSteps) statSteps.textContent = String(modules.reduce((sum, module) => sum + Number(module.nodeCount ?? 0), 0));
+
+  if (modules.length === 0) {
+    list.innerHTML = `<div class="dashboard-empty">Seu acesso ainda nao possui modulos liberados. Fale com o fisioterapeuta responsavel para liberar o roteiro correto.</div>`;
+    return;
+  }
+
+  list.innerHTML = modules.map((module) => `
+    <article class="dash-card viewer-module-card">
+      <div class="viewer-module-card__eyebrow">Modulo liberado</div>
+      <h3 class="viewer-module-card__title">${escapeHtml(module.name)}</h3>
+      <p class="viewer-module-card__desc">${escapeHtml(module.description || "Roteiro clinico liberado para o seu perfil.")}</p>
+      <div class="viewer-module-card__meta">
+        <span class="viewer-module-card__pill">Etapas: ${Number(module.nodeCount ?? 0)}</span>
+        <span class="viewer-module-card__pill">Status: ${module.status === "published" ? "Publicado" : "Disponivel"}</span>
+      </div>
+      <div class="viewer-module-card__footer">
+        <span class="viewer-module-card__hint">Abra o roteiro para continuar sua avaliacao.</span>
+        <button class="btn btn--start" type="button" data-module-action="test" data-module-id="${escapeHtml(module.id)}">Abrir Modulo</button>
+      </div>
+    </article>
+  `).join("");
+}
+
 function getModulesForView(app) {
   const supabaseModules = getSupabaseBackedModules(app);
   if (supabaseModules.length > 0) return filterModulesForCurrentProfile(app, supabaseModules);
@@ -2979,35 +3023,45 @@ function renderModulesList(app) {
   if (!list) return;
   list.innerHTML = "";
 
+  const eyebrow = $("modulesScreenEyebrow");
+  const title = $("modulesScreenTitle");
   const subtitle = $("modulesScreenSubtitle");
   const statTotal = $("modulesStatTotal");
   const statPublished = $("modulesStatPublished");
   const statSteps = $("modulesStatSteps");
+  const statsGrid = $("modulesStatsGrid");
   const btnCreateNew = $("btnCreateNew");
   const createCard = btnCreateNew?.closest(".dash-card--new");
+  const createWrap = $("modulesCreateWrap");
   const modules = getModulesForView(app);
   const canEdit = canEditModules(app.currentProfile?.role);
   modules.sort((a, b) => String(a.name).localeCompare(String(b.name)));
   const publishedCount = modules.filter((module) => module.status === "published").length;
   const totalSteps = modules.reduce((sum, module) => sum + Number(module.nodeCount ?? 0), 0);
 
+  list.classList.toggle("viewer-modules-grid", !canEdit);
+  if (eyebrow) eyebrow.textContent = "Biblioteca Clinica";
+  if (title) title.textContent = "Gerenciar Modulos";
+  if (statsGrid) statsGrid.classList.toggle("hidden", !canEdit);
+  if (createWrap) createWrap.classList.toggle("hidden", !canEdit);
   if (createCard) createCard.classList.toggle("hidden", !canEdit);
 
+  if (!canEdit) {
+    renderViewerModulesHome(app, modules);
+    return;
+  }
+
   if (subtitle) {
-    if (!canEdit) {
-      subtitle.textContent = "Sua biblioteca clinica mostra apenas os módulos liberados para o seu acesso.";
-    } else {
-      subtitle.textContent = modules.some((module) => module.source === "supabase")
-        ? "Sua biblioteca clinica mostra os módulos cadastrados, com status e estrutura atualizados."
-        : "Crie ou edite os roteiros clínicos que serão disponibilizados aos fisioterapeutas.";
-    }
+    subtitle.textContent = modules.some((module) => module.source === "supabase")
+      ? "Sua biblioteca clinica mostra os módulos cadastrados, com status e estrutura atualizados."
+      : "Crie ou edite os roteiros clínicos que serão disponibilizados aos fisioterapeutas.";
   }
   if (statTotal) statTotal.textContent = String(modules.length);
   if (statPublished) statPublished.textContent = String(publishedCount);
   if (statSteps) statSteps.textContent = String(totalSteps);
 
   if (modules.length === 0) {
-    list.innerHTML = `<div class="dashboard-empty">${canEdit ? 'Nenhum módulo encontrado ainda. Clique em "Criar Passo a Passo" para começar.' : "Nenhum módulo foi liberado para o seu acesso ainda."}</div>`;
+    list.innerHTML = `<div class="dashboard-empty">Nenhum módulo encontrado ainda. Clique em "Criar Passo a Passo" para começar.</div>`;
     return;
   }
 
@@ -3035,8 +3089,8 @@ function renderModulesList(app) {
         <span class="module-card__date">Atualizado em ${dateLabel}</span>
       </div>
       <div class="dash-card-actions module-card__actions">
-        <button class="btn btn--start-sm" type="button" data-module-action="test" data-module-id="${module.id}">${canEdit ? "Testar Fluxo" : "Abrir Módulo"}</button>
-        ${canEdit ? `<button class="btn btn--ghost" type="button" data-module-action="edit" data-module-id="${module.id}">Editar Passo a Passo</button>` : ""}
+        <button class="btn btn--start-sm" type="button" data-module-action="test" data-module-id="${module.id}">Testar Fluxo</button>
+        <button class="btn btn--ghost" type="button" data-module-action="edit" data-module-id="${module.id}">Editar Passo a Passo</button>
       </div>
     `;
     list.appendChild(card);
