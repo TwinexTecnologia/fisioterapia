@@ -750,6 +750,23 @@ async function loadOwnProfileDetails(app, options = {}) {
   return app.currentProfile;
 }
 
+function preloadOwnProfileDetails(app) {
+  loadOwnProfileDetails(app)
+    .then(() => {
+      applyAuthUi(app);
+      if (app?.view === "viewer_profile") {
+        syncOwnProfileScreenCopy(app);
+        fillViewerProfileForm(app);
+      }
+      if (isFisioPacienteRole(app?.currentProfile?.role)) {
+        syncViewerNotificationBadge(app);
+      }
+    })
+    .catch((error) => {
+      console.error("Erro ao pre-carregar perfil completo do usuario", error);
+    });
+}
+
 function isViewerRuntimeView(app) {
   return isFisioPacienteRole(app?.currentProfile?.role)
     && (app?.view === "intro" || app?.view === "node");
@@ -1118,6 +1135,8 @@ async function hydrateAuthenticatedApp(app) {
     console.error("Erro ao carregar perfis gerenciados apos autenticar", error);
     app.managedProfiles = [];
   }
+
+  preloadOwnProfileDetails(app);
 }
 
 function buildModuleDescription(flowId) {
