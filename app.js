@@ -516,6 +516,7 @@ function buildModuleDescription(flowId) {
 }
 
 function buildSupabaseModulePayload(app, flow, blueprint) {
+  const normalizedBlueprint = normalizeModuleBlueprint(blueprint);
   return {
     owner_id: app.currentUser.id,
     slug: flow.id,
@@ -528,8 +529,8 @@ function buildSupabaseModulePayload(app, flow, blueprint) {
       startNodeId: flow.startNodeId,
       nodesById: flow.nodesById
     },
-    blueprint_json: normalizeModuleBlueprint(blueprint),
-    cover_image_url: ""
+    blueprint_json: normalizedBlueprint,
+    cover_image_url: String(normalizedBlueprint?.branding?.coverImageUrl ?? "").trim()
   };
 }
 
@@ -1562,7 +1563,8 @@ function createDefaultModuleBlueprint() {
       diagnosisText: "#111111"
     },
     branding: {
-      iconUrl: ""
+      iconUrl: "",
+      coverImageUrl: ""
     }
   };
 }
@@ -1607,7 +1609,8 @@ function syncVisualDraftFromDom(app) {
       diagnosisText: $("visualDiagnosisText")?.value ?? "#111111"
     },
     branding: {
-      iconUrl: String($("visualIconUrl")?.value ?? "").trim()
+      iconUrl: String($("visualIconUrl")?.value ?? "").trim(),
+      coverImageUrl: String($("visualCoverImageUrl")?.value ?? "").trim()
     }
   });
   return app.visualDraft;
@@ -1631,11 +1634,19 @@ function renderVisualPreview(app) {
   preview.style.color = blueprint.page.textColor;
 
   const icon = $("visualPreviewIcon");
+  const cover = $("visualPreviewCover");
+  const art = $("visualPreviewArt");
+  const coverImageUrl = String(blueprint.branding.coverImageUrl ?? "").trim();
+  if (cover) {
+    cover.src = coverImageUrl;
+    cover.classList.toggle("hidden", !coverImageUrl);
+  }
   if (icon) {
     const iconUrl = String(blueprint.branding.iconUrl ?? "").trim();
     icon.src = iconUrl;
-    icon.classList.toggle("hidden", !iconUrl);
+    icon.classList.toggle("hidden", !iconUrl || Boolean(coverImageUrl));
   }
+  if (art) art.classList.toggle("visual-preview__art--cover", Boolean(coverImageUrl));
 
   const moduleName = $("visualPreviewModuleName");
   if (moduleName) moduleName.textContent = String(draft.name ?? "Novo Modulo");
@@ -1724,6 +1735,7 @@ function fillVisualEditor(app) {
   if ($("visualDiagnosisBg")) $("visualDiagnosisBg").value = blueprint.blocks.diagnosisBg;
   if ($("visualDiagnosisText")) $("visualDiagnosisText").value = blueprint.blocks.diagnosisText;
   if ($("visualIconUrl")) $("visualIconUrl").value = blueprint.branding.iconUrl;
+  if ($("visualCoverImageUrl")) $("visualCoverImageUrl").value = blueprint.branding.coverImageUrl;
 
   renderVisualPreview(app);
 }
@@ -2839,6 +2851,7 @@ function getProtocolModules(protocol) {
 
   for (const flow of Object.values(flowsById)) {
     if (hiddenLegacyFlowIds.has(flow.id)) continue;
+    const blueprint = getModuleBlueprint(protocol, flow.id);
     modules.push({
       id: flow.id,
       name: flow.name,
@@ -2847,7 +2860,8 @@ function getProtocolModules(protocol) {
       flowIds: [flow.id],
       startFlowId: flow.id,
       nodeCount: Object.keys(flow.nodesById ?? {}).length,
-      mode: "single_flow"
+      mode: "single_flow",
+      coverImageUrl: String(blueprint?.branding?.coverImageUrl ?? "").trim()
     });
   }
 
@@ -2860,6 +2874,7 @@ function getSupabaseBackedModules(app) {
 
   return rows.map((row) => {
     const protocolJson = row?.protocol_json && typeof row.protocol_json === "object" ? row.protocol_json : {};
+    const blueprint = normalizeModuleBlueprint(row?.blueprint_json);
     const flowId = String(protocolJson.id ?? row.slug ?? row.id ?? "");
     const nodesById = protocolJson?.nodesById && typeof protocolJson.nodesById === "object" ? protocolJson.nodesById : {};
     const nodeCount = Object.keys(nodesById).length;
@@ -2877,6 +2892,7 @@ function getSupabaseBackedModules(app) {
       createdAt: row?.created_at ?? null,
       updatedAt: row?.updated_at ?? null,
       startFlowId: flowId,
+      coverImageUrl: String(row?.cover_image_url ?? blueprint?.branding?.coverImageUrl ?? "").trim(),
       icon: status === "published" ? "🧩" : "📝",
       source: "supabase"
     };
@@ -2948,8 +2964,48 @@ function filterModulesForCurrentProfile(app, modules) {
   return list.filter((module) => isModuleAllowedForCurrentProfile(app, module));
 }
 
+function getViewerModuleIdentity(module) {
+  const haystack = `${module?.name ?? ""} ${module?.description ?? ""}`.toLowerCase();
+  if (haystack.includes("thompson") || haystack.includes("thompsom") || haystack.includes("aquiles") || haystack.includes("tornozelo") || haystack.includes("pe")) {
+    return { icon: "🦶", label: "Tornozelo", accent: "emerald" };
+  }
+  if (haystack.includes("joelho")) {
+    return { icon: "🦵", label: "Joelho", accent: "blue" };
+  }
+  if (haystack.includes("ombro")) {
+    return { icon: "🫲", label: "Ombro", accent: "violet" };
+  }
+  if (haystack.includes("lombar") || haystack.includes("coluna") || haystack.includes("cervical")) {
+    return { icon: "🦴", label: "Coluna", accent: "cyan" };
+  }
+  if (haystack.includes("esport")) {
+    return { icon: "🏃", label: "Performance", accent: "amber" };
+  }
+  return { icon: "💪", label: "Reabilitacao", accent: "emerald" };
+}
+
+function buildViewerModuleCoverMarkup(module) {
+  const coverImageUrl = String(module?.coverImageUrl ?? "").trim();
+  if (coverImageUrl) {
+    return `
+      <div class="viewer-module-card__cover viewer-module-card__cover--image">
+        <img class="viewer-module-card__cover-img" src="${escapeHtml(coverImageUrl)}" alt="Capa do modulo ${escapeHtml(module?.name ?? "")}" />
+      </div>
+    `;
+  }
+
+  const identity = getViewerModuleIdentity(module);
+  return `
+    <div class="viewer-module-card__cover viewer-module-card__cover--fallback viewer-module-card__cover--${identity.accent}">
+      <span class="viewer-module-card__cover-icon">${identity.icon}</span>
+      <span class="viewer-module-card__cover-label">${identity.label}</span>
+    </div>
+  `;
+}
+
 function renderViewerModulesHome(app, modules) {
   const list = $("modulesList");
+  const screen = $("screenAdminModulos");
   const eyebrow = $("modulesScreenEyebrow");
   const title = $("modulesScreenTitle");
   const subtitle = $("modulesScreenSubtitle");
@@ -2961,13 +3017,14 @@ function renderViewerModulesHome(app, modules) {
   const statSteps = $("modulesStatSteps");
   if (!list) return;
 
+  const protocolCountLabel = modules.length === 1 ? "1 protocolo liberado" : `${modules.length} protocolos liberados`;
+
   list.classList.add("viewer-modules-grid");
+  if (screen) screen.classList.add("viewer-screen-mode");
   if (header) header.classList.add("viewer-home-header");
-  if (eyebrow) eyebrow.textContent = "Acesso liberado";
-  if (title) title.textContent = modules.length > 1 ? "Seus protocolos" : "Seu protocolo";
-  if (subtitle) subtitle.textContent = modules.length > 1
-    ? "Abra abaixo um dos roteiros disponiveis para o seu atendimento."
-    : "Abra abaixo o roteiro liberado para continuar seu atendimento.";
+  if (eyebrow) eyebrow.textContent = `Fisioterapia guiada • ${protocolCountLabel}`;
+  if (title) title.textContent = "Seus protocolos";
+  if (subtitle) subtitle.textContent = "Continue seu atendimento com os roteiros disponiveis abaixo.";
   if (statsGrid) statsGrid.classList.add("hidden");
   if (createWrap) createWrap.classList.add("hidden");
   if (statTotal) statTotal.textContent = String(modules.length);
@@ -2975,27 +3032,28 @@ function renderViewerModulesHome(app, modules) {
   if (statSteps) statSteps.textContent = String(modules.reduce((sum, module) => sum + Number(module.nodeCount ?? 0), 0));
 
   if (modules.length === 0) {
-    list.innerHTML = `<div class="dashboard-empty">Seu acesso ainda nao possui modulos liberados. Fale com o fisioterapeuta responsavel para liberar o roteiro correto.</div>`;
+    list.innerHTML = `<div class="dashboard-empty viewer-empty-state">Seu acesso ainda nao possui protocolos liberados. Fale com o fisioterapeuta responsavel para liberar o roteiro correto.</div>`;
     return;
   }
 
   list.innerHTML = modules.map((module) => `
     <article class="dash-card viewer-module-card">
-      <div class="viewer-module-card__top">
-        <div>
-          <div class="viewer-module-card__eyebrow">Modulo liberado</div>
+      <span class="viewer-module-card__status viewer-module-card__status--${module.status === "published" ? "ready" : "progress"}">${module.status === "published" ? "Pronto" : "Em andamento"}</span>
+      <div class="viewer-module-card__layout">
+        ${buildViewerModuleCoverMarkup(module)}
+        <div class="viewer-module-card__content">
+          <div class="viewer-module-card__eyebrow">Protocolo clinico</div>
           <h3 class="viewer-module-card__title">${escapeHtml(module.name)}</h3>
+          <p class="viewer-module-card__desc">${escapeHtml(module.description || "Roteiro clinico liberado para o seu perfil.")}</p>
+          <div class="viewer-module-card__meta">
+            <span class="viewer-module-card__pill">Individual</span>
+            <span class="viewer-module-card__pill">Autorizado</span>
+          </div>
+          <div class="viewer-module-card__footer">
+            <span class="viewer-module-card__hint">Abra o protocolo e continue seu atendimento.</span>
+            <button class="btn viewer-module-card__button" type="button" data-module-action="test" data-module-id="${escapeHtml(module.id)}">Acessar</button>
+          </div>
         </div>
-        <span class="viewer-module-card__status">${module.status === "published" ? "Disponivel agora" : "Pronto para acesso"}</span>
-      </div>
-      <p class="viewer-module-card__desc">${escapeHtml(module.description || "Roteiro clinico liberado para o seu perfil.")}</p>
-      <div class="viewer-module-card__meta">
-        <span class="viewer-module-card__pill">Uso individual</span>
-        <span class="viewer-module-card__pill">Acesso autorizado</span>
-      </div>
-      <div class="viewer-module-card__footer">
-        <span class="viewer-module-card__hint">Entre no protocolo e siga o roteiro normalmente.</span>
-        <button class="btn viewer-module-card__button" type="button" data-module-action="test" data-module-id="${escapeHtml(module.id)}">Abrir modulo</button>
       </div>
     </article>
   `).join("");
@@ -3036,6 +3094,7 @@ function renderModulesList(app) {
   const title = $("modulesScreenTitle");
   const subtitle = $("modulesScreenSubtitle");
   const header = subtitle?.closest(".dash-header");
+  const screen = $("screenAdminModulos");
   const statTotal = $("modulesStatTotal");
   const statPublished = $("modulesStatPublished");
   const statSteps = $("modulesStatSteps");
@@ -3051,6 +3110,7 @@ function renderModulesList(app) {
 
   list.classList.toggle("viewer-modules-grid", !canEdit);
   if (header) header.classList.toggle("viewer-home-header", !canEdit);
+  if (screen) screen.classList.toggle("viewer-screen-mode", !canEdit);
   if (eyebrow) eyebrow.textContent = "Biblioteca Clinica";
   if (title) title.textContent = "Gerenciar Modulos";
   if (statsGrid) statsGrid.classList.toggle("hidden", !canEdit);
@@ -4828,6 +4888,26 @@ async function mount() {
     });
   }
 
+  const btnUploadVisualCover = $("btnUploadVisualCover");
+  const visualCoverFile = $("visualCoverFile");
+  if (btnUploadVisualCover && visualCoverFile) {
+    btnUploadVisualCover.addEventListener("click", () => visualCoverFile.click());
+    visualCoverFile.addEventListener("change", async () => {
+      const file = visualCoverFile.files?.[0];
+      if (!file) return;
+      try {
+        const dataUrl = await readFileAsDataUrl(file);
+        if ($("visualCoverImageUrl")) $("visualCoverImageUrl").value = dataUrl;
+        syncVisualDraftFromDom(app);
+        renderVisualPreview(app);
+      } catch (err) {
+        alert(err instanceof Error ? err.message : "Falha ao carregar a capa do modulo.");
+      } finally {
+        visualCoverFile.value = "";
+      }
+    });
+  }
+
   const btnUploadNodeImage = $("btnUploadNodeImage");
   const nodeImageFile = $("builderSelectedNodeImageFile");
   if (btnUploadNodeImage && nodeImageFile) {
@@ -4898,6 +4978,15 @@ async function mount() {
   if (btnClearVisualIcon) {
     btnClearVisualIcon.addEventListener("click", () => {
       if ($("visualIconUrl")) $("visualIconUrl").value = "";
+      syncVisualDraftFromDom(app);
+      renderVisualPreview(app);
+    });
+  }
+
+  const btnClearVisualCover = $("btnClearVisualCover");
+  if (btnClearVisualCover) {
+    btnClearVisualCover.addEventListener("click", () => {
+      if ($("visualCoverImageUrl")) $("visualCoverImageUrl").value = "";
       syncVisualDraftFromDom(app);
       renderVisualPreview(app);
     });
@@ -5042,7 +5131,8 @@ async function mount() {
       "visualAnswerText",
       "visualDiagnosisBg",
       "visualDiagnosisText",
-      "visualIconUrl"
+      "visualIconUrl",
+      "visualCoverImageUrl"
     ].includes(e.target.id)) {
       syncVisualDraftFromDom(app);
       renderVisualPreview(app);

@@ -562,6 +562,17 @@
                   <button id="btnClearVisualIcon" class="btn btn--ghost btn--sm" type="button" style="flex: 0;">Limpar Icone</button>
                 </div>
 
+                <div class="input-group">
+                  <label class="label">Imagem de Capa do Modulo</label>
+                  <input type="text" id="visualCoverImageUrl" class="input-text" placeholder="Cole a URL ou envie uma imagem para o card do modulo" />
+                </div>
+
+                <div class="builder-actions">
+                  <button id="btnUploadVisualCover" class="btn btn--ghost btn--sm" type="button" style="flex: 0;">Enviar Capa</button>
+                  <input id="visualCoverFile" type="file" accept="image/*" class="hidden" />
+                  <button id="btnClearVisualCover" class="btn btn--ghost btn--sm" type="button" style="flex: 0;">Limpar Capa</button>
+                </div>
+
                 <div class="visual-editor-palette">
                   <div class="visual-editor-palette__group">
                     <div class="visual-editor-palette__title">Pergunta</div>
@@ -611,7 +622,8 @@
                 <div id="visualPreviewCanvas" class="visual-preview" role="button" tabindex="0" aria-label="Abrir editor visual em tela grande">
                   <div class="visual-preview__topline">Preview visual do modulo</div>
                   <div class="visual-preview__hero">
-                    <div class="visual-preview__art">
+                    <div id="visualPreviewArt" class="visual-preview__art">
+                      <img id="visualPreviewCover" class="visual-preview__cover hidden" alt="Capa do modulo" />
                       <img id="visualPreviewIcon" class="visual-preview__icon hidden" alt="Icone do modulo" />
                     </div>
                     <div class="visual-preview__copy">
