@@ -2953,6 +2953,7 @@ function renderViewerModulesHome(app, modules) {
   const eyebrow = $("modulesScreenEyebrow");
   const title = $("modulesScreenTitle");
   const subtitle = $("modulesScreenSubtitle");
+  const header = subtitle?.closest(".dash-header");
   const statsGrid = $("modulesStatsGrid");
   const createWrap = $("modulesCreateWrap");
   const statTotal = $("modulesStatTotal");
@@ -2961,9 +2962,12 @@ function renderViewerModulesHome(app, modules) {
   if (!list) return;
 
   list.classList.add("viewer-modules-grid");
-  if (eyebrow) eyebrow.textContent = "Espaco do Fisio";
-  if (title) title.textContent = "Seus Modulos";
-  if (subtitle) subtitle.textContent = "Escolha abaixo o roteiro liberado para o seu acesso e continue seu atendimento.";
+  if (header) header.classList.add("viewer-home-header");
+  if (eyebrow) eyebrow.textContent = "Acesso liberado";
+  if (title) title.textContent = modules.length > 1 ? "Seus protocolos" : "Seu protocolo";
+  if (subtitle) subtitle.textContent = modules.length > 1
+    ? "Abra abaixo um dos roteiros disponiveis para o seu atendimento."
+    : "Abra abaixo o roteiro liberado para continuar seu atendimento.";
   if (statsGrid) statsGrid.classList.add("hidden");
   if (createWrap) createWrap.classList.add("hidden");
   if (statTotal) statTotal.textContent = String(modules.length);
@@ -2977,16 +2981,21 @@ function renderViewerModulesHome(app, modules) {
 
   list.innerHTML = modules.map((module) => `
     <article class="dash-card viewer-module-card">
-      <div class="viewer-module-card__eyebrow">Modulo liberado</div>
-      <h3 class="viewer-module-card__title">${escapeHtml(module.name)}</h3>
+      <div class="viewer-module-card__top">
+        <div>
+          <div class="viewer-module-card__eyebrow">Modulo liberado</div>
+          <h3 class="viewer-module-card__title">${escapeHtml(module.name)}</h3>
+        </div>
+        <span class="viewer-module-card__status">${module.status === "published" ? "Disponivel agora" : "Pronto para acesso"}</span>
+      </div>
       <p class="viewer-module-card__desc">${escapeHtml(module.description || "Roteiro clinico liberado para o seu perfil.")}</p>
       <div class="viewer-module-card__meta">
-        <span class="viewer-module-card__pill">Etapas: ${Number(module.nodeCount ?? 0)}</span>
-        <span class="viewer-module-card__pill">Status: ${module.status === "published" ? "Publicado" : "Disponivel"}</span>
+        <span class="viewer-module-card__pill">Uso individual</span>
+        <span class="viewer-module-card__pill">Acesso autorizado</span>
       </div>
       <div class="viewer-module-card__footer">
-        <span class="viewer-module-card__hint">Abra o roteiro para continuar sua avaliacao.</span>
-        <button class="btn btn--start" type="button" data-module-action="test" data-module-id="${escapeHtml(module.id)}">Abrir Modulo</button>
+        <span class="viewer-module-card__hint">Entre no protocolo e siga o roteiro normalmente.</span>
+        <button class="btn viewer-module-card__button" type="button" data-module-action="test" data-module-id="${escapeHtml(module.id)}">Abrir modulo</button>
       </div>
     </article>
   `).join("");
@@ -3026,6 +3035,7 @@ function renderModulesList(app) {
   const eyebrow = $("modulesScreenEyebrow");
   const title = $("modulesScreenTitle");
   const subtitle = $("modulesScreenSubtitle");
+  const header = subtitle?.closest(".dash-header");
   const statTotal = $("modulesStatTotal");
   const statPublished = $("modulesStatPublished");
   const statSteps = $("modulesStatSteps");
@@ -3040,6 +3050,7 @@ function renderModulesList(app) {
   const totalSteps = modules.reduce((sum, module) => sum + Number(module.nodeCount ?? 0), 0);
 
   list.classList.toggle("viewer-modules-grid", !canEdit);
+  if (header) header.classList.toggle("viewer-home-header", !canEdit);
   if (eyebrow) eyebrow.textContent = "Biblioteca Clinica";
   if (title) title.textContent = "Gerenciar Modulos";
   if (statsGrid) statsGrid.classList.toggle("hidden", !canEdit);
