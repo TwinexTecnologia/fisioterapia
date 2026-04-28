@@ -425,9 +425,48 @@ function getUserDisplayName(profile, user) {
   ).trim();
 }
 
+function getUserAvatarUrl(profile, user) {
+  return String(
+    user?.user_metadata?.avatar_url
+    ?? profile?.avatar_url
+    ?? ""
+  ).trim();
+}
+
 function getUserInitial(name) {
   const cleanName = String(name ?? "").trim();
   return cleanName ? cleanName.charAt(0).toUpperCase() : "U";
+}
+
+function normalizeSearchText(value) {
+  return String(value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
+function setAvatarElement(el, name, avatarUrl) {
+  if (!el) return;
+  const safeUrl = String(avatarUrl ?? "").trim();
+  if (safeUrl) {
+    el.innerHTML = `<img src="${escapeHtml(safeUrl)}" alt="${escapeHtml(name || "Avatar")}" />`;
+    el.classList.add("avatar--image");
+    return;
+  }
+  el.textContent = getUserInitial(name);
+  el.classList.remove("avatar--image");
+}
+
+function getViewerProfileMetadata(user) {
+  const metadata = user?.user_metadata ?? {};
+  return {
+    fullName: String(metadata.full_name ?? "").trim(),
+    phone: String(metadata.phone ?? "").trim(),
+    clinic: String(metadata.clinic_name ?? "").trim(),
+    bio: String(metadata.bio ?? "").trim(),
+    avatarUrl: String(metadata.avatar_url ?? "").trim()
+  };
 }
 
 function setLoginError(message = "") {
@@ -474,19 +513,32 @@ function getReadableRuntimeError(error, fallback = "Ocorreu um erro inesperado."
 function applyAuthUi(app) {
   const role = String(app.currentProfile?.role ?? "fisio_paciente");
   const displayName = getUserDisplayName(app.currentProfile, app.currentUser);
+  const avatarUrl = getUserAvatarUrl(app.currentProfile, app.currentUser);
   const sidebarRole = $("sidebarRole");
   const sidebarUserName = $("sidebarUserName");
+  const sidebarUserMeta = $("sidebarUserMeta");
   const sidebarAvatar = $("sidebarAvatar");
   const navDashboard = $("navDashboard");
   const navFisios = $("navFisios");
   const navModulos = $("navModulos");
+  const navPerfil = $("navPerfil");
+  const viewerProfileShortcutName = $("viewerProfileShortcutName");
+  const viewerProfileShortcutAvatar = $("viewerProfileShortcutAvatar");
 
   if (sidebarRole) sidebarRole.textContent = getRoleLabel(role);
   if (sidebarUserName) sidebarUserName.textContent = displayName;
-  if (sidebarAvatar) sidebarAvatar.textContent = getUserInitial(displayName);
+  if (sidebarUserMeta) {
+    sidebarUserMeta.textContent = isFisioPacienteRole(role)
+      ? "Acesso clinico autorizado"
+      : "Seu acesso clinico";
+  }
+  setAvatarElement(sidebarAvatar, displayName, avatarUrl);
   if (navDashboard) navDashboard.classList.toggle("hidden", !canAccessDashboard(role));
   if (navFisios) navFisios.classList.toggle("hidden", !canManageProfiles(role));
   if (navModulos) navModulos.classList.toggle("hidden", isOwnerRole(role));
+  if (navPerfil) navPerfil.classList.toggle("hidden", !isFisioPacienteRole(role));
+  if (viewerProfileShortcutName) viewerProfileShortcutName.textContent = displayName;
+  setAvatarElement(viewerProfileShortcutAvatar, displayName, avatarUrl);
 }
 
 async function loadAuthContext() {
@@ -2985,15 +3037,6 @@ function getViewerModuleIdentity(module) {
 }
 
 function buildViewerModuleCoverMarkup(module) {
-  const coverImageUrl = String(module?.coverImageUrl ?? "").trim();
-  if (coverImageUrl) {
-    return `
-      <div class="viewer-module-card__cover viewer-module-card__cover--image">
-        <img class="viewer-module-card__cover-img" src="${escapeHtml(coverImageUrl)}" alt="Capa do modulo ${escapeHtml(module?.name ?? "")}" />
-      </div>
-    `;
-  }
-
   const identity = getViewerModuleIdentity(module);
   return `
     <div class="viewer-module-card__cover viewer-module-card__cover--fallback viewer-module-card__cover--${identity.accent}">
@@ -3010,6 +3053,13 @@ function renderViewerModulesHome(app, modules) {
   const title = $("modulesScreenTitle");
   const subtitle = $("modulesScreenSubtitle");
   const header = subtitle?.closest(".dash-header");
+  const topbar = $("viewerTopbar");
+  const heroPanel = $("viewerHeroPanel");
+  const toolbar = $("viewerModulesToolbar");
+  const searchInput = $("viewerModuleSearch");
+  const summary = $("viewerModulesSummary");
+  const heroTitle = $("viewerHeroTitle");
+  const heroSubtitle = $("viewerHeroSubtitle");
   const statsGrid = $("modulesStatsGrid");
   const createWrap = $("modulesCreateWrap");
   const statTotal = $("modulesStatTotal");
@@ -3017,14 +3067,27 @@ function renderViewerModulesHome(app, modules) {
   const statSteps = $("modulesStatSteps");
   if (!list) return;
 
-  const protocolCountLabel = modules.length === 1 ? "1 protocolo liberado" : `${modules.length} protocolos liberados`;
+  const totalLabel = modules.length === 1 ? "1 protocolo liberado" : `${modules.length} protocolos liberados`;
+  const searchTerm = normalizeSearchText(app.viewerModuleSearch);
+  const visibleModules = searchTerm
+    ? modules.filter((module) => normalizeSearchText(`${module.name} ${module.description ?? ""}`).includes(searchTerm))
+    : modules;
+  const visibleLabel = visibleModules.length === 1 ? "1 resultado" : `${visibleModules.length} resultados`;
+  const displayName = getUserDisplayName(app.currentProfile, app.currentUser);
 
   list.classList.add("viewer-modules-grid");
   if (screen) screen.classList.add("viewer-screen-mode");
   if (header) header.classList.add("viewer-home-header");
-  if (eyebrow) eyebrow.textContent = `Fisioterapia guiada • ${protocolCountLabel}`;
-  if (title) title.textContent = "Seus protocolos";
-  if (subtitle) subtitle.textContent = "Continue seu atendimento com os roteiros disponiveis abaixo.";
+  if (topbar) topbar.classList.remove("hidden");
+  if (heroPanel) heroPanel.classList.remove("hidden");
+  if (toolbar) toolbar.classList.remove("hidden");
+  if (eyebrow) eyebrow.textContent = `Fisioterapia guiada • ${totalLabel}`;
+  if (title) title.textContent = "Meus modulos";
+  if (subtitle) subtitle.textContent = "Encontre rapidamente o protocolo liberado para o seu atendimento.";
+  if (heroTitle) heroTitle.textContent = `Ola, ${displayName.split(" ")[0] || "Fisio"}. Seu atendimento começa aqui.`;
+  if (heroSubtitle) heroSubtitle.textContent = "Acesse seus protocolos autorizados com busca rapida, identidade clinica e um fluxo leve para consulta.";
+  if (searchInput && searchInput.value !== String(app.viewerModuleSearch ?? "")) searchInput.value = String(app.viewerModuleSearch ?? "");
+  if (summary) summary.textContent = searchTerm ? `${visibleLabel} para "${String(app.viewerModuleSearch ?? "").trim()}"` : totalLabel;
   if (statsGrid) statsGrid.classList.add("hidden");
   if (createWrap) createWrap.classList.add("hidden");
   if (statTotal) statTotal.textContent = String(modules.length);
@@ -3036,9 +3099,14 @@ function renderViewerModulesHome(app, modules) {
     return;
   }
 
-  list.innerHTML = modules.map((module) => `
+  if (visibleModules.length === 0) {
+    list.innerHTML = `<div class="dashboard-empty viewer-empty-state">Nenhum protocolo encontrado para essa busca. Tente outro nome ou limpe o campo de pesquisa.</div>`;
+    return;
+  }
+
+  list.innerHTML = visibleModules.map((module) => `
     <article class="dash-card viewer-module-card">
-      <span class="viewer-module-card__status viewer-module-card__status--${module.status === "published" ? "ready" : "progress"}">${module.status === "published" ? "Pronto" : "Em andamento"}</span>
+      <span class="viewer-module-card__status viewer-module-card__status--ready">Autorizado</span>
       <div class="viewer-module-card__layout">
         ${buildViewerModuleCoverMarkup(module)}
         <div class="viewer-module-card__content">
@@ -3057,6 +3125,86 @@ function renderViewerModulesHome(app, modules) {
       </div>
     </article>
   `).join("");
+}
+
+function fillViewerProfileForm(app) {
+  const displayName = getUserDisplayName(app.currentProfile, app.currentUser);
+  const metadata = getViewerProfileMetadata(app.currentUser);
+  const avatarUrl = metadata.avatarUrl || getUserAvatarUrl(app.currentProfile, app.currentUser);
+  if ($("viewerProfileName")) $("viewerProfileName").value = app.currentProfile?.full_name || metadata.fullName || displayName;
+  if ($("viewerProfilePhone")) $("viewerProfilePhone").value = metadata.phone;
+  if ($("viewerProfileEmail")) $("viewerProfileEmail").value = String(app.currentProfile?.login_email ?? app.currentUser?.email ?? "");
+  if ($("viewerProfileCrefito")) $("viewerProfileCrefito").value = String(app.currentProfile?.crefito ?? "");
+  if ($("viewerProfileClinic")) $("viewerProfileClinic").value = metadata.clinic;
+  if ($("viewerProfileBio")) $("viewerProfileBio").value = metadata.bio;
+  if ($("viewerProfileAvatarUrl")) $("viewerProfileAvatarUrl").value = avatarUrl;
+  if ($("viewerProfileCardName")) $("viewerProfileCardName").textContent = app.currentProfile?.full_name || metadata.fullName || displayName;
+  if ($("viewerProfileCardRole")) $("viewerProfileCardRole").textContent = getRoleLabel(app.currentProfile?.role);
+  setAvatarElement($("viewerProfileAvatarPreview"), displayName, avatarUrl);
+}
+
+function renderViewerProfileScreen(app) {
+  fillViewerProfileForm(app);
+  const nav = $("navPerfil");
+  if (nav) nav.classList.add("active");
+}
+
+function setViewerProfileStatus(message = "", tone = "") {
+  const status = $("viewerProfileStatus");
+  if (!status) return;
+  status.textContent = message;
+  status.className = "form-status";
+  if (!message) {
+    status.classList.add("hidden");
+    return;
+  }
+  status.classList.remove("hidden");
+  if (tone === "success") status.classList.add("form-status--success");
+  if (tone === "error") status.classList.add("form-status--error");
+}
+
+async function saveViewerOwnProfile(app) {
+  const name = String($("viewerProfileName")?.value ?? "").trim();
+  const phone = String($("viewerProfilePhone")?.value ?? "").trim();
+  const clinic = String($("viewerProfileClinic")?.value ?? "").trim();
+  const bio = String($("viewerProfileBio")?.value ?? "").trim();
+  const avatarUrl = String($("viewerProfileAvatarUrl")?.value ?? "").trim();
+
+  if (!name) {
+    throw new Error("Informe seu nome completo para salvar o perfil.");
+  }
+
+  const metadata = {
+    ...(app.currentUser?.user_metadata ?? {}),
+    full_name: name,
+    phone,
+    clinic_name: clinic,
+    bio,
+    avatar_url: avatarUrl
+  };
+
+  const { data: authUpdate, error: authError } = await supabase.auth.updateUser({
+    data: metadata
+  });
+  if (authError) throw authError;
+
+  const { error: profileError } = await supabase
+    .from("profiles")
+    .update({ full_name: name })
+    .eq("id", app.currentUser.id);
+  if (profileError) throw profileError;
+
+  if (authUpdate?.user) app.currentUser = authUpdate.user;
+  app.currentProfile = {
+    ...(app.currentProfile ?? {}),
+    full_name: name
+  };
+}
+
+function showViewerNotifications(app) {
+  const moduleCount = getModulesForView(app).length;
+  const displayName = getUserDisplayName(app.currentProfile, app.currentUser);
+  alert(`${displayName}, voce tem ${moduleCount} ${moduleCount === 1 ? "protocolo liberado" : "protocolos liberados"} no momento.`);
 }
 
 function getModulesForView(app) {
@@ -3095,6 +3243,9 @@ function renderModulesList(app) {
   const subtitle = $("modulesScreenSubtitle");
   const header = subtitle?.closest(".dash-header");
   const screen = $("screenAdminModulos");
+  const topbar = $("viewerTopbar");
+  const heroPanel = $("viewerHeroPanel");
+  const toolbar = $("viewerModulesToolbar");
   const statTotal = $("modulesStatTotal");
   const statPublished = $("modulesStatPublished");
   const statSteps = $("modulesStatSteps");
@@ -3111,6 +3262,9 @@ function renderModulesList(app) {
   list.classList.toggle("viewer-modules-grid", !canEdit);
   if (header) header.classList.toggle("viewer-home-header", !canEdit);
   if (screen) screen.classList.toggle("viewer-screen-mode", !canEdit);
+  if (topbar) topbar.classList.toggle("hidden", canEdit);
+  if (heroPanel) heroPanel.classList.toggle("hidden", canEdit);
+  if (toolbar) toolbar.classList.toggle("hidden", canEdit);
   if (eyebrow) eyebrow.textContent = "Biblioteca Clinica";
   if (title) title.textContent = "Gerenciar Modulos";
   if (statsGrid) statsGrid.classList.toggle("hidden", !canEdit);
@@ -3579,6 +3733,7 @@ function renderState(app) {
   const screenAdminFisios = $("screenAdminFisios");
   const screenAdminFisiosForm = $("screenAdminFisiosForm");
   const screenAdminModulos = $("screenAdminModulos");
+  const screenViewerProfile = $("screenViewerProfile");
   const screenProtocolIntro = $("screenProtocolIntro");
   const screenNode = $("screenNode");
   const screenEditor = $("screenEditor");
@@ -3591,6 +3746,7 @@ function renderState(app) {
   if (screenAdminFisios) screenAdminFisios.classList.add("hidden");
   if (screenAdminFisiosForm) screenAdminFisiosForm.classList.add("hidden");
   if (screenAdminModulos) screenAdminModulos.classList.add("hidden");
+  if (screenViewerProfile) screenViewerProfile.classList.add("hidden");
   if (screenProtocolIntro) screenProtocolIntro.classList.add("hidden");
   if (screenNode) screenNode.classList.add("hidden");
   if (screenEditor) screenEditor.classList.add("hidden");
@@ -3653,6 +3809,13 @@ function renderState(app) {
     renderModulesList(app);
     const nav = $("navModulos");
     if (nav) nav.classList.add("active");
+    return;
+  }
+
+  if (view === "viewer_profile") {
+    setVisualEditorFullscreen(false);
+    if (screenViewerProfile) screenViewerProfile.classList.remove("hidden");
+    renderViewerProfileScreen(app);
     return;
   }
   
@@ -4336,6 +4499,7 @@ async function mount() {
       editorOriginalFlowId: null,
       managedProfiles: [],
       crefitoValidation: null,
+      viewerModuleSearch: "",
       view: "login"
     };
 
@@ -4475,6 +4639,107 @@ async function mount() {
       }
       app.view = "modulos";
       renderState(app);
+    });
+  }
+
+  const navPerfil = $("navPerfil");
+  if (navPerfil) {
+    navPerfil.addEventListener("click", () => {
+      app.view = "viewer_profile";
+      renderState(app);
+    });
+  }
+
+  const viewerProfileShortcut = $("viewerProfileShortcut");
+  if (viewerProfileShortcut) {
+    viewerProfileShortcut.addEventListener("click", () => {
+      app.view = "viewer_profile";
+      renderState(app);
+    });
+  }
+
+  const viewerNotificationsBtn = $("viewerNotificationsBtn");
+  if (viewerNotificationsBtn) {
+    viewerNotificationsBtn.addEventListener("click", () => showViewerNotifications(app));
+  }
+
+  const viewerProfileNotificationsBtn = $("viewerProfileNotificationsBtn");
+  if (viewerProfileNotificationsBtn) {
+    viewerProfileNotificationsBtn.addEventListener("click", () => showViewerNotifications(app));
+  }
+
+  const viewerModuleSearch = $("viewerModuleSearch");
+  if (viewerModuleSearch) {
+    viewerModuleSearch.addEventListener("input", (e) => {
+      app.viewerModuleSearch = String(e.target?.value ?? "");
+      if (app.view === "modulos" && isFisioPacienteRole(app.currentProfile?.role)) {
+        renderModulesList(app);
+      }
+    });
+  }
+
+  const btnUploadViewerAvatar = $("btnUploadViewerAvatar");
+  const viewerAvatarFile = $("viewerAvatarFile");
+  if (btnUploadViewerAvatar && viewerAvatarFile) {
+    btnUploadViewerAvatar.addEventListener("click", () => viewerAvatarFile.click());
+    viewerAvatarFile.addEventListener("change", async () => {
+      const file = viewerAvatarFile.files?.[0];
+      if (!file) return;
+      try {
+        const dataUrl = await readFileAsDataUrl(file);
+        if ($("viewerProfileAvatarUrl")) $("viewerProfileAvatarUrl").value = dataUrl;
+        fillViewerProfileForm({
+          ...app,
+          currentUser: {
+            ...(app.currentUser ?? {}),
+            user_metadata: {
+              ...(app.currentUser?.user_metadata ?? {}),
+              avatar_url: dataUrl
+            }
+          }
+        });
+      } catch (error) {
+        setViewerProfileStatus(getReadableRuntimeError(error, "Nao foi possivel carregar a foto."), "error");
+      } finally {
+        viewerAvatarFile.value = "";
+      }
+    });
+  }
+
+  const btnClearViewerAvatar = $("btnClearViewerAvatar");
+  if (btnClearViewerAvatar) {
+    btnClearViewerAvatar.addEventListener("click", () => {
+      if ($("viewerProfileAvatarUrl")) $("viewerProfileAvatarUrl").value = "";
+      fillViewerProfileForm({
+        ...app,
+        currentUser: {
+          ...(app.currentUser ?? {}),
+          user_metadata: {
+            ...(app.currentUser?.user_metadata ?? {}),
+            avatar_url: ""
+          }
+        }
+      });
+    });
+  }
+
+  const viewerProfileForm = $("viewerProfileForm");
+  if (viewerProfileForm) {
+    viewerProfileForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const submitButton = $("btnSaveViewerProfile");
+      try {
+        setViewerProfileStatus("");
+        if (submitButton) submitButton.disabled = true;
+        await saveViewerOwnProfile(app);
+        applyAuthUi(app);
+        fillViewerProfileForm(app);
+        setViewerProfileStatus("Perfil atualizado com sucesso.", "success");
+      } catch (error) {
+        setViewerProfileStatus(getReadableRuntimeError(error, "Nao foi possivel salvar o perfil."), "error");
+      } finally {
+        if (submitButton) submitButton.disabled = false;
+      }
     });
   }
 

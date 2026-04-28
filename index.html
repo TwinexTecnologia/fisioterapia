@@ -47,11 +47,15 @@
           <button id="navDashboard" class="sidebar__link active">📊 Dashboard</button>
           <button id="navFisios" class="sidebar__link">👥 Fisioterapeutas</button>
           <button id="navModulos" class="sidebar__link">🧩 Meus Módulos</button>
+          <button id="navPerfil" class="sidebar__link hidden">👤 Perfil</button>
         </nav>
         <div class="sidebar__footer">
           <div class="sidebar__user">
             <div id="sidebarAvatar" class="avatar">D</div>
-            <span id="sidebarUserName">Denis Tosta</span>
+            <div class="sidebar__user-copy">
+              <span id="sidebarUserName">Denis Tosta</span>
+              <small id="sidebarUserMeta">Seu acesso clinico</small>
+            </div>
           </div>
           <button id="btnLogout" class="btn btn--ghost btn--sm" type="button" style="width: 100%; margin-top: 14px;">Sair</button>
         </div>
@@ -292,9 +296,46 @@
         <!-- TELA 3: GERENCIAR MÓDULOS (O que era o dashboard antigo) -->
         <section id="screenAdminModulos" class="screen screen--admin-panel hidden">
           <div class="dash-header">
-            <div id="modulesScreenEyebrow" class="dash-header__eyebrow">Biblioteca Clinica</div>
-            <h1 id="modulesScreenTitle" class="h1">Gerenciar Módulos</h1>
-            <p id="modulesScreenSubtitle" class="muted">Crie ou edite os roteiros clínicos que serão disponibilizados aos fisioterapeutas.</p>
+            <div class="viewer-header-topline">
+              <div>
+                <div id="modulesScreenEyebrow" class="dash-header__eyebrow">Biblioteca Clinica</div>
+                <h1 id="modulesScreenTitle" class="h1">Gerenciar Módulos</h1>
+                <p id="modulesScreenSubtitle" class="muted">Crie ou edite os roteiros clínicos que serão disponibilizados aos fisioterapeutas.</p>
+              </div>
+              <div id="viewerTopbar" class="viewer-topbar hidden">
+                <button id="viewerNotificationsBtn" class="viewer-topbar__icon" type="button" aria-label="Notificacoes">
+                  <span class="viewer-topbar__badge-dot"></span>
+                  <span class="viewer-topbar__emoji">🔔</span>
+                </button>
+                <button id="viewerProfileShortcut" class="viewer-topbar__profile" type="button">
+                  <span id="viewerProfileShortcutAvatar" class="viewer-topbar__avatar">U</span>
+                  <span class="viewer-topbar__profile-copy">
+                    <strong id="viewerProfileShortcutName">Seu perfil</strong>
+                    <small>Atualizar dados</small>
+                  </span>
+                </button>
+              </div>
+            </div>
+            <div id="viewerHeroPanel" class="viewer-hero-panel hidden">
+              <div class="viewer-hero-panel__copy">
+                <div class="viewer-hero-panel__pill">FisioFlow</div>
+                <h2 id="viewerHeroTitle" class="viewer-hero-panel__title">Acompanhe seus protocolos clinicos</h2>
+                <p id="viewerHeroSubtitle" class="viewer-hero-panel__text">Acesse seus roteiros autorizados com uma navegacao simples e visual inspirada em fisioterapia.</p>
+              </div>
+              <div class="viewer-hero-panel__art" aria-hidden="true">
+                <div class="viewer-hero-panel__circle viewer-hero-panel__circle--lg"></div>
+                <div class="viewer-hero-panel__circle viewer-hero-panel__circle--sm"></div>
+                <div class="viewer-hero-panel__spine"></div>
+              </div>
+            </div>
+          </div>
+
+          <div id="viewerModulesToolbar" class="viewer-toolbar hidden">
+            <label class="viewer-toolbar__search">
+              <span>Buscar protocolo</span>
+              <input id="viewerModuleSearch" type="text" class="input-text" placeholder="Digite o nome do protocolo" />
+            </label>
+            <div id="viewerModulesSummary" class="viewer-toolbar__summary">0 protocolos</div>
           </div>
 
           <div id="modulesStatsGrid" class="modules-stats-grid">
@@ -324,6 +365,85 @@
               <p class="dash-card-desc">Monte um roteiro novo com perguntas e respostas, passo a passo.</p>
               <button id="btnCreateNew" class="btn btn--ghost" type="button" style="margin-top:auto;">Criar Passo a Passo</button>
             </div>
+          </div>
+        </section>
+
+        <section id="screenViewerProfile" class="screen screen--admin-panel hidden">
+          <div class="dash-header viewer-profile-header">
+            <div class="viewer-header-topline">
+              <div>
+                <div class="dash-header__eyebrow">Seu perfil</div>
+                <h1 class="h1">Atualize seus dados</h1>
+                <p class="muted">Mantenha suas informacoes de atendimento e sua foto sempre atualizadas.</p>
+              </div>
+              <div id="viewerProfileTopbar" class="viewer-topbar">
+                <button id="viewerProfileNotificationsBtn" class="viewer-topbar__icon" type="button" aria-label="Notificacoes">
+                  <span class="viewer-topbar__badge-dot"></span>
+                  <span class="viewer-topbar__emoji">🔔</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="viewer-profile-grid">
+            <div class="card form-card viewer-profile-card viewer-profile-card--hero">
+              <div class="viewer-profile-card__avatar-wrap">
+                <div id="viewerProfileAvatarPreview" class="viewer-profile-avatar">U</div>
+                <div class="viewer-profile-card__actions">
+                  <button id="btnUploadViewerAvatar" class="btn btn--ghost btn--sm" type="button">Enviar foto</button>
+                  <input id="viewerAvatarFile" type="file" accept="image/*" class="hidden" />
+                  <button id="btnClearViewerAvatar" class="btn btn--ghost btn--sm" type="button">Remover foto</button>
+                </div>
+              </div>
+              <div class="viewer-profile-card__info">
+                <strong id="viewerProfileCardName">Seu nome</strong>
+                <span id="viewerProfileCardRole">Fisioterapeuta</span>
+                <p class="muted">Ajuste seus dados de exibicao para deixar sua area clinica mais personalizada.</p>
+              </div>
+            </div>
+
+            <form id="viewerProfileForm" class="card form-card viewer-profile-form">
+              <div class="row-inputs">
+                <div class="input-group">
+                  <label class="label">Nome completo</label>
+                  <input id="viewerProfileName" type="text" class="input-text" placeholder="Seu nome completo" />
+                </div>
+                <div class="input-group">
+                  <label class="label">Telefone</label>
+                  <input id="viewerProfilePhone" type="text" class="input-text" placeholder="(00) 00000-0000" />
+                </div>
+              </div>
+
+              <div class="row-inputs">
+                <div class="input-group">
+                  <label class="label">E-mail</label>
+                  <input id="viewerProfileEmail" type="email" class="input-text" readonly />
+                </div>
+                <div class="input-group">
+                  <label class="label">CREFITO</label>
+                  <input id="viewerProfileCrefito" type="text" class="input-text" readonly />
+                </div>
+              </div>
+
+              <div class="row-inputs">
+                <div class="input-group">
+                  <label class="label">Clinica</label>
+                  <input id="viewerProfileClinic" type="text" class="input-text" placeholder="Nome da sua clinica" />
+                </div>
+              </div>
+
+              <div class="input-group">
+                <label class="label">Sobre voce</label>
+                <textarea id="viewerProfileBio" class="textarea" style="min-height: 140px;"></textarea>
+              </div>
+
+              <input id="viewerProfileAvatarUrl" type="hidden" />
+              <div id="viewerProfileStatus" class="form-status hidden"></div>
+
+              <div class="row row--right">
+                <button id="btnSaveViewerProfile" class="btn btn--start-sm" type="submit" style="flex: 0; min-width: 220px;">Salvar perfil</button>
+              </div>
+            </form>
           </div>
         </section>
 
