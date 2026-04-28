@@ -1821,6 +1821,93 @@ function readFileAsDataUrl(file) {
   });
 }
 
+function estimateDataUrlSize(dataUrl) {
+  const value = String(dataUrl ?? "");
+  const commaIndex = value.indexOf(",");
+  const base64 = commaIndex >= 0 ? value.slice(commaIndex + 1) : value;
+  const padding = (base64.match(/=+$/) || [""])[0].length;
+  return Math.max(0, Math.floor((base64.length * 3) / 4) - padding);
+}
+
+function loadImageFromFile(file) {
+  return new Promise((resolve, reject) => {
+    const objectUrl = URL.createObjectURL(file);
+    const image = new Image();
+    const cleanup = () => URL.revokeObjectURL(objectUrl);
+    image.onload = () => {
+      cleanup();
+      resolve(image);
+    };
+    image.onerror = () => {
+      cleanup();
+      reject(new Error("Nao foi possivel processar essa imagem."));
+    };
+    image.src = objectUrl;
+  });
+}
+
+async function readAvatarFileAsOptimizedDataUrl(file) {
+  if (!file || !String(file.type ?? "").startsWith("image/")) {
+    throw new Error("Selecione uma imagem valida para a foto de perfil.");
+  }
+
+  const image = await loadImageFromFile(file);
+  const maxDimension = 960;
+  const targetBytes = 360 * 1024;
+  const hardLimitBytes = 700 * 1024;
+  const minQuality = 0.5;
+  const qualityStep = 0.08;
+  const scaleStep = 0.85;
+
+  let width = image.naturalWidth || image.width || maxDimension;
+  let height = image.naturalHeight || image.height || maxDimension;
+  if (width <= 0 || height <= 0) {
+    throw new Error("Nao foi possivel ler o tamanho da imagem.");
+  }
+
+  const initialScale = Math.min(1, maxDimension / Math.max(width, height));
+  width = Math.max(1, Math.round(width * initialScale));
+  height = Math.max(1, Math.round(height * initialScale));
+
+  const canvas = document.createElement("canvas");
+  const context = canvas.getContext("2d");
+  if (!context) {
+    throw new Error("Seu navegador nao conseguiu preparar a imagem.");
+  }
+
+  const render = (nextWidth, nextHeight) => {
+    canvas.width = nextWidth;
+    canvas.height = nextHeight;
+    context.clearRect(0, 0, nextWidth, nextHeight);
+    context.drawImage(image, 0, 0, nextWidth, nextHeight);
+  };
+
+  render(width, height);
+
+  let bestDataUrl = "";
+  let bestSize = Number.POSITIVE_INFINITY;
+  let currentWidth = width;
+  let currentHeight = height;
+
+  for (let pass = 0; pass < 6; pass += 1) {
+    render(currentWidth, currentHeight);
+    for (let quality = 0.92; quality >= minQuality; quality -= qualityStep) {
+      const dataUrl = canvas.toDataURL("image/jpeg", quality);
+      const size = estimateDataUrlSize(dataUrl);
+      if (size < bestSize) {
+        bestSize = size;
+        bestDataUrl = dataUrl;
+      }
+      if (size <= targetBytes) return dataUrl;
+    }
+    currentWidth = Math.max(320, Math.round(currentWidth * scaleStep));
+    currentHeight = Math.max(320, Math.round(currentHeight * scaleStep));
+  }
+
+  if (bestDataUrl && bestSize <= hardLimitBytes) return bestDataUrl;
+  throw new Error("Essa foto ainda ficou pesada. Tente outra imagem ou corte um pouco antes de enviar.");
+}
+
 function setVisualEditorFullscreen(isOpen) {
   const section = $("visualEditorSection");
   const closeBtn = $("btnCloseVisualFullscreen");
@@ -4857,7 +4944,7 @@ async function mount() {
       const file = viewerAvatarFile.files?.[0];
       if (!file) return;
       try {
-        const dataUrl = await readFileAsDataUrl(file);
+        const dataUrl = await readAvatarFileAsOptimizedDataUrl(file);
         if ($("viewerProfileAvatarUrl")) $("viewerProfileAvatarUrl").value = dataUrl;
         fillViewerProfileForm({
           ...app,
@@ -4869,6 +4956,7 @@ async function mount() {
             }
           }
         });
+        setViewerProfileStatus("Foto ajustada automaticamente para caber no avatar redondo.", "success");
       } catch (error) {
         setViewerProfileStatus(getReadableRuntimeError(error, "Nao foi possivel carregar a foto."), "error");
       } finally {
