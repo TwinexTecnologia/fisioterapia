@@ -1561,6 +1561,49 @@ body {
   background: rgba(255, 255, 255, 0.95);
 }
 
+.managed-profile-preview {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 18px;
+  margin-bottom: 22px;
+  border-radius: 18px;
+  background: linear-gradient(135deg, rgba(239, 246, 255, 0.96) 0%, rgba(248, 250, 252, 0.98) 100%);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+}
+
+.managed-profile-preview__avatar {
+  width: 68px;
+  height: 68px;
+  border-radius: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #2563eb 0%, #0f172a 100%);
+  color: #ffffff;
+  font-size: 24px;
+  font-weight: 900;
+  box-shadow: 0 14px 28px rgba(37, 99, 235, 0.2);
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.managed-profile-preview__copy {
+  display: grid;
+  gap: 4px;
+}
+
+.managed-profile-preview__copy strong {
+  font-size: 15px;
+  font-weight: 900;
+  color: #0f172a;
+}
+
+.managed-profile-preview__copy small {
+  font-size: 13px;
+  color: #475569;
+}
+
 .input-group {
   display: flex;
   flex-direction: column;
