@@ -292,12 +292,12 @@
         <!-- TELA 3: GERENCIAR MÓDULOS (O que era o dashboard antigo) -->
         <section id="screenAdminModulos" class="screen screen--admin-panel hidden">
           <div class="dash-header">
-            <div class="dash-header__eyebrow">Biblioteca Clinica</div>
-            <h1 class="h1">Gerenciar Módulos</h1>
+            <div id="modulesScreenEyebrow" class="dash-header__eyebrow">Biblioteca Clinica</div>
+            <h1 id="modulesScreenTitle" class="h1">Gerenciar Módulos</h1>
             <p id="modulesScreenSubtitle" class="muted">Crie ou edite os roteiros clínicos que serão disponibilizados aos fisioterapeutas.</p>
           </div>
 
-          <div class="modules-stats-grid">
+          <div id="modulesStatsGrid" class="modules-stats-grid">
             <div class="modules-stat-card modules-stat-card--primary">
               <div class="modules-stat-card__label">Módulos Cadastrados</div>
               <div id="modulesStatTotal" class="modules-stat-card__value">0</div>
@@ -317,7 +317,7 @@
 
           <div id="modulesList" class="dash-grid"></div>
 
-          <div class="dash-grid">
+          <div id="modulesCreateWrap" class="dash-grid">
             <div class="dash-card dash-card--new">
               <div class="dash-card-icon">+</div>
               <h3 class="dash-card-title">Criar Novo Módulo</h3>
