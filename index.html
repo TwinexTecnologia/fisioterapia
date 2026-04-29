@@ -7,7 +7,7 @@
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
     <title>Fisiotosta</title>
-    <link rel="stylesheet" href="./style.css?v=20260429mobile2" />
+    <link rel="stylesheet" href="./style.css?v=20260429mobile3" />
   </head>
   <body>
     <!-- TELA 0: LOGIN DO SISTEMA -->
@@ -67,9 +67,17 @@
           <button id="btnLogout" class="btn btn--ghost btn--sm" type="button" style="width: 100%; margin-top: 14px;">Sair</button>
         </div>
       </aside>
+      <div id="viewerMobileNavBackdrop" class="viewer-mobile-nav-backdrop hidden"></div>
 
       <!-- ÁREA PRINCIPAL -->
       <main id="mainAdmin" class="main main--admin">
+        <div id="viewerMobileHeader" class="viewer-mobile-header hidden">
+          <button id="viewerMobileMenuBtn" class="viewer-mobile-header__icon" type="button" aria-label="Abrir menu">☰</button>
+          <strong class="viewer-mobile-header__title">Fisiotosta</strong>
+          <button id="viewerMobileProfileBtn" class="viewer-mobile-header__profile" type="button" aria-label="Abrir perfil">
+            <span id="viewerMobileHeaderAvatar" class="viewer-mobile-header__avatar">U</span>
+          </button>
+        </div>
         <div class="admin-topbar">
           <button id="adminSecurityNotificationsBtn" class="viewer-topbar__icon hidden" type="button" aria-label="Alertas de seguranca">
             <span class="viewer-topbar__badge-dot hidden"></span>
