@@ -869,6 +869,30 @@ function syncRuntimeIntroIdentity(app) {
     : displayName;
 }
 
+function closeViewerMobileNav() {
+  const appContainer = $("appContainer");
+  const backdrop = $("viewerMobileNavBackdrop");
+  if (appContainer) appContainer.classList.remove("app--viewer-mobile-nav-open");
+  if (backdrop) backdrop.classList.add("hidden");
+}
+
+function openViewerMobileNav() {
+  const appContainer = $("appContainer");
+  const backdrop = $("viewerMobileNavBackdrop");
+  if (appContainer) appContainer.classList.add("app--viewer-mobile-nav-open");
+  if (backdrop) backdrop.classList.remove("hidden");
+}
+
+function toggleViewerMobileNav() {
+  const appContainer = $("appContainer");
+  if (!appContainer) return;
+  if (appContainer.classList.contains("app--viewer-mobile-nav-open")) {
+    closeViewerMobileNav();
+  } else {
+    openViewerMobileNav();
+  }
+}
+
 let appToastHideTimer = 0;
 
 function getCurrentRuntimeModule(app) {
@@ -1133,6 +1157,8 @@ function applyAuthUi(app) {
   const displayName = getUserDisplayName(app.currentProfile, app.currentUser);
   const avatarUrl = getUserAvatarUrl(app.currentProfile, app.currentUser);
   const appContainer = $("appContainer");
+  const viewerMobileHeader = $("viewerMobileHeader");
+  const viewerMobileHeaderAvatar = $("viewerMobileHeaderAvatar");
   const sidebarRole = $("sidebarRole");
   const sidebarUserName = $("sidebarUserName");
   const sidebarUserMeta = $("sidebarUserMeta");
@@ -1147,6 +1173,8 @@ function applyAuthUi(app) {
   const adminSecurityNotificationsDot = adminSecurityNotificationsBtn?.querySelector(".viewer-topbar__badge-dot");
 
   if (appContainer) appContainer.classList.toggle("app--viewer-shell", isViewerRole);
+  if (viewerMobileHeader) viewerMobileHeader.classList.toggle("hidden", !isViewerRole);
+  setAvatarElement(viewerMobileHeaderAvatar, displayName, avatarUrl);
   if (sidebarRole) sidebarRole.textContent = getRoleLabel(role);
   if (sidebarUserName) sidebarUserName.textContent = displayName;
   if (sidebarUserMeta) {
@@ -5216,6 +5244,7 @@ function renderState(app) {
   const screenEditor = $("screenEditor");
   const appContainer = $("appContainer");
   const mainAdmin = $("mainAdmin");
+  closeViewerMobileNav();
   
   // Esconder todas
   if (screenLogin) screenLogin.classList.add("hidden");
@@ -6168,6 +6197,25 @@ async function mount() {
       } catch (error) {
         renderAdminSecurityNotificationsError(error, e.currentTarget);
       }
+    });
+  }
+
+  const viewerMobileMenuBtn = $("viewerMobileMenuBtn");
+  if (viewerMobileMenuBtn) {
+    viewerMobileMenuBtn.addEventListener("click", () => toggleViewerMobileNav());
+  }
+
+  const viewerMobileNavBackdrop = $("viewerMobileNavBackdrop");
+  if (viewerMobileNavBackdrop) {
+    viewerMobileNavBackdrop.addEventListener("click", () => closeViewerMobileNav());
+  }
+
+  const viewerMobileProfileBtn = $("viewerMobileProfileBtn");
+  if (viewerMobileProfileBtn) {
+    viewerMobileProfileBtn.addEventListener("click", () => {
+      closeViewerMobileNav();
+      app.view = "viewer_profile";
+      renderState(app);
     });
   }
 
