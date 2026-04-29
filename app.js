@@ -1129,8 +1129,10 @@ function getReadableRuntimeError(error, fallback = "Ocorreu um erro inesperado."
 
 function applyAuthUi(app) {
   const role = String(app.currentProfile?.role ?? "fisio_paciente");
+  const isViewerRole = isFisioPacienteRole(role);
   const displayName = getUserDisplayName(app.currentProfile, app.currentUser);
   const avatarUrl = getUserAvatarUrl(app.currentProfile, app.currentUser);
+  const appContainer = $("appContainer");
   const sidebarRole = $("sidebarRole");
   const sidebarUserName = $("sidebarUserName");
   const sidebarUserMeta = $("sidebarUserMeta");
@@ -1144,6 +1146,7 @@ function applyAuthUi(app) {
   const adminSecurityNotificationsBtn = $("adminSecurityNotificationsBtn");
   const adminSecurityNotificationsDot = adminSecurityNotificationsBtn?.querySelector(".viewer-topbar__badge-dot");
 
+  if (appContainer) appContainer.classList.toggle("app--viewer-shell", isViewerRole);
   if (sidebarRole) sidebarRole.textContent = getRoleLabel(role);
   if (sidebarUserName) sidebarUserName.textContent = displayName;
   if (sidebarUserMeta) {

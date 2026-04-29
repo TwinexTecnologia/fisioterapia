@@ -1112,6 +1112,53 @@ body {
 }
 
 @media (max-width: 640px) {
+  .app--login {
+    padding: 16px 12px;
+    align-items: flex-start;
+  }
+
+  .login-card {
+    margin-top: 14px;
+    max-width: 100%;
+    border-radius: 24px;
+    padding: 20px 16px;
+  }
+
+  .login-header {
+    margin-bottom: 16px;
+  }
+
+  .login-header__logo {
+    width: min(190px, 62%);
+    margin: 0 auto 12px;
+    filter: drop-shadow(0 12px 18px rgba(15, 23, 42, 0.14));
+  }
+
+  .login-header p {
+    font-size: 12px;
+    line-height: 1.45;
+    max-width: 280px;
+    margin: 0 auto;
+  }
+
+  .login-form {
+    gap: 14px;
+  }
+
+  .login-card .label {
+    font-size: 12px;
+  }
+
+  .login-card .input-text {
+    min-height: 48px;
+    font-size: 14px;
+  }
+
+  .login-card .btn--start {
+    font-size: 18px;
+    padding: 12px 20px;
+  }
+
   #screenAdminModulos.viewer-screen-mode {
     gap: 12px;
   }
@@ -1311,6 +1358,73 @@ body {
 
   .viewer-profile-card__info span {
     font-size: 12px;
+  }
+
+  .app--admin.app--viewer-shell {
+    display: block;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  .app--admin.app--viewer-shell .sidebar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    top: auto;
+    width: 100%;
+    height: auto;
+    border-right: none;
+    border-top: 1px solid rgba(15, 23, 42, 0.08);
+    box-shadow: 0 -14px 34px rgba(15, 23, 42, 0.12);
+    z-index: 90;
+    background: rgba(255,255,255,0.96);
+    backdrop-filter: blur(16px);
+  }
+
+  .app--admin.app--viewer-shell .sidebar__brand,
+  .app--admin.app--viewer-shell .sidebar__footer {
+    display: none;
+  }
+
+  .app--admin.app--viewer-shell .sidebar__nav {
+    padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px));
+    flex-direction: row;
+    gap: 10px;
+    justify-content: space-between;
+  }
+
+  .app--admin.app--viewer-shell .sidebar__link {
+    flex: 1 1 0;
+    min-width: 0;
+    justify-content: center;
+    text-align: center;
+    padding: 12px 10px;
+    border-radius: 16px;
+    font-size: 14px;
+    box-shadow: none;
+  }
+
+  .app--admin.app--viewer-shell .sidebar__link:hover {
+    transform: none;
+    box-shadow: none;
+  }
+
+  .app--admin.app--viewer-shell .main--admin {
+    width: 100%;
+    padding: 12px 12px calc(104px + env(safe-area-inset-bottom, 0px));
+    align-items: stretch;
+  }
+
+  .app--admin.app--viewer-shell .screen--admin-panel,
+  .app--admin.app--viewer-shell #screenAdminModulos,
+  .app--admin.app--viewer-shell #screenViewerProfile {
+    max-width: none;
+    width: 100%;
+  }
+
+  .app--admin.app--viewer-shell .admin-topbar {
+    display: none;
   }
 }
 
