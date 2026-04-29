@@ -717,6 +717,11 @@ function getAdminSecurityNotificationsErrorMessage(error) {
   return "";
 }
 
+function isAdminSecurityNotificationsSetupError(error) {
+  const message = String(error?.message ?? error ?? "");
+  return /Falta rodar o SQL novo no Supabase|Revise o SQL do Supabase das notificacoes de seguranca/i.test(message);
+}
+
 function getUserDisplayName(profile, user) {
   return String(
     profile?.full_name
@@ -4142,13 +4147,13 @@ function positionViewerNotificationPopover(anchorCandidate = null) {
   if (!anchor) return;
 
   const viewportPadding = 16;
-  const gap = 12;
+  const gap = 8;
   const maxWidth = Math.max(280, Math.min(380, window.innerWidth - (viewportPadding * 2)));
   const popoverWidth = Math.min(Math.max(popover.offsetWidth || 0, Math.min(320, maxWidth)), maxWidth);
   const popoverHeight = Math.max(popover.offsetHeight || 0, 260);
   const rect = anchor.getBoundingClientRect();
 
-  let left = rect.right - popoverWidth;
+  let left = rect.left + (rect.width / 2) - (popoverWidth / 2);
   left = Math.max(viewportPadding, Math.min(left, window.innerWidth - popoverWidth - viewportPadding));
 
   let top = rect.bottom + gap;
@@ -4450,11 +4455,13 @@ async function loadAdminSecurityNotifications(app) {
     if (securityMessage) throw new Error(securityMessage);
     throw error;
   }
+  app.adminSecurityNotificationsSilentDisabled = false;
   app.adminSecurityNotifications = Array.isArray(data) ? data : [];
   return app.adminSecurityNotifications;
 }
 
 async function refreshAdminSecurityNotificationsSilently(app) {
+  if (app?.adminSecurityNotificationsSilentDisabled) return;
   if (!app?.authSession || !canManageProfiles(app?.currentProfile?.role)) return;
   try {
     await loadAdminSecurityNotifications(app);
@@ -4466,6 +4473,9 @@ async function refreshAdminSecurityNotificationsSilently(app) {
       syncViewerNotificationBadge(app);
     }
   } catch (error) {
+    if (isAdminSecurityNotificationsSetupError(error)) {
+      app.adminSecurityNotificationsSilentDisabled = true;
+    }
     console.error("Erro ao atualizar alertas de seguranca em segundo plano", error);
   }
 }
