@@ -2377,6 +2377,10 @@ body {
   flex-wrap: wrap;
 }
 
+.admin-table__history-btn {
+  min-width: 64px;
+}
+
 #screenAdminFisiosForm .h2 {
   font-size: 18px;
   font-weight: 900;
@@ -2768,6 +2772,124 @@ body {
   background:
     radial-gradient(circle at top right, rgba(248, 113, 113, 0.18), transparent 30%),
     linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(254,242,242,0.98) 100%);
+}
+
+.device-history-modal {
+  width: min(760px, calc(100vw - 32px));
+}
+
+.device-history-modal__hero {
+  display: grid;
+  grid-template-columns: 74px 1fr;
+  gap: 16px;
+  align-items: center;
+  padding: 18px;
+  border-radius: 24px;
+  background: linear-gradient(135deg, rgba(239, 246, 255, 0.98) 0%, rgba(236, 253, 245, 0.98) 100%);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+}
+
+.device-history-modal__icon {
+  width: 74px;
+  height: 74px;
+  border-radius: 22px;
+  display: grid;
+  place-items: center;
+  font-size: 34px;
+  background: linear-gradient(135deg, #dbeafe 0%, #dcfce7 100%);
+  box-shadow: 0 14px 30px rgba(37, 99, 235, 0.14);
+}
+
+.device-history-modal__copy {
+  display: grid;
+  gap: 6px;
+}
+
+.device-history-modal__copy p {
+  margin: 0;
+  color: #475569;
+  line-height: 1.55;
+}
+
+.device-history-list {
+  display: grid;
+  gap: 12px;
+  max-height: 380px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.device-history-empty {
+  padding: 18px;
+  border-radius: 18px;
+  background: #f8fafc;
+  border: 1px dashed rgba(148, 163, 184, 0.34);
+  color: #64748b;
+  font-weight: 700;
+}
+
+.device-history-item {
+  display: grid;
+  gap: 10px;
+  padding: 16px 18px;
+  border-radius: 20px;
+  background: #ffffff;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.06);
+}
+
+.device-history-item__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.device-history-item__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  color: #475569;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.device-history-item__desc {
+  margin: 0;
+  color: #64748b;
+  line-height: 1.5;
+}
+
+.device-history-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.device-history-badge--success {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.device-history-badge--danger {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.device-history-badge--info {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.device-history-badge--neutral {
+  background: #e2e8f0;
+  color: #334155;
 }
 
 .builder-modal__options {
