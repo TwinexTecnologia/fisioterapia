@@ -696,6 +696,21 @@ function getMissingManagedProfileColumnsMessage(error) {
   return "";
 }
 
+function getAdminSecurityNotificationsErrorMessage(error) {
+  const message = String(error?.message ?? error ?? "");
+  if (!message) return "";
+  if (/list_admin_security_notifications/i.test(message) && /function/i.test(message)) {
+    return "Falta rodar o SQL novo no Supabase para ativar o controle de device e o historico de login.";
+  }
+  if (/(patient_login_history|patient_device_bindings)/i.test(message) && (/column .* does not exist/i.test(message) || /relation .* does not exist/i.test(message) || /schema cache/i.test(message))) {
+    return "Falta rodar o SQL novo no Supabase para ativar o controle de device e o historico de login.";
+  }
+  if (/Sem permissao para visualizar notificacoes de seguranca/i.test(message)) {
+    return "Seu perfil nao tem permissao para visualizar os alertas de seguranca.";
+  }
+  return "";
+}
+
 function getUserDisplayName(profile, user) {
   return String(
     profile?.full_name
@@ -4053,9 +4068,9 @@ function refreshViewerAvatarPreview(app, avatarUrl) {
   setAvatarElement($("viewerProfileAvatarPreview"), displayName, safeAvatarUrl);
 }
 
-async function showViewerNotifications(app) {
+async function showViewerNotifications(app, anchorEl = null) {
   if (canManageProfiles(app?.currentProfile?.role)) {
-    await showAdminSecurityNotifications(app);
+    await showAdminSecurityNotifications(app, anchorEl);
     return;
   }
   const moduleCount = getModulesForView(app).length;
@@ -4085,8 +4100,7 @@ async function showViewerNotifications(app) {
   }
   markViewerNotificationsSeen(app);
   syncViewerNotificationBadge(app);
-  popover.classList.remove("hidden");
-  requestAnimationFrame(() => popover.classList.add("viewer-notification-popover--open"));
+  openViewerNotificationPopover(anchorEl);
 }
 
 function hideViewerNotifications() {
@@ -4098,6 +4112,62 @@ function hideViewerNotifications() {
       popover.classList.add("hidden");
     }
   }, 180);
+}
+
+function getViewerNotificationAnchorElement(anchorCandidate = null) {
+  if (anchorCandidate instanceof Element) return anchorCandidate;
+  const popover = $("viewerNotificationPopover");
+  if (!popover) return null;
+  const anchorId = String(popover.dataset.anchorId ?? "").trim();
+  if (!anchorId) return null;
+  return document.getElementById(anchorId);
+}
+
+function positionViewerNotificationPopover(anchorCandidate = null) {
+  const popover = $("viewerNotificationPopover");
+  if (!popover) return;
+  const anchor = getViewerNotificationAnchorElement(anchorCandidate);
+  if (anchor?.id) {
+    popover.dataset.anchorId = anchor.id;
+  }
+  popover.style.removeProperty("left");
+  popover.style.removeProperty("right");
+  popover.style.removeProperty("top");
+  if (!anchor) return;
+
+  const viewportPadding = 16;
+  const gap = 12;
+  const maxWidth = Math.max(280, Math.min(380, window.innerWidth - (viewportPadding * 2)));
+  const popoverWidth = Math.min(Math.max(popover.offsetWidth || 0, Math.min(320, maxWidth)), maxWidth);
+  const popoverHeight = Math.max(popover.offsetHeight || 0, 260);
+  const rect = anchor.getBoundingClientRect();
+
+  let left = rect.right - popoverWidth;
+  left = Math.max(viewportPadding, Math.min(left, window.innerWidth - popoverWidth - viewportPadding));
+
+  let top = rect.bottom + gap;
+  if (top + popoverHeight > window.innerHeight - viewportPadding) {
+    top = Math.max(viewportPadding, rect.top - popoverHeight - gap);
+  }
+
+  popover.style.left = `${Math.round(left)}px`;
+  popover.style.top = `${Math.round(top)}px`;
+  popover.style.right = "auto";
+}
+
+function openViewerNotificationPopover(anchorCandidate = null) {
+  const popover = $("viewerNotificationPopover");
+  if (!popover) return;
+  const anchor = getViewerNotificationAnchorElement(anchorCandidate);
+  if (anchor?.id) {
+    popover.dataset.anchorId = anchor.id;
+  }
+  popover.classList.remove("hidden");
+  positionViewerNotificationPopover(anchor);
+  requestAnimationFrame(() => {
+    positionViewerNotificationPopover(anchor);
+    popover.classList.add("viewer-notification-popover--open");
+  });
 }
 
 function getViewerNotificationFingerprint(app) {
@@ -4370,8 +4440,8 @@ async function loadAdminSecurityNotifications(app) {
   }
   const { data, error } = await supabase.rpc("list_admin_security_notifications");
   if (error) {
-    const missingColumnsMessage = getMissingManagedProfileColumnsMessage(error);
-    if (missingColumnsMessage) throw new Error(missingColumnsMessage);
+    const securityMessage = getAdminSecurityNotificationsErrorMessage(error);
+    if (securityMessage) throw new Error(securityMessage);
     throw error;
   }
   app.adminSecurityNotifications = Array.isArray(data) ? data : [];
@@ -4394,7 +4464,7 @@ async function refreshAdminSecurityNotificationsSilently(app) {
   }
 }
 
-function renderAdminSecurityNotifications(app) {
+function renderAdminSecurityNotifications(app, anchorEl = null) {
   const popover = $("viewerNotificationPopover");
   const title = $("viewerNotificationTitle");
   const text = $("viewerNotificationText");
@@ -4440,14 +4510,13 @@ function renderAdminSecurityNotifications(app) {
 
   markAdminSecurityNotificationsSeen(app);
   syncViewerNotificationBadge(app);
-  popover.classList.remove("hidden");
-  requestAnimationFrame(() => popover.classList.add("viewer-notification-popover--open"));
+  openViewerNotificationPopover(anchorEl);
 }
 
-async function showAdminSecurityNotifications(app) {
+async function showAdminSecurityNotifications(app, anchorEl = null) {
   await loadAdminSecurityNotifications(app);
   applyAuthUi(app);
-  renderAdminSecurityNotifications(app);
+  renderAdminSecurityNotifications(app, anchorEl);
 }
 
 function getLoginHistoryStatusMeta(status, blockedReason = "") {
@@ -6074,7 +6143,7 @@ async function mount() {
         return;
       }
       try {
-        await showViewerNotifications(app);
+        await showViewerNotifications(app, e.currentTarget);
       } catch (error) {
         showAppToast(
           getReadableRuntimeError(error, "Nao foi possivel carregar os alertas de seguranca."),
@@ -6095,7 +6164,7 @@ async function mount() {
         return;
       }
       try {
-        await showViewerNotifications(app);
+        await showViewerNotifications(app, e.currentTarget);
       } catch (error) {
         showAppToast(
           getReadableRuntimeError(error, "Nao foi possivel abrir as notificacoes."),
@@ -6116,7 +6185,7 @@ async function mount() {
         return;
       }
       try {
-        await showViewerNotifications(app);
+        await showViewerNotifications(app, e.currentTarget);
       } catch (error) {
         showAppToast(
           getReadableRuntimeError(error, "Nao foi possivel abrir as notificacoes."),
@@ -6244,6 +6313,7 @@ async function mount() {
     const target = e.target;
     const clickedInsidePopover = target instanceof Node && popover.contains(target);
     const clickedToggle = target instanceof Element && (
+      target.closest("#adminSecurityNotificationsBtn") ||
       target.closest("#viewerNotificationsBtn") ||
       target.closest("#viewerProfileNotificationsBtn")
     );
@@ -6255,6 +6325,18 @@ async function mount() {
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") hideViewerNotifications();
   });
+
+  window.addEventListener("resize", () => {
+    const popover = $("viewerNotificationPopover");
+    if (!popover || popover.classList.contains("hidden")) return;
+    positionViewerNotificationPopover();
+  });
+
+  window.addEventListener("scroll", () => {
+    const popover = $("viewerNotificationPopover");
+    if (!popover || popover.classList.contains("hidden")) return;
+    positionViewerNotificationPopover();
+  }, true);
 
   const btnUploadViewerAvatar = $("btnUploadViewerAvatar");
   const viewerAvatarFile = $("viewerAvatarFile");
