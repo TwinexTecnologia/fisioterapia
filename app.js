@@ -699,11 +699,17 @@ function getMissingManagedProfileColumnsMessage(error) {
 function getAdminSecurityNotificationsErrorMessage(error) {
   const message = String(error?.message ?? error ?? "");
   if (!message) return "";
+  if (/supabase/i.test(message) && /notific/i.test(message)) {
+    return "Nao foi possivel carregar os alertas de seguranca agora.";
+  }
   if (/list_admin_security_notifications/i.test(message) && /function/i.test(message)) {
     return "Falta rodar o SQL novo no Supabase para ativar o controle de device e o historico de login.";
   }
   if (/(patient_login_history|patient_device_bindings)/i.test(message) && (/column .* does not exist/i.test(message) || /relation .* does not exist/i.test(message) || /schema cache/i.test(message))) {
     return "Falta rodar o SQL novo no Supabase para ativar o controle de device e o historico de login.";
+  }
+  if (/return type|returned type|structure of query does not match function result type|permission denied|42501|42P01|42703/i.test(message)) {
+    return "Revise o SQL do Supabase das notificacoes de seguranca para concluir essa configuracao.";
   }
   if (/Sem permissao para visualizar notificacoes de seguranca/i.test(message)) {
     return "Seu perfil nao tem permissao para visualizar os alertas de seguranca.";
@@ -4513,6 +4519,29 @@ function renderAdminSecurityNotifications(app, anchorEl = null) {
   openViewerNotificationPopover(anchorEl);
 }
 
+function renderAdminSecurityNotificationsError(error, anchorEl = null) {
+  const popover = $("viewerNotificationPopover");
+  const title = $("viewerNotificationTitle");
+  const text = $("viewerNotificationText");
+  const count = $("viewerNotificationCount");
+  const secondaryLabel = $("viewerNotificationSecondaryLabel");
+  const secondaryValue = $("viewerNotificationSecondaryValue");
+  const footnote = $("viewerNotificationFootnote");
+  const list = $("viewerNotificationList");
+  if (!popover || !title || !text || !count || !secondaryLabel || !secondaryValue || !footnote || !list) return;
+
+  const message = getAdminSecurityNotificationsErrorMessage(error) || "Nao foi possivel carregar os alertas de seguranca agora.";
+  title.textContent = "Alertas de seguranca";
+  text.textContent = message;
+  count.textContent = "0";
+  secondaryLabel.textContent = "Status";
+  secondaryValue.textContent = "Revisar";
+  footnote.textContent = "Confira a configuracao do SQL no Supabase e tente novamente.";
+  list.innerHTML = "";
+  list.classList.add("hidden");
+  openViewerNotificationPopover(anchorEl);
+}
+
 async function showAdminSecurityNotifications(app, anchorEl = null) {
   await loadAdminSecurityNotifications(app);
   applyAuthUi(app);
@@ -6145,11 +6174,7 @@ async function mount() {
       try {
         await showViewerNotifications(app, e.currentTarget);
       } catch (error) {
-        showAppToast(
-          getReadableRuntimeError(error, "Nao foi possivel carregar os alertas de seguranca."),
-          "error",
-          { title: "Seguranca", eyebrow: "Notificacoes", durationMs: 4200 }
-        );
+        renderAdminSecurityNotificationsError(error, e.currentTarget);
       }
     });
   }
