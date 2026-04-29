@@ -325,6 +325,6 @@ server.on("error", (error) => {
 
 server.listen(PORT, HOST, () => {
   const url = `http://${HOST}:${PORT}`;
-  console.log(`FisioFlow local rodando em ${url}`);
+  console.log(`Fisiotosta local rodando em ${url}`);
   openBrowser(url);
 });
