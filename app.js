@@ -3734,7 +3734,7 @@ function renderViewerModulesHome(app, modules) {
   if (title) title.textContent = "Meus modulos";
   if (subtitle) subtitle.textContent = "Encontre rapidamente o protocolo liberado para o seu atendimento.";
   if (heroTitle) heroTitle.textContent = `Ola, ${displayName.split(" ")[0] || "Fisio"}. Seu atendimento começa aqui.`;
-  if (heroSubtitle) heroSubtitle.textContent = "Acesse seus protocolos autorizados com busca rapida, identidade clinica e um fluxo leve para consulta.";
+  if (heroSubtitle) heroSubtitle.textContent = "Acesse seus protocolos autorizados com busca rapida, visual Fisiotosta e uma experiencia clinica mais clara.";
   if (searchInput && searchInput.value !== String(app.viewerModuleSearch ?? "")) searchInput.value = String(app.viewerModuleSearch ?? "");
   if (searchClear) searchClear.classList.toggle("hidden", !String(app.viewerModuleSearch ?? "").trim());
   if (summary) summary.textContent = searchTerm ? `${visibleLabel} para "${String(app.viewerModuleSearch ?? "").trim()}"` : totalLabel;
@@ -4316,12 +4316,16 @@ function renderDashboard(app) {
     const profileEmail = getManagedProfileEmail(profile);
     const statusClass = isManagedProfileActive(profile) ? "status-active" : "status-inactive";
     const statusLabel = isManagedProfileActive(profile) ? "Ativo" : "Inativo";
+    const avatarUrl = String(profile.avatar_url ?? "").trim();
+    const avatarMarkup = avatarUrl
+      ? `<img src="${escapeHtml(avatarUrl)}" alt="${escapeHtml(profileName)}">`
+      : escapeHtml(getUserInitial(profileName));
     return `
       <div class="dashboard-recent-item">
-        <div class="dashboard-recent-item__avatar">${getUserInitial(profileName)}</div>
+        <div class="dashboard-recent-item__avatar ${avatarUrl ? "dashboard-recent-item__avatar--image" : ""}">${avatarMarkup}</div>
         <div class="dashboard-recent-item__content">
-          <strong>${profileName}</strong>
-          <span>${profileEmail}</span>
+          <strong>${escapeHtml(profileName)}</strong>
+          <span>${escapeHtml(profileEmail)}</span>
           <small>${formatDashboardDate(profile.created_at)}</small>
         </div>
         <span class="status-badge ${statusClass}">${statusLabel}</span>
