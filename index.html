@@ -57,6 +57,14 @@
           <button id="navPerfil" class="sidebar__link hidden">👤 Perfil</button>
         </nav>
         <div class="sidebar__footer">
+          <button id="adminSecurityNotificationsBtn" class="sidebar__alert hidden" type="button" aria-label="Alertas de seguranca">
+            <span class="sidebar__alert-dot hidden"></span>
+            <span class="sidebar__alert-icon" aria-hidden="true">🔔</span>
+            <span class="sidebar__alert-copy">
+              <strong>Seguranca</strong>
+              <small id="adminSecurityNotificationsLabel">Nenhum alerta novo</small>
+            </span>
+          </button>
           <div class="sidebar__user">
             <div id="sidebarAvatar" class="avatar">D</div>
             <div class="sidebar__user-copy">
@@ -1037,10 +1045,11 @@
             <strong id="viewerNotificationCount">0</strong>
           </div>
           <div class="viewer-notification-chip">
-            <span class="viewer-notification-chip__label">Status</span>
-            <strong>Autorizado</strong>
+            <span id="viewerNotificationSecondaryLabel" class="viewer-notification-chip__label">Status</span>
+            <strong id="viewerNotificationSecondaryValue">Autorizado</strong>
           </div>
         </div>
+        <div id="viewerNotificationList" class="viewer-notification-list hidden"></div>
         <div class="viewer-notification-popover__footer">
           <span class="viewer-notification-popover__dot"></span>
           <small id="viewerNotificationFootnote">Acompanhe seus acessos por aqui.</small>
@@ -1115,6 +1124,6 @@
       </footer>
     </div>
 
-    <script type="module" src="./app.js?v=20260428device1"></script>
+    <script type="module" src="./app.js?v=20260428device2"></script>
   </body>
 </html>

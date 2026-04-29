@@ -632,6 +632,64 @@ begin
 end;
 $$;
 
+create or replace function public.list_admin_security_notifications()
+returns table (
+  profile_id uuid,
+  profile_name text,
+  login_email text,
+  logged_at timestamptz,
+  device_label text,
+  device_kind text,
+  login_status text,
+  blocked_reason text
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_actor_role text;
+begin
+  if auth.uid() is null then
+    raise exception 'Usuario nao autenticado.';
+  end if;
+
+  v_actor_role := public.current_profile_role();
+
+  if v_actor_role not in ('fisio_admin', 'owner') then
+    raise exception 'Sem permissao para visualizar notificacoes de seguranca.';
+  end if;
+
+  return query
+  select distinct on (h.user_id)
+    h.user_id as profile_id,
+    coalesce(h.profile_name, p.full_name) as profile_name,
+    coalesce(h.login_email, p.login_email) as login_email,
+    h.logged_at,
+    h.device_label,
+    h.device_kind,
+    h.login_status,
+    h.blocked_reason
+  from public.patient_login_history h
+  join public.profiles p
+    on p.id = h.user_id
+  where p.role = 'fisio_paciente'
+    and h.login_status = 'blocked_new_device'
+    and (
+      (v_actor_role = 'fisio_admin' and p.parent_admin_id = auth.uid())
+      or v_actor_role = 'owner'
+    )
+    and not exists (
+      select 1
+      from public.patient_login_history newer
+      where newer.user_id = h.user_id
+        and newer.logged_at > h.logged_at
+        and newer.login_status in ('authorized_first_device', 'authorized_known_device', 'device_lock_released')
+    )
+  order by h.user_id, h.logged_at desc;
+end;
+$$;
+
 grant execute on function public.register_patient_device_login(text, text, text, text)
 to authenticated;
 
@@ -639,4 +697,7 @@ grant execute on function public.list_managed_patient_login_history(uuid)
 to authenticated;
 
 grant execute on function public.release_managed_patient_device_lock(uuid)
+to authenticated;
+
+grant execute on function public.list_admin_security_notifications()
 to authenticated;
