@@ -1,5 +1,5 @@
 @echo off
 cd /d "%~dp0"
-echo Iniciando FisioFlow local...
+echo Iniciando Fisiotosta local...
 npm start
 pause

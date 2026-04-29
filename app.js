@@ -47,9 +47,15 @@ function getDefaultViewForRole(role) {
 }
 
 function getRoleLabel(role) {
-  if (isOwnerRole(role)) return "Owner";
-  if (isFisioAdminRole(role)) return "Fisio Admin";
-  return "Fisio Paciente";
+  if (isOwnerRole(role)) return "Gestao da plataforma";
+  if (isFisioAdminRole(role)) return "Responsavel clinico";
+  return "Profissional autorizado";
+}
+
+function getAccessMetaLabel(role) {
+  if (isOwnerRole(role)) return "Painel Fisiotosta";
+  if (isFisioAdminRole(role)) return "Area clinica Fisiotosta";
+  return "Acesso Fisiotosta liberado";
 }
 
 function isOwnerRole(role) {
@@ -681,8 +687,8 @@ function getOwnProfileViewCopy(role) {
     return {
       eyebrow: "Perfil profissional",
       title: "Ajuste seu perfil",
-      subtitle: "Atualize sua foto e os dados que aparecem na sua area clinica.",
-      cardHint: "Mantenha seu perfil profissional atualizado para personalizar melhor sua area de trabalho.",
+      subtitle: "Atualize sua foto e os dados que aparecem na sua area Fisiotosta.",
+      cardHint: "Mantenha seu perfil profissional atualizado para personalizar melhor sua area de trabalho na Fisiotosta.",
       showNotifications: false
     };
   }
@@ -690,8 +696,8 @@ function getOwnProfileViewCopy(role) {
   return {
     eyebrow: "Seu perfil",
     title: "Atualize seus dados",
-    subtitle: "Mantenha suas informacoes de atendimento e sua foto sempre atualizadas.",
-    cardHint: "Ajuste seus dados de exibicao para deixar sua area clinica mais personalizada.",
+    subtitle: "Mantenha suas informacoes de atendimento e sua foto sempre atualizadas na Fisiotosta.",
+    cardHint: "Ajuste seus dados de exibicao para deixar sua area Fisiotosta mais personalizada.",
     showNotifications: true
   };
 }
@@ -1046,9 +1052,7 @@ function applyAuthUi(app) {
   if (sidebarRole) sidebarRole.textContent = getRoleLabel(role);
   if (sidebarUserName) sidebarUserName.textContent = displayName;
   if (sidebarUserMeta) {
-    sidebarUserMeta.textContent = isFisioPacienteRole(role)
-      ? "Acesso clinico autorizado"
-      : "Seu acesso clinico";
+    sidebarUserMeta.textContent = getAccessMetaLabel(role);
   }
   setAvatarElement(sidebarAvatar, displayName, avatarUrl);
   if (navDashboard) navDashboard.classList.toggle("hidden", !canAccessDashboard(role));
@@ -3733,8 +3737,8 @@ function renderViewerModulesHome(app, modules) {
   if (eyebrow) eyebrow.textContent = `Fisioterapia guiada • ${totalLabel}`;
   if (title) title.textContent = "Meus modulos";
   if (subtitle) subtitle.textContent = "Encontre rapidamente o protocolo liberado para o seu atendimento.";
-  if (heroTitle) heroTitle.textContent = `Ola, ${displayName.split(" ")[0] || "Fisio"}. Seu atendimento começa aqui.`;
-  if (heroSubtitle) heroSubtitle.textContent = "Acesse seus protocolos autorizados com busca rapida, visual Fisiotosta e uma experiencia clinica mais clara.";
+  if (heroTitle) heroTitle.textContent = `Ola, ${displayName.split(" ")[0] || "Fisio"}. Seu atendimento na Fisiotosta comeca aqui.`;
+  if (heroSubtitle) heroSubtitle.textContent = "Acesse seus protocolos autorizados com busca rapida, identidade Fisiotosta e uma experiencia clinica mais clara.";
   if (searchInput && searchInput.value !== String(app.viewerModuleSearch ?? "")) searchInput.value = String(app.viewerModuleSearch ?? "");
   if (searchClear) searchClear.classList.toggle("hidden", !String(app.viewerModuleSearch ?? "").trim());
   if (summary) summary.textContent = searchTerm ? `${visibleLabel} para "${String(app.viewerModuleSearch ?? "").trim()}"` : totalLabel;

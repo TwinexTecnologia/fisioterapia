@@ -282,7 +282,7 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (req.method === "GET" && req.url === "/health") {
-    sendJson(res, 200, { ok: true, service: "fisioflow-local-app" });
+    sendJson(res, 200, { ok: true, service: "fisiotosta-local-app" });
     return;
   }
 
