@@ -2023,10 +2023,10 @@ body {
     top: 0;
     z-index: 70;
     display: grid;
-    grid-template-columns: 34px minmax(0, 1fr) 74px;
+    grid-template-columns: 32px minmax(0, 1fr) 62px;
     align-items: center;
-    gap: 6px;
-    padding: 8px 4px 10px 0;
+    gap: 4px;
+    padding: 8px 6px 10px 0;
     margin-bottom: 6px;
     background: linear-gradient(180deg, rgba(248,251,255,0.98) 0%, rgba(248,251,255,0.92) 78%, rgba(248,251,255,0) 100%);
     backdrop-filter: blur(10px);
@@ -2048,20 +2048,136 @@ body {
   }
 
   .app--admin.app--viewer-shell .viewer-mobile-header__logo {
-    width: 112px;
+    width: 128px;
     justify-self: center;
   }
 
   .app--admin.app--viewer-shell .viewer-mobile-header__actions {
-    gap: 4px;
+    gap: 2px;
     justify-self: end;
-    transform: translateX(-6px);
+    transform: translateX(-14px);
   }
 
   .app--admin.app--viewer-shell .viewer-mobile-header__avatar {
     width: 32px;
     height: 32px;
     font-size: 12px;
+  }
+
+  .app--admin.app--viewer-shell #screenViewerProfile .dash-header {
+    padding: 14px 14px 12px;
+    border-radius: 18px;
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+  }
+
+  .app--admin.app--viewer-shell #screenViewerProfile .dash-header__eyebrow {
+    padding: 5px 9px;
+    margin-bottom: 8px;
+    font-size: 9px;
+  }
+
+  .app--admin.app--viewer-shell #screenViewerProfile .viewer-profile-header .h1 {
+    font-size: 16px;
+    line-height: 1.08;
+  }
+
+  .app--admin.app--viewer-shell #screenViewerProfile .viewer-profile-header .muted {
+    font-size: 10px;
+    line-height: 1.35;
+    max-width: 260px;
+  }
+
+  .app--admin.app--viewer-shell #screenViewerProfile .viewer-profile-grid {
+    gap: 8px;
+  }
+
+  .app--admin.app--viewer-shell #screenViewerProfile .viewer-profile-card,
+  .app--admin.app--viewer-shell #screenViewerProfile .viewer-profile-form {
+    border-radius: 14px;
+  }
+
+  .app--admin.app--viewer-shell #screenViewerProfile .viewer-profile-card {
+    padding: 12px 10px;
+  }
+
+  .app--admin.app--viewer-shell #screenViewerProfile .viewer-profile-form {
+    padding: 12px 10px;
+  }
+
+  .app--admin.app--viewer-shell #screenViewerProfile .viewer-profile-card--hero {
+    gap: 12px;
+  }
+
+  .app--admin.app--viewer-shell #screenViewerProfile .viewer-profile-card__avatar-wrap {
+    gap: 8px;
+  }
+
+  .app--admin.app--viewer-shell #screenViewerProfile .viewer-profile-avatar {
+    width: 64px;
+    height: 64px;
+    font-size: 18px;
+  }
+
+  .app--admin.app--viewer-shell #screenViewerProfile .viewer-profile-card__actions {
+    gap: 6px;
+  }
+
+  .app--admin.app--viewer-shell #screenViewerProfile .viewer-profile-card__actions .btn {
+    min-height: 34px;
+    padding: 7px 10px;
+    font-size: 11px;
+    border-radius: 12px;
+    box-shadow: 0 4px 10px rgba(15, 23, 42, 0.08);
+  }
+
+  .app--admin.app--viewer-shell #screenViewerProfile .viewer-profile-card__info {
+    gap: 4px;
+  }
+
+  .app--admin.app--viewer-shell #screenViewerProfile .viewer-profile-card__info strong {
+    font-size: 14px;
+  }
+
+  .app--admin.app--viewer-shell #screenViewerProfile .viewer-profile-card__info span,
+  .app--admin.app--viewer-shell #screenViewerProfile .viewer-profile-card__info .muted {
+    font-size: 10px;
+    line-height: 1.35;
+  }
+
+  .app--admin.app--viewer-shell #screenViewerProfile .viewer-profile-form .row-inputs {
+    gap: 8px;
+  }
+
+  .app--admin.app--viewer-shell #screenViewerProfile .viewer-profile-form .input-group {
+    gap: 5px;
+    margin-bottom: 8px;
+  }
+
+  .app--admin.app--viewer-shell #screenViewerProfile .viewer-profile-form .label {
+    font-size: 10px;
+  }
+
+  .app--admin.app--viewer-shell #screenViewerProfile .viewer-profile-form .input-text,
+  .app--admin.app--viewer-shell #screenViewerProfile .viewer-profile-form .textarea {
+    min-height: 36px;
+    padding: 7px 9px;
+    font-size: 11px;
+    border-radius: 10px;
+  }
+
+  .app--admin.app--viewer-shell #screenViewerProfile #viewerProfileBio {
+    min-height: 72px !important;
+  }
+
+  .app--admin.app--viewer-shell #screenViewerProfile .row.row--right {
+    width: 100%;
+  }
+
+  .app--admin.app--viewer-shell #screenViewerProfile #btnSaveViewerProfile {
+    min-width: 0 !important;
+    width: 100%;
+    min-height: 38px;
+    font-size: 11px;
   }
 
   .app--admin.app--viewer-shell .sidebar__footer {
