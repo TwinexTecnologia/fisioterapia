@@ -684,7 +684,7 @@ begin
       from public.patient_login_history newer
       where newer.user_id = h.user_id
         and newer.logged_at > h.logged_at
-        and newer.login_status in ('authorized_first_device', 'authorized_known_device', 'device_lock_released')
+        and newer.login_status = 'device_lock_released'
     )
   order by h.user_id, h.logged_at desc;
 end;

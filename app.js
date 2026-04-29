@@ -3859,7 +3859,7 @@ function renderViewerModulesHome(app, modules) {
   if (eyebrow) eyebrow.textContent = `Fisioterapia guiada • ${totalLabel}`;
   if (title) title.textContent = "Meus modulos";
   if (subtitle) subtitle.textContent = "Encontre rapidamente o protocolo liberado para o seu atendimento.";
-  if (heroTitle) heroTitle.textContent = `Ola, ${displayName.split(" ")[0] || "Fisio"}. Seu atendimento na Fisiotosta comeca aqui.`;
+  if (heroTitle) heroTitle.textContent = `Ola, ${displayName.split(" ")[0] || "Fisio"}. Seu atendimento na Fisiotosta começa aqui.`;
   if (heroSubtitle) heroSubtitle.textContent = "Acesse seus protocolos autorizados com busca rapida, identidade Fisiotosta e uma experiencia clinica mais clara.";
   if (searchInput && searchInput.value !== String(app.viewerModuleSearch ?? "")) searchInput.value = String(app.viewerModuleSearch ?? "");
   if (searchClear) searchClear.classList.toggle("hidden", !String(app.viewerModuleSearch ?? "").trim());
