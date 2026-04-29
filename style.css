@@ -1190,7 +1190,7 @@ body {
   .app--login {
     flex-direction: column;
     justify-content: center;
-    padding: 20px 16px;
+    padding: 12px 16px;
     align-items: center;
     background:
       radial-gradient(circle at 18% 22%, rgba(255,255,255,0.92), rgba(255,255,255,0) 28%),
@@ -1204,24 +1204,24 @@ body {
 
   .login-card {
     margin-top: 0;
-    width: min(100%, 320px);
-    max-width: 320px;
-    border-radius: 20px;
-    padding: 14px 14px 12px;
+    width: min(100%, 272px);
+    max-width: 272px;
+    border-radius: 18px;
+    padding: 10px 10px 9px;
     background: linear-gradient(180deg, rgba(255, 255, 255, 0.94) 0%, rgba(255, 255, 255, 0.88) 100%);
-    box-shadow: 0 14px 32px rgba(15, 23, 42, 0.08);
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.07);
     backdrop-filter: blur(8px);
   }
 
   .login-header {
-    margin-bottom: 10px;
+    margin-bottom: 8px;
   }
 
   .login-header__logo {
     display: block;
-    width: min(112px, 34vw);
-    margin: 0 auto 10px;
-    filter: drop-shadow(0 8px 14px rgba(15, 23, 42, 0.08));
+    width: min(82px, 24vw);
+    margin: 0 auto 6px;
+    filter: drop-shadow(0 6px 10px rgba(15, 23, 42, 0.08));
   }
 
   .login-header__eyebrow {
@@ -1229,16 +1229,11 @@ body {
   }
 
   .login-header p {
-    display: block;
-    font-size: 10px;
-    line-height: 1.35;
-    max-width: 200px;
-    color: #64748b;
-    margin: 0 auto;
+    display: none;
   }
 
   .login-form {
-    gap: 10px;
+    gap: 8px;
   }
 
   .login-footer small {
@@ -1246,24 +1241,29 @@ body {
   }
 
   .login-card .label {
-    font-size: 11px;
+    font-size: 10px;
   }
 
   .login-card .input-text {
-    min-height: 46px;
-    font-size: 13px;
-    padding: 10px 12px;
+    min-height: 40px;
+    font-size: 12px;
+    padding: 8px 10px;
     border-width: 1px;
     border-color: rgba(203, 213, 225, 0.9);
     box-shadow: none;
   }
 
   .login-card .btn--start {
-    min-height: 46px;
-    font-size: 14px;
-    padding: 10px 14px;
+    min-height: 40px;
+    font-size: 12px;
+    padding: 8px 10px;
     border-width: 1px;
     box-shadow: none;
+  }
+
+  .login-footer #loginError {
+    font-size: 11px !important;
+    margin-top: 8px !important;
   }
 
   #screenAdminModulos.viewer-screen-mode {
