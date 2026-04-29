@@ -57,14 +57,6 @@
           <button id="navPerfil" class="sidebar__link hidden">👤 Perfil</button>
         </nav>
         <div class="sidebar__footer">
-          <button id="adminSecurityNotificationsBtn" class="sidebar__alert hidden" type="button" aria-label="Alertas de seguranca">
-            <span class="sidebar__alert-dot hidden"></span>
-            <span class="sidebar__alert-icon" aria-hidden="true">🔔</span>
-            <span class="sidebar__alert-copy">
-              <strong>Seguranca</strong>
-              <small id="adminSecurityNotificationsLabel">Nenhum alerta novo</small>
-            </span>
-          </button>
           <div class="sidebar__user">
             <div id="sidebarAvatar" class="avatar">D</div>
             <div class="sidebar__user-copy">
@@ -78,6 +70,12 @@
 
       <!-- ÁREA PRINCIPAL -->
       <main id="mainAdmin" class="main main--admin">
+        <div class="admin-topbar">
+          <button id="adminSecurityNotificationsBtn" class="viewer-topbar__icon hidden" type="button" aria-label="Alertas de seguranca">
+            <span class="viewer-topbar__badge-dot hidden"></span>
+            <span class="viewer-topbar__emoji">🔔</span>
+          </button>
+        </div>
         
         <!-- TELA 1: DASHBOARD GERAL -->
         <section id="screenAdminDashboard" class="screen screen--admin-panel">
@@ -337,7 +335,7 @@
             <div id="viewerHeroPanel" class="viewer-hero-panel hidden">
               <div class="viewer-hero-panel__copy">
                 <div class="viewer-hero-panel__pill">Fisiotosta</div>
-                <h2 id="viewerHeroTitle" class="viewer-hero-panel__title">Ola. Seu atendimento na Fisiotosta comeca aqui.</h2>
+                <h2 id="viewerHeroTitle" class="viewer-hero-panel__title">Ola. Seu atendimento na Fisiotosta começa aqui.</h2>
                 <p id="viewerHeroSubtitle" class="viewer-hero-panel__text">Acesse seus roteiros autorizados com uma navegacao simples, visual clara e identidade Fisiotosta.</p>
               </div>
               <div class="viewer-hero-panel__art" aria-hidden="true">
@@ -1124,6 +1122,6 @@
       </footer>
     </div>
 
-    <script type="module" src="./app.js?v=20260428device2"></script>
+    <script type="module" src="./app.js?v=20260428device3"></script>
   </body>
 </html>

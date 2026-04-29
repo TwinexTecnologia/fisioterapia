@@ -1133,8 +1133,7 @@ function applyAuthUi(app) {
   const viewerProfileShortcutName = $("viewerProfileShortcutName");
   const viewerProfileShortcutAvatar = $("viewerProfileShortcutAvatar");
   const adminSecurityNotificationsBtn = $("adminSecurityNotificationsBtn");
-  const adminSecurityNotificationsLabel = $("adminSecurityNotificationsLabel");
-  const adminSecurityNotificationsDot = adminSecurityNotificationsBtn?.querySelector(".sidebar__alert-dot");
+  const adminSecurityNotificationsDot = adminSecurityNotificationsBtn?.querySelector(".viewer-topbar__badge-dot");
 
   if (sidebarRole) sidebarRole.textContent = getRoleLabel(role);
   if (sidebarUserName) sidebarUserName.textContent = displayName;
@@ -1151,14 +1150,6 @@ function applyAuthUi(app) {
   if (adminSecurityNotificationsBtn) {
     const canShowAdminSecurity = canManageProfiles(role);
     adminSecurityNotificationsBtn.classList.toggle("hidden", !canShowAdminSecurity);
-    const pendingCount = Array.isArray(app.adminSecurityNotifications) ? app.adminSecurityNotifications.length : 0;
-    if (adminSecurityNotificationsLabel) {
-      adminSecurityNotificationsLabel.textContent = pendingCount === 0
-        ? "Nenhum alerta novo"
-        : pendingCount === 1
-          ? "1 tentativa bloqueada"
-          : `${pendingCount} tentativas bloqueadas`;
-    }
     if (adminSecurityNotificationsDot) {
       adminSecurityNotificationsDot.classList.toggle("hidden", !hasUnreadAdminSecurityNotifications(app));
     }
@@ -3892,7 +3883,7 @@ function renderViewerModulesHome(app, modules) {
   if (eyebrow) eyebrow.textContent = `Fisioterapia guiada • ${totalLabel}`;
   if (title) title.textContent = "Meus modulos";
   if (subtitle) subtitle.textContent = "Encontre rapidamente o protocolo liberado para o seu atendimento.";
-  if (heroTitle) heroTitle.textContent = `Ola, ${displayName.split(" ")[0] || "Fisio"}. Seu atendimento na Fisiotosta comeca aqui.`;
+  if (heroTitle) heroTitle.textContent = `Ola, ${displayName.split(" ")[0] || "Fisio"}. Seu atendimento na Fisiotosta começa aqui.`;
   if (heroSubtitle) heroSubtitle.textContent = "Acesse seus protocolos autorizados com busca rapida, identidade Fisiotosta e uma experiencia clinica mais clara.";
   if (searchInput && searchInput.value !== String(app.viewerModuleSearch ?? "")) searchInput.value = String(app.viewerModuleSearch ?? "");
   if (searchClear) searchClear.classList.toggle("hidden", !String(app.viewerModuleSearch ?? "").trim());
