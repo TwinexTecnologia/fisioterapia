@@ -910,6 +910,22 @@ function toggleViewerMobileNav() {
   }
 }
 
+function syncViewerMobileBottomNav(app) {
+  const isViewerRole = isFisioPacienteRole(app?.currentProfile?.role);
+  const bottomNav = $("viewerMobileBottomNav");
+  const homeBtn = $("viewerMobileHomeBtn");
+  const protocolsBtn = $("viewerMobileProtocolsBtn");
+  const profileBtn = $("viewerMobileBottomProfileBtn");
+  if (bottomNav) bottomNav.classList.toggle("hidden", !isViewerRole);
+  if (!isViewerRole) return;
+  const view = String(app?.view ?? "");
+  const isProfile = view === "viewer_profile";
+  const isModules = view === "modulos" || view === "intro" || view === "node";
+  if (homeBtn) homeBtn.classList.toggle("active", isModules);
+  if (protocolsBtn) protocolsBtn.classList.toggle("active", isModules);
+  if (profileBtn) profileBtn.classList.toggle("active", isProfile);
+}
+
 let appToastHideTimer = 0;
 
 function getCurrentRuntimeModule(app) {
@@ -1176,6 +1192,7 @@ function applyAuthUi(app) {
   const appContainer = $("appContainer");
   const viewerMobileHeader = $("viewerMobileHeader");
   const viewerMobileHeaderAvatar = $("viewerMobileHeaderAvatar");
+  const viewerMobileNotificationsDot = $("viewerMobileNotificationsDot");
   const sidebarRole = $("sidebarRole");
   const sidebarUserName = $("sidebarUserName");
   const sidebarUserMeta = $("sidebarUserMeta");
@@ -5346,6 +5363,7 @@ function renderState(app) {
     setVisualEditorFullscreen(false);
     if (screenAdminModulos) screenAdminModulos.classList.remove("hidden");
     renderModulesList(app);
+    syncViewerMobileBottomNav(app);
     const nav = $("navModulos");
     if (nav) nav.classList.add("active");
     return;
@@ -5360,6 +5378,7 @@ function renderState(app) {
     setVisualEditorFullscreen(false);
     if (screenViewerProfile) screenViewerProfile.classList.remove("hidden");
     renderViewerProfileScreen(app);
+    syncViewerMobileBottomNav(app);
     return;
   }
   
@@ -5758,6 +5777,10 @@ function renderState(app) {
       }
     }
     }
+  if (viewerMobileNotificationsDot) {
+    viewerMobileNotificationsDot.classList.toggle("hidden", !isViewerRole || !hasUnreadViewerNotifications(app));
+  }
+  syncViewerMobileBottomNav(app);
   }
 
   const primaryActions = Array.isArray(node.primaryActions) ? node.primaryActions : [];
@@ -6240,6 +6263,64 @@ async function mount() {
       closeViewerMobileNav();
       app.view = "viewer_profile";
       renderState(app);
+    });
+  }
+
+  const viewerMobileHomeBtn = $("viewerMobileHomeBtn");
+  if (viewerMobileHomeBtn) {
+    viewerMobileHomeBtn.addEventListener("click", async () => {
+      try {
+        await refreshSupabaseModules(app);
+      } catch (error) {
+        console.error("Erro ao atualizar módulos do visualizador", error);
+      }
+      app.view = "modulos";
+      renderState(app);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    });
+  }
+
+  const viewerMobileProtocolsBtn = $("viewerMobileProtocolsBtn");
+  if (viewerMobileProtocolsBtn) {
+    viewerMobileProtocolsBtn.addEventListener("click", async () => {
+      try {
+        await refreshSupabaseModules(app);
+      } catch (error) {
+        console.error("Erro ao atualizar módulos do visualizador", error);
+      }
+      app.view = "modulos";
+      renderState(app);
+      window.scrollTo({ top: 280, behavior: "smooth" });
+    });
+  }
+
+  const viewerMobileBottomProfileBtn = $("viewerMobileBottomProfileBtn");
+  if (viewerMobileBottomProfileBtn) {
+    viewerMobileBottomProfileBtn.addEventListener("click", () => {
+      app.view = "viewer_profile";
+      renderState(app);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    });
+  }
+
+  const viewerMobileNotificationsBtn = $("viewerMobileNotificationsBtn");
+  if (viewerMobileNotificationsBtn) {
+    viewerMobileNotificationsBtn.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      const popover = $("viewerNotificationPopover");
+      if (popover && !popover.classList.contains("hidden")) {
+        hideViewerNotifications();
+        return;
+      }
+      try {
+        await showViewerNotifications(app, e.currentTarget);
+      } catch (error) {
+        showAppToast(
+          getReadableRuntimeError(error, "Nao foi possivel abrir as notificacoes."),
+          "error",
+          { title: "Notificacoes", eyebrow: "Acesso", durationMs: 4200 }
+        );
+      }
     });
   }
 

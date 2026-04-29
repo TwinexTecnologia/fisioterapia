@@ -7,11 +7,18 @@
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
     <title>Fisiotosta</title>
-    <link rel="stylesheet" href="./style.css?v=20260429mobile5" />
+    <link rel="stylesheet" href="./style.css?v=20260429mobile6" />
   </head>
   <body>
     <!-- TELA 0: LOGIN DO SISTEMA -->
     <div id="screenLogin" class="app app--login hidden">
+      <div class="login-mobile-brand" aria-hidden="true">
+        <img
+          class="login-mobile-brand__logo"
+          src="https://raw.githubusercontent.com/TwinexTecnologia/fisioterapia/chore/github-supabase-setup/ChatGPT%20Image%2028%20de%20abr.%20de%202026%2C%2021_36_08.png"
+          alt="Fisiotosta"
+        />
+      </div>
       <div class="login-card">
         <div class="login-header">
           <img
@@ -73,10 +80,20 @@
       <main id="mainAdmin" class="main main--admin">
         <div id="viewerMobileHeader" class="viewer-mobile-header hidden">
           <button id="viewerMobileMenuBtn" class="viewer-mobile-header__icon" type="button" aria-label="Abrir menu">☰</button>
-          <strong class="viewer-mobile-header__title">Fisiotosta</strong>
-          <button id="viewerMobileProfileBtn" class="viewer-mobile-header__profile" type="button" aria-label="Abrir perfil">
-            <span id="viewerMobileHeaderAvatar" class="viewer-mobile-header__avatar">U</span>
-          </button>
+          <img
+            class="viewer-mobile-header__logo"
+            src="https://raw.githubusercontent.com/TwinexTecnologia/fisioterapia/chore/github-supabase-setup/ChatGPT%20Image%2028%20de%20abr.%20de%202026%2C%2021_36_08.png"
+            alt="Fisiotosta"
+          />
+          <div class="viewer-mobile-header__actions">
+            <button id="viewerMobileNotificationsBtn" class="viewer-mobile-header__action" type="button" aria-label="Notificacoes">
+              <span id="viewerMobileNotificationsDot" class="viewer-topbar__badge-dot hidden"></span>
+              🔔
+            </button>
+            <button id="viewerMobileProfileBtn" class="viewer-mobile-header__profile" type="button" aria-label="Abrir perfil">
+              <span id="viewerMobileHeaderAvatar" class="viewer-mobile-header__avatar">U</span>
+            </button>
+          </div>
         </div>
         <div class="admin-topbar">
           <button id="adminSecurityNotificationsBtn" class="viewer-topbar__icon hidden" type="button" aria-label="Alertas de seguranca">
@@ -1036,6 +1053,21 @@
         </section>
       </main>
 
+      <nav id="viewerMobileBottomNav" class="viewer-mobile-bottom-nav hidden" aria-label="Navegacao do visualizador">
+        <button id="viewerMobileHomeBtn" class="viewer-mobile-bottom-nav__item" type="button">
+          <span class="viewer-mobile-bottom-nav__icon">⌂</span>
+          <span>Inicio</span>
+        </button>
+        <button id="viewerMobileProtocolsBtn" class="viewer-mobile-bottom-nav__item" type="button">
+          <span class="viewer-mobile-bottom-nav__icon">▤</span>
+          <span>Protocolos</span>
+        </button>
+        <button id="viewerMobileBottomProfileBtn" class="viewer-mobile-bottom-nav__item" type="button">
+          <span class="viewer-mobile-bottom-nav__icon">◯</span>
+          <span>Perfil</span>
+        </button>
+      </nav>
+
       <div id="viewerNotificationPopover" class="viewer-notification-popover hidden" role="dialog" aria-live="polite" aria-label="Notificacoes">
         <div class="viewer-notification-popover__header">
           <div>
@@ -1130,6 +1162,6 @@
       </footer>
     </div>
 
-    <script type="module" src="./app.js?v=20260428device4"></script>
+    <script type="module" src="./app.js?v=20260429mobile6"></script>
   </body>
 </html>
