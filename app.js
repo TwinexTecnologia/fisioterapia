@@ -4164,6 +4164,9 @@ function positionViewerNotificationPopover(anchorCandidate = null) {
   popover.style.left = `${Math.round(left)}px`;
   popover.style.top = `${Math.round(top)}px`;
   popover.style.right = "auto";
+  const anchorCenterX = rect.left + (rect.width / 2);
+  const originX = Math.max(18, Math.min(popoverWidth - 18, anchorCenterX - left));
+  popover.style.transformOrigin = `${Math.round(originX)}px top`;
 }
 
 function openViewerNotificationPopover(anchorCandidate = null) {
