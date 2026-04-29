@@ -153,7 +153,7 @@ serve(async (request) => {
       headers: {
         "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "User-Agent": "Mozilla/5.0 (compatible; FisioFlow/1.0; +https://supabase.com)"
+        "User-Agent": "Mozilla/5.0 (compatible; Fisiotosta/1.0; +https://supabase.com)"
       },
       redirect: "follow",
       body: body.toString()
