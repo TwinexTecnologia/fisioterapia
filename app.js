@@ -914,7 +914,6 @@ function syncViewerMobileBottomNav(app) {
   const isViewerRole = isFisioPacienteRole(app?.currentProfile?.role);
   const bottomNav = $("viewerMobileBottomNav");
   const homeBtn = $("viewerMobileHomeBtn");
-  const protocolsBtn = $("viewerMobileProtocolsBtn");
   const profileBtn = $("viewerMobileBottomProfileBtn");
   if (bottomNav) bottomNav.classList.toggle("hidden", !isViewerRole);
   if (!isViewerRole) return;
@@ -922,7 +921,6 @@ function syncViewerMobileBottomNav(app) {
   const isProfile = view === "viewer_profile";
   const isModules = view === "modulos" || view === "intro" || view === "node";
   if (homeBtn) homeBtn.classList.toggle("active", isModules);
-  if (protocolsBtn) protocolsBtn.classList.toggle("active", isModules);
   if (profileBtn) profileBtn.classList.toggle("active", isProfile);
 }
 
@@ -6277,20 +6275,6 @@ async function mount() {
       app.view = "modulos";
       renderState(app);
       window.scrollTo({ top: 0, behavior: "smooth" });
-    });
-  }
-
-  const viewerMobileProtocolsBtn = $("viewerMobileProtocolsBtn");
-  if (viewerMobileProtocolsBtn) {
-    viewerMobileProtocolsBtn.addEventListener("click", async () => {
-      try {
-        await refreshSupabaseModules(app);
-      } catch (error) {
-        console.error("Erro ao atualizar módulos do visualizador", error);
-      }
-      app.view = "modulos";
-      renderState(app);
-      window.scrollTo({ top: 280, behavior: "smooth" });
     });
   }
 
