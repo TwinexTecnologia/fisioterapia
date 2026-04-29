@@ -3,7 +3,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const STORAGE = {
   protocol: "thompson.protocol.v1",
   session: "thompson.session.v1",
-  viewerNotificationsSeen: "thompson.viewer.notifications.seen.v1"
+  viewerNotificationsSeen: "thompson.viewer.notifications.seen.v1",
+  deviceId: "thompson.device.id.v1"
 };
 
 const DEFAULT_PROTOCOL_URL = "./protocol.generated.json";
@@ -40,6 +41,66 @@ function safeJsonParse(text) {
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : String(e) };
   }
+}
+
+function createPersistentDeviceId() {
+  const fallback = `device-${now()}-${Math.random().toString(36).slice(2, 10)}`;
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return fallback;
+}
+
+function getCurrentDeviceId() {
+  try {
+    const existing = String(localStorage.getItem(STORAGE.deviceId) ?? "").trim();
+    if (existing) return existing;
+    const nextId = createPersistentDeviceId();
+    localStorage.setItem(STORAGE.deviceId, nextId);
+    return nextId;
+  } catch {
+    return createPersistentDeviceId();
+  }
+}
+
+function detectDeviceKind(userAgent = "") {
+  const ua = String(userAgent ?? "").toLowerCase();
+  if (/ipad|tablet/.test(ua)) return "Tablet";
+  if (/mobi|android|iphone|ipod/.test(ua)) return "Celular";
+  return "PC";
+}
+
+function detectBrowserName(userAgent = "") {
+  const ua = String(userAgent ?? "").toLowerCase();
+  if (ua.includes("edg/")) return "Edge";
+  if (ua.includes("opr/") || ua.includes("opera")) return "Opera";
+  if (ua.includes("chrome/")) return "Chrome";
+  if (ua.includes("firefox/")) return "Firefox";
+  if (ua.includes("safari/") && !ua.includes("chrome/")) return "Safari";
+  return "Navegador";
+}
+
+function detectOperatingSystem(userAgent = "") {
+  const ua = String(userAgent ?? "").toLowerCase();
+  if (ua.includes("windows")) return "Windows";
+  if (ua.includes("android")) return "Android";
+  if (ua.includes("iphone") || ua.includes("ipad") || ua.includes("ios")) return "iOS";
+  if (ua.includes("mac os") || ua.includes("macintosh")) return "macOS";
+  if (ua.includes("linux")) return "Linux";
+  return "Sistema";
+}
+
+function getCurrentDeviceDescriptor() {
+  const userAgent = String(window.navigator?.userAgent ?? "").trim();
+  const kind = detectDeviceKind(userAgent);
+  const browser = detectBrowserName(userAgent);
+  const os = detectOperatingSystem(userAgent);
+  return {
+    id: getCurrentDeviceId(),
+    kind,
+    label: `${kind} • ${browser} • ${os}`,
+    userAgent
+  };
 }
 
 function getDefaultViewForRole(role) {
@@ -629,6 +690,9 @@ function getMissingManagedProfileColumnsMessage(error) {
   if (/save_managed_profile/i.test(message) && /function/i.test(message)) {
     return "Falta concluir a configuracao necessaria para salvar todos os campos do cadastro.";
   }
+  if (/register_patient_device_login|list_managed_patient_login_history|release_managed_patient_device_lock/i.test(message) && /function/i.test(message)) {
+    return "Falta rodar o SQL novo no Supabase para ativar o controle de device e o historico de login.";
+  }
   return "";
 }
 
@@ -1020,6 +1084,9 @@ function getReadableAuthError(error) {
   if (/acesso esta inativo|acesso está inativo/i.test(rawMessage)) {
     return "Seu acesso esta inativo no momento. Fale com o administrador responsavel.";
   }
+  if (/dispositivo vinculado diferente do primeiro acesso/i.test(rawMessage)) {
+    return "Dispositivo vinculado diferente do primeiro acesso. Favor entrar em contato com o fisioterapeuta para liberar um novo dispositivo.";
+  }
   if (/invalid login credentials/i.test(rawMessage)) {
     return "Credenciais invalidas. Confira o e-mail e a senha cadastrados.";
   }
@@ -1120,6 +1187,45 @@ async function ensureActiveAuthContext(authContext) {
   }
 
   throw new Error("Seu acesso esta inativo. Fale com o administrador responsavel.");
+}
+
+async function ensurePatientDeviceAccess(authContext) {
+  if (!authContext?.session || !authContext?.profile) return authContext;
+  if (!isFisioPacienteRole(authContext.profile?.role)) return authContext;
+
+  const device = getCurrentDeviceDescriptor();
+  const { data, error } = await supabase.rpc("register_patient_device_login", {
+    p_device_id: device.id,
+    p_device_label: device.label,
+    p_device_kind: device.kind,
+    p_user_agent: device.userAgent
+  });
+
+  if (error) {
+    const missingColumnsMessage = getMissingManagedProfileColumnsMessage(error);
+    if (missingColumnsMessage) throw new Error(missingColumnsMessage);
+    throw error;
+  }
+
+  const allowed = Boolean(data?.allowed);
+  if (allowed) {
+    return {
+      ...authContext,
+      deviceInfo: device,
+      deviceAccess: data
+    };
+  }
+
+  try {
+    await supabase.auth.signOut();
+  } catch (signOutError) {
+    console.error("Erro ao encerrar sessao apos bloqueio por device", signOutError);
+  }
+
+  throw new Error(String(
+    data?.message
+    ?? "Dispositivo vinculado diferente do primeiro acesso. Favor entrar em contato com o fisioterapeuta para liberar um novo dispositivo."
+  ));
 }
 
 async function hydrateAuthenticatedApp(app) {
@@ -4176,6 +4282,146 @@ async function loadManagedProfiles(app) {
   return app.managedProfiles;
 }
 
+function formatLoginHistoryDateTime(dateValue) {
+  if (!dateValue) return "Sem registro";
+  const date = new Date(dateValue);
+  if (Number.isNaN(date.getTime())) return "Sem registro";
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit"
+  }).format(date);
+}
+
+function getLoginHistoryStatusMeta(status, blockedReason = "") {
+  const normalizedStatus = String(status ?? "").trim().toLowerCase();
+  const normalizedReason = String(blockedReason ?? "").trim().toLowerCase();
+  if (normalizedStatus === "authorized_first_device") {
+    return { label: "Primeiro device", tone: "success", description: "Primeiro aparelho vinculado ao paciente." };
+  }
+  if (normalizedStatus === "authorized_known_device") {
+    return { label: "Autorizado", tone: "success", description: "Login feito no device ja vinculado." };
+  }
+  if (normalizedStatus === "blocked_new_device") {
+    return {
+      label: "Bloqueado",
+      tone: "danger",
+      description: normalizedReason === "different_device"
+        ? "Tentativa em device diferente do primeiro acesso."
+        : "Tentativa bloqueada por seguranca."
+    };
+  }
+  if (normalizedStatus === "device_lock_released") {
+    return { label: "Novo device liberado", tone: "info", description: "O fisioterapeuta liberou a troca de aparelho." };
+  }
+  return { label: "Registro", tone: "neutral", description: "Evento de login registrado no historico." };
+}
+
+function closeManagedDeviceHistoryModal(app) {
+  app.deviceHistoryModalProfileId = null;
+  app.deviceHistoryModalProfileName = "";
+  const modal = $("managedDeviceHistoryModal");
+  if (modal) modal.classList.add("hidden");
+}
+
+function renderManagedDeviceHistoryModal(app) {
+  const modal = $("managedDeviceHistoryModal");
+  const title = $("managedDeviceHistoryModalTitle");
+  const subtitle = $("managedDeviceHistoryModalSubtitle");
+  const list = $("managedDeviceHistoryList");
+  const releaseButton = $("btnReleaseManagedDeviceLock");
+  if (!modal || !title || !subtitle || !list || !releaseButton) return;
+
+  const profile = Array.isArray(app.managedProfiles)
+    ? app.managedProfiles.find((item) => String(item?.id ?? "").trim() === String(app.deviceHistoryModalProfileId ?? "").trim())
+    : null;
+  const profileName = String(profile?.full_name ?? app.deviceHistoryModalProfileName ?? "Paciente").trim() || "Paciente";
+  title.textContent = `Historico de login de ${profileName}`;
+  subtitle.textContent = "Veja dia, horario e device usado em cada tentativa de acesso deste paciente.";
+  releaseButton.disabled = !profile;
+
+  if (app.isDeviceHistoryLoading) {
+    list.innerHTML = `<div class="device-history-empty">Carregando historico...</div>`;
+    modal.classList.remove("hidden");
+    return;
+  }
+
+  const entries = Array.isArray(app.deviceHistoryEntries) ? app.deviceHistoryEntries : [];
+  if (entries.length === 0) {
+    list.innerHTML = `<div class="device-history-empty">Nenhum login registrado ainda para este paciente.</div>`;
+    modal.classList.remove("hidden");
+    return;
+  }
+
+  list.innerHTML = entries.map((entry) => {
+    const meta = getLoginHistoryStatusMeta(entry?.login_status, entry?.blocked_reason);
+    const whenLabel = formatLoginHistoryDateTime(entry?.logged_at);
+    const deviceLabel = String(entry?.device_label ?? "").trim() || "Device nao identificado";
+    const kindLabel = String(entry?.device_kind ?? "").trim() || "Nao informado";
+    return `
+      <div class="device-history-item">
+        <div class="device-history-item__top">
+          <strong>${escapeHtml(whenLabel)}</strong>
+          <span class="device-history-badge device-history-badge--${escapeHtml(meta.tone)}">${escapeHtml(meta.label)}</span>
+        </div>
+        <div class="device-history-item__meta">
+          <span>${escapeHtml(deviceLabel)}</span>
+          <span>${escapeHtml(kindLabel)}</span>
+        </div>
+        <p class="device-history-item__desc">${escapeHtml(meta.description)}</p>
+      </div>
+    `;
+  }).join("");
+
+  modal.classList.remove("hidden");
+}
+
+async function loadManagedProfileLoginHistory(app, profileId) {
+  const safeProfileId = String(profileId ?? "").trim();
+  if (!safeProfileId) return [];
+  const { data, error } = await supabase.rpc("list_managed_patient_login_history", {
+    p_profile_id: safeProfileId
+  });
+  if (error) {
+    const missingColumnsMessage = getMissingManagedProfileColumnsMessage(error);
+    if (missingColumnsMessage) throw new Error(missingColumnsMessage);
+    throw error;
+  }
+  return Array.isArray(data) ? data : [];
+}
+
+async function openManagedProfileDeviceHistoryModal(app, profile) {
+  if (!profile || !isFisioPacienteRole(profile?.role)) return;
+  app.deviceHistoryModalProfileId = String(profile.id ?? "").trim();
+  app.deviceHistoryModalProfileName = String(profile.full_name ?? "").trim();
+  app.isDeviceHistoryLoading = true;
+  app.deviceHistoryEntries = [];
+  renderManagedDeviceHistoryModal(app);
+  try {
+    app.deviceHistoryEntries = await loadManagedProfileLoginHistory(app, profile.id);
+  } finally {
+    app.isDeviceHistoryLoading = false;
+    renderManagedDeviceHistoryModal(app);
+  }
+}
+
+async function releaseManagedPatientDeviceLock(app, profile) {
+  const safeProfileId = String(profile?.id ?? "").trim();
+  if (!safeProfileId) throw new Error("Paciente invalido para liberar device.");
+  const { error } = await supabase.rpc("release_managed_patient_device_lock", {
+    p_profile_id: safeProfileId
+  });
+  if (error) {
+    const missingColumnsMessage = getMissingManagedProfileColumnsMessage(error);
+    if (missingColumnsMessage) throw new Error(missingColumnsMessage);
+    throw error;
+  }
+  app.deviceHistoryEntries = await loadManagedProfileLoginHistory(app, safeProfileId);
+  renderManagedDeviceHistoryModal(app);
+}
+
 function formatDashboardDate(dateValue) {
   if (!dateValue) return "Cadastro recente";
   const date = new Date(dateValue);
@@ -4420,6 +4666,9 @@ function renderManagedProfiles(app) {
       : profileInitial;
     const accessActionLabel = isActive ? "Inativar" : "Reativar";
     const accessActionClass = isActive ? "btn btn--danger btn--sm" : "btn btn--ghost btn--sm";
+    const historyButtonMarkup = isFisioPacienteRole(profile?.role)
+      ? `<button class="btn btn--ghost btn--sm admin-table__history-btn" type="button" data-managed-profile-action="device-history" data-profile-id="${escapeHtml(profile.id)}" aria-label="Ver historico de login">Lista</button>`
+      : "";
     const row = document.createElement("tr");
     row.innerHTML = `
       <td>
@@ -4441,6 +4690,7 @@ function renderManagedProfiles(app) {
       <td><span class="status-badge ${isActive ? "status-active" : "status-inactive"}">${isActive ? "Ativo" : "Inativo"}</span></td>
       <td>
         <div class="admin-table__actions">
+          ${historyButtonMarkup}
           <button class="btn btn--ghost btn--sm" type="button" data-managed-profile-action="edit" data-profile-id="${escapeHtml(profile.id)}">Editar</button>
           <button class="${accessActionClass}" type="button" data-managed-profile-action="toggle-access" data-next-active="${isActive ? "false" : "true"}" data-profile-id="${escapeHtml(profile.id)}">${accessActionLabel}</button>
         </div>
@@ -5463,6 +5713,10 @@ async function mount() {
       currentModuleId: null,
       editorOriginalFlowId: null,
       managedProfiles: [],
+      deviceHistoryEntries: [],
+      deviceHistoryModalProfileId: null,
+      deviceHistoryModalProfileName: "",
+      isDeviceHistoryLoading: false,
       editingManagedProfileId: null,
       editingManagedProfileAvatarUrl: "",
       crefitoValidation: null,
@@ -5498,7 +5752,7 @@ async function mount() {
   updateFlowSelect(app);
   updateJsonStatus(app);
   try {
-    const authContext = await ensureActiveAuthContext(await loadAuthContext());
+    const authContext = await ensurePatientDeviceAccess(await ensureActiveAuthContext(await loadAuthContext()));
     app.authSession = authContext.session;
     app.currentUser = authContext.user;
     app.currentProfile = authContext.profile;
@@ -5531,7 +5785,7 @@ async function mount() {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
 
-        const authContext = await ensureActiveAuthContext(await loadAuthContext());
+        const authContext = await ensurePatientDeviceAccess(await ensureActiveAuthContext(await loadAuthContext()));
         app.authSession = authContext.session;
         app.currentUser = authContext.user;
         app.currentProfile = authContext.profile;
@@ -5919,8 +6173,9 @@ async function mount() {
       const target = event.target;
       if (!(target instanceof Element)) return;
       const editButton = target.closest('[data-managed-profile-action="edit"]');
+      const historyButton = target.closest('[data-managed-profile-action="device-history"]');
       const toggleAccessButton = target.closest('[data-managed-profile-action="toggle-access"]');
-      const actionButton = editButton ?? toggleAccessButton;
+      const actionButton = historyButton ?? editButton ?? toggleAccessButton;
       if (!actionButton) return;
 
       const profileId = String(actionButton.getAttribute("data-profile-id") ?? "").trim();
@@ -5929,6 +6184,26 @@ async function mount() {
         : null;
       if (!profile) {
         alert("Nao foi possivel localizar o cadastro para edicao.");
+        return;
+      }
+
+      if (historyButton) {
+        try {
+          if (historyButton instanceof HTMLButtonElement) historyButton.disabled = true;
+          await openManagedProfileDeviceHistoryModal(app, profile);
+        } catch (error) {
+          showAppToast(
+            getReadableRuntimeError(error, "Nao foi possivel carregar o historico de login."),
+            "error",
+            {
+              title: "Erro ao carregar historico",
+              eyebrow: "Seguranca",
+              durationMs: 4200
+            }
+          );
+        } finally {
+          if (historyButton instanceof HTMLButtonElement) historyButton.disabled = false;
+        }
         return;
       }
 
@@ -5971,6 +6246,65 @@ async function mount() {
         );
       } finally {
         if (toggleAccessButton instanceof HTMLButtonElement) toggleAccessButton.disabled = false;
+      }
+    });
+  }
+
+  const btnCloseManagedDeviceHistoryModal = $("btnCloseManagedDeviceHistoryModal");
+  if (btnCloseManagedDeviceHistoryModal) {
+    btnCloseManagedDeviceHistoryModal.addEventListener("click", () => closeManagedDeviceHistoryModal(app));
+  }
+
+  const btnDismissManagedDeviceHistory = $("btnDismissManagedDeviceHistory");
+  if (btnDismissManagedDeviceHistory) {
+    btnDismissManagedDeviceHistory.addEventListener("click", () => closeManagedDeviceHistoryModal(app));
+  }
+
+  const managedDeviceHistoryModal = $("managedDeviceHistoryModal");
+  if (managedDeviceHistoryModal) {
+    managedDeviceHistoryModal.addEventListener("click", (event) => {
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+      if (target.closest('[data-action="close-managed-device-history-modal"]')) {
+        closeManagedDeviceHistoryModal(app);
+      }
+    });
+  }
+
+  const btnReleaseManagedDeviceLock = $("btnReleaseManagedDeviceLock");
+  if (btnReleaseManagedDeviceLock) {
+    btnReleaseManagedDeviceLock.addEventListener("click", async () => {
+      const profileId = String(app.deviceHistoryModalProfileId ?? "").trim();
+      const profile = Array.isArray(app.managedProfiles)
+        ? app.managedProfiles.find((item) => String(item?.id ?? "").trim() === profileId)
+        : null;
+      if (!profile) {
+        showAppToast("Selecione um paciente valido para liberar o novo device.", "error", {
+          title: "Paciente nao encontrado",
+          eyebrow: "Seguranca"
+        });
+        return;
+      }
+
+      try {
+        btnReleaseManagedDeviceLock.disabled = true;
+        await releaseManagedPatientDeviceLock(app, profile);
+        showAppToast("O proximo login desse paciente podera vincular um novo device.", "success", {
+          title: "Novo device liberado",
+          eyebrow: "Seguranca"
+        });
+      } catch (error) {
+        showAppToast(
+          getReadableRuntimeError(error, "Nao foi possivel liberar o novo device."),
+          "error",
+          {
+            title: "Erro ao liberar device",
+            eyebrow: "Seguranca",
+            durationMs: 4200
+          }
+        );
+      } finally {
+        btnReleaseManagedDeviceLock.disabled = false;
       }
     });
   }
