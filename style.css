@@ -1110,56 +1110,73 @@ body {
 }
 
 @media (max-width: 640px) {
+  .app--admin.app--viewer-shell,
+  .app--admin.app--viewer-shell .main--admin,
+  .app--admin.app--viewer-shell #screenAdminModulos.viewer-screen-mode,
+  .app--admin.app--viewer-shell #modulesList.viewer-modules-grid {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
   .app--login {
-    padding: 8px 12px;
-    align-items: center;
+    padding: 18px 12px;
+    align-items: flex-start;
   }
 
   .login-card {
-    margin-top: 0;
-    max-width: 340px;
-    border-radius: 20px;
-    padding: 14px 14px 12px;
+    margin-top: 24px;
+    max-width: 320px;
+    border-radius: 18px;
+    padding: 12px 12px 10px;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.84) 0%, rgba(255, 255, 255, 0.72) 100%);
   }
 
   .login-header {
-    margin-bottom: 10px;
+    margin-bottom: 8px;
   }
 
   .login-header__logo {
-    width: min(112px, 28vw);
-    margin: 0 auto 6px;
-    filter: drop-shadow(0 8px 12px rgba(15, 23, 42, 0.1));
+    width: min(92px, 22vw);
+    margin: 0 auto 4px;
+    filter: drop-shadow(0 6px 10px rgba(15, 23, 42, 0.1));
+  }
+
+  .login-header__eyebrow {
+    display: none;
   }
 
   .login-header p {
-    font-size: 10px;
-    line-height: 1.3;
-    max-width: 210px;
-    margin: 0 auto;
+    display: none;
+  }
+
+  .login-header h2 {
+    font-size: 18px;
+    margin: 0 auto 4px;
   }
 
   .login-form {
-    gap: 10px;
+    gap: 8px;
   }
 
   .login-card .label {
-    font-size: 11px;
+    font-size: 10px;
   }
 
   .login-card .input-text {
-    min-height: 44px;
+    min-height: 42px;
     font-size: 13px;
+    padding: 10px 12px;
   }
 
   .login-card .btn--start {
-    min-height: 48px;
-    font-size: 16px;
-    padding: 10px 16px;
+    min-height: 46px;
+    font-size: 15px;
+    padding: 10px 14px;
   }
 
   #screenAdminModulos.viewer-screen-mode {
-    gap: 12px;
+    gap: 10px;
   }
 
   #modulesList.viewer-modules-grid {
@@ -1173,6 +1190,7 @@ body {
     box-shadow: none;
     background: transparent;
     border: none;
+    margin-bottom: 2px;
   }
 
   .viewer-home-header::after,
@@ -1181,14 +1199,21 @@ body {
   }
 
   .viewer-home-header .h1 {
-    font-size: 22px;
+    font-size: 20px;
     line-height: 1.06;
+    margin-bottom: 6px;
   }
 
   .viewer-home-header .muted {
-    font-size: 12px;
-    line-height: 1.35;
+    font-size: 11px;
+    line-height: 1.3;
     max-width: none;
+  }
+
+  .viewer-home-header .dash-header__eyebrow {
+    margin-bottom: 8px;
+    padding: 6px 10px;
+    font-size: 10px;
   }
 
   .viewer-header-topline {
@@ -1223,7 +1248,7 @@ body {
   }
 
   .viewer-toolbar__hint {
-    font-size: 10px;
+    display: none;
   }
 
   .viewer-searchbox {
@@ -1237,14 +1262,16 @@ body {
   }
 
   .viewer-module-card {
-    padding: 14px;
+    padding: 12px;
     border-radius: 16px;
   }
 
   .viewer-module-card__status {
     position: static;
-    margin-bottom: 10px;
+    margin-bottom: 8px;
     width: fit-content;
+    font-size: 10px;
+    padding: 7px 10px;
   }
 
   .viewer-module-card__layout {
@@ -1272,14 +1299,14 @@ body {
   }
 
   .viewer-module-card__title {
-    font-size: 15px;
+    font-size: 14px;
     margin: 0 0 4px;
   }
 
   .viewer-module-card__desc {
-    font-size: 11px;
-    line-height: 1.35;
-    margin-bottom: 8px;
+    font-size: 10px;
+    line-height: 1.3;
+    margin-bottom: 6px;
   }
 
   .viewer-module-card__meta {
@@ -1303,7 +1330,8 @@ body {
 
   .viewer-module-card__button {
     width: 100%;
-    min-height: 46px;
+    min-height: 44px;
+    font-size: 14px;
   }
 
   .viewer-notification-popover {
@@ -1650,43 +1678,38 @@ body {
   }
 
   .app--admin.app--viewer-shell .sidebar {
-    display: none;
-  }
-
-  .app--admin.app--viewer-shell.app--viewer-mobile-nav-open .sidebar {
     position: fixed;
-    top: 0;
-    left: 0;
-    bottom: 0;
+    inset: auto 0 0 0;
     display: flex;
-    width: min(280px, 78vw);
-    height: 100dvh;
+    width: 100%;
+    height: auto;
     z-index: 120;
-    border-right: 1px solid rgba(15, 23, 42, 0.08);
-    box-shadow: 20px 0 44px rgba(15, 23, 42, 0.18);
+    border-right: none;
+    border-top: 1px solid rgba(15, 23, 42, 0.08);
+    box-shadow: 0 -14px 34px rgba(15, 23, 42, 0.12);
+    background: rgba(255,255,255,0.96);
+    backdrop-filter: blur(16px);
   }
 
-  .app--admin.app--viewer-shell .sidebar__brand {
-    padding: 20px 18px 14px;
-  }
-
-  .app--admin.app--viewer-shell .sidebar__brand-logo {
-    width: min(140px, 100%);
+  .app--admin.app--viewer-shell .sidebar__brand,
+  .app--admin.app--viewer-shell .sidebar__footer,
+  .app--admin.app--viewer-shell .viewer-mobile-nav-backdrop {
+    display: none !important;
   }
 
   .app--admin.app--viewer-shell .sidebar__nav {
-    padding: 16px 12px;
-    gap: 8px;
-  }
-
-  .app--admin.app--viewer-shell .sidebar__footer {
-    margin: 12px;
-    padding: 14px;
+    width: 100%;
+    padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px));
+    flex-direction: row;
+    justify-content: space-between;
+    gap: 10px;
   }
 
   .app--admin.app--viewer-shell .main--admin {
     width: 100%;
-    padding: 10px 14px 20px;
+    max-width: 100%;
+    overflow-x: clip;
+    padding: 10px 14px calc(92px + env(safe-area-inset-bottom, 0px));
     align-items: stretch;
   }
 
@@ -1695,6 +1718,7 @@ body {
   .app--admin.app--viewer-shell #screenViewerProfile {
     width: 100%;
     max-width: 100%;
+    min-width: 0;
   }
 
   .app--admin.app--viewer-shell .admin-topbar {
@@ -1729,6 +1753,11 @@ body {
     font-size: 20px;
   }
 
+  .app--admin.app--viewer-shell .viewer-mobile-header__icon {
+    visibility: hidden;
+    pointer-events: none;
+  }
+
   .app--admin.app--viewer-shell .viewer-mobile-header__title {
     text-align: center;
     font-size: 16px;
@@ -1736,16 +1765,20 @@ body {
     color: #0f172a;
   }
 
-  .app--admin.app--viewer-shell .viewer-mobile-nav-backdrop {
-    position: fixed;
-    inset: 0;
-    background: rgba(15, 23, 42, 0.34);
-    backdrop-filter: blur(2px);
-    z-index: 110;
+  .app--admin.app--viewer-shell .sidebar__link {
+    flex: 1 1 0;
+    min-width: 0;
+    justify-content: center;
+    text-align: center;
+    padding: 12px 10px;
+    border-radius: 16px;
+    font-size: 13px;
+    box-shadow: none;
   }
 
-  .app--admin.app--viewer-shell.app--viewer-mobile-nav-open .viewer-mobile-nav-backdrop {
-    display: block;
+  .app--admin.app--viewer-shell .sidebar__link:hover {
+    transform: none;
+    box-shadow: none;
   }
 }
 
