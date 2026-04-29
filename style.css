@@ -1635,7 +1635,7 @@ body {
 @media (max-width: 640px) {
   #screenLogin.app--login {
     min-height: 100dvh;
-    padding: 16px 18px;
+    padding: 18px 20px;
     align-items: center;
     justify-content: center;
   }
@@ -1645,22 +1645,22 @@ body {
   }
 
   #screenLogin .login-card {
-    width: min(100%, 312px);
-    max-width: 312px;
-    padding: 16px 16px 14px;
-    border-radius: 24px;
+    width: min(100%, 356px);
+    max-width: 356px;
+    padding: 20px 20px 18px;
+    border-radius: 26px;
     box-sizing: border-box;
-    box-shadow: 0 16px 30px rgba(15, 23, 42, 0.1);
+    box-shadow: 0 18px 34px rgba(15, 23, 42, 0.11);
   }
 
   #screenLogin .login-header {
-    margin-bottom: 10px;
+    margin-bottom: 12px;
   }
 
   #screenLogin .login-header__logo {
-    width: 96px;
-    margin: 0 auto 8px;
-    filter: drop-shadow(0 8px 14px rgba(15, 23, 42, 0.08));
+    width: 112px;
+    margin: 0 auto 10px;
+    filter: drop-shadow(0 10px 18px rgba(15, 23, 42, 0.09));
   }
 
   #screenLogin .login-header p,
@@ -1670,34 +1670,34 @@ body {
   }
 
   #screenLogin .login-form {
-    gap: 10px;
+    gap: 12px;
   }
 
   #screenLogin .login-card .input-group {
     gap: 5px;
-    margin-bottom: 10px;
+    margin-bottom: 12px;
   }
 
   #screenLogin .login-card .input-text {
-    min-height: 48px;
-    padding: 10px 13px;
-    font-size: 13px;
+    min-height: 54px;
+    padding: 12px 15px;
+    font-size: 14px;
     border-width: 1px;
-    border-radius: 14px;
+    border-radius: 15px;
     box-sizing: border-box;
   }
 
   #screenLogin .login-card .btn--start {
-    min-height: 48px;
+    min-height: 54px;
     margin-top: 6px !important;
-    padding: 10px 13px;
-    font-size: 13px;
+    padding: 12px 15px;
+    font-size: 14px;
     border-width: 1px;
     box-shadow: none;
   }
 
   #screenLogin .login-footer {
-    margin-top: 8px;
+    margin-top: 10px;
   }
 
   #screenLogin .login-footer #loginError {
@@ -1708,20 +1708,20 @@ body {
 
 @media (max-width: 430px) {
   #screenLogin .login-card {
-    width: min(100%, 276px);
-    max-width: 276px;
-    padding: 13px 13px 12px;
+    width: min(100%, 320px);
+    max-width: 320px;
+    padding: 16px 16px 14px;
   }
 
   #screenLogin .login-header__logo {
-    width: 78px;
+    width: 92px;
   }
 
   #screenLogin .login-card .input-text,
   #screenLogin .login-card .btn--start {
-    min-height: 44px;
-    font-size: 12px;
-    padding: 9px 11px;
+    min-height: 50px;
+    font-size: 13px;
+    padding: 11px 13px;
   }
 }
 
