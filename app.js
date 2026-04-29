@@ -690,7 +690,7 @@ function getMissingManagedProfileColumnsMessage(error) {
   if (/save_managed_profile/i.test(message) && /function/i.test(message)) {
     return "Falta concluir a configuracao necessaria para salvar todos os campos do cadastro.";
   }
-  if (/register_patient_device_login|list_managed_patient_login_history|release_managed_patient_device_lock/i.test(message) && /function/i.test(message)) {
+  if (/register_patient_device_login|list_managed_patient_login_history|release_managed_patient_device_lock|list_admin_security_notifications/i.test(message) && /function/i.test(message)) {
     return "Falta rodar o SQL novo no Supabase para ativar o controle de device e o historico de login.";
   }
   return "";
@@ -1115,6 +1115,9 @@ function applyAuthUi(app) {
   const navPerfil = $("navPerfil");
   const viewerProfileShortcutName = $("viewerProfileShortcutName");
   const viewerProfileShortcutAvatar = $("viewerProfileShortcutAvatar");
+  const adminSecurityNotificationsBtn = $("adminSecurityNotificationsBtn");
+  const adminSecurityNotificationsLabel = $("adminSecurityNotificationsLabel");
+  const adminSecurityNotificationsDot = adminSecurityNotificationsBtn?.querySelector(".sidebar__alert-dot");
 
   if (sidebarRole) sidebarRole.textContent = getRoleLabel(role);
   if (sidebarUserName) sidebarUserName.textContent = displayName;
@@ -1128,6 +1131,21 @@ function applyAuthUi(app) {
   if (navPerfil) navPerfil.classList.toggle("hidden", !canAccessOwnProfile(role));
   if (viewerProfileShortcutName) viewerProfileShortcutName.textContent = displayName;
   setAvatarElement(viewerProfileShortcutAvatar, displayName, avatarUrl);
+  if (adminSecurityNotificationsBtn) {
+    const canShowAdminSecurity = canManageProfiles(role);
+    adminSecurityNotificationsBtn.classList.toggle("hidden", !canShowAdminSecurity);
+    const pendingCount = Array.isArray(app.adminSecurityNotifications) ? app.adminSecurityNotifications.length : 0;
+    if (adminSecurityNotificationsLabel) {
+      adminSecurityNotificationsLabel.textContent = pendingCount === 0
+        ? "Nenhum alerta novo"
+        : pendingCount === 1
+          ? "1 tentativa bloqueada"
+          : `${pendingCount} tentativas bloqueadas`;
+    }
+    if (adminSecurityNotificationsDot) {
+      adminSecurityNotificationsDot.classList.toggle("hidden", !hasUnreadAdminSecurityNotifications(app));
+    }
+  }
 }
 
 async function loadAuthContext() {
@@ -1227,6 +1245,13 @@ async function hydrateAuthenticatedApp(app) {
   } catch (error) {
     console.error("Erro ao carregar perfis gerenciados apos autenticar", error);
     app.managedProfiles = [];
+  }
+
+  try {
+    await loadAdminSecurityNotifications(app);
+  } catch (error) {
+    console.error("Erro ao carregar notificacoes de seguranca", error);
+    app.adminSecurityNotifications = [];
   }
 }
 
@@ -4013,23 +4038,36 @@ function refreshViewerAvatarPreview(app, avatarUrl) {
   setAvatarElement($("viewerProfileAvatarPreview"), displayName, safeAvatarUrl);
 }
 
-function showViewerNotifications(app) {
+async function showViewerNotifications(app) {
+  if (canManageProfiles(app?.currentProfile?.role)) {
+    await showAdminSecurityNotifications(app);
+    return;
+  }
   const moduleCount = getModulesForView(app).length;
   const displayName = getUserDisplayName(app.currentProfile, app.currentUser);
   const popover = $("viewerNotificationPopover");
   const title = $("viewerNotificationTitle");
   const text = $("viewerNotificationText");
   const count = $("viewerNotificationCount");
+  const secondaryLabel = $("viewerNotificationSecondaryLabel");
+  const secondaryValue = $("viewerNotificationSecondaryValue");
   const footnote = $("viewerNotificationFootnote");
+  const list = $("viewerNotificationList");
   if (!popover) return;
   if (title) title.textContent = `Ola, ${displayName.split(" ")[0] || "Fisio"}`;
   if (text) text.textContent = moduleCount === 0
     ? "No momento voce ainda nao possui protocolos liberados. Fale com o fisioterapeuta responsavel para liberar seu atendimento."
     : `Voce tem ${moduleCount} ${moduleCount === 1 ? "protocolo liberado" : "protocolos liberados"} para continuar seu atendimento agora.`;
   if (count) count.textContent = String(moduleCount);
+  if (secondaryLabel) secondaryLabel.textContent = "Status";
+  if (secondaryValue) secondaryValue.textContent = "Autorizado";
   if (footnote) footnote.textContent = moduleCount === 0
     ? "Assim que um protocolo for liberado, ele aparece aqui."
     : "Tudo liberado para uso no seu perfil.";
+  if (list) {
+    list.innerHTML = "";
+    list.classList.add("hidden");
+  }
   markViewerNotificationsSeen(app);
   syncViewerNotificationBadge(app);
   popover.classList.remove("hidden");
@@ -4086,9 +4124,11 @@ function hasUnreadViewerNotifications(app) {
 }
 
 function syncViewerNotificationBadge(app) {
-  const hasUnread = hasUnreadViewerNotifications(app);
+  const hasUnread = canManageProfiles(app?.currentProfile?.role)
+    ? hasUnreadAdminSecurityNotifications(app)
+    : hasUnreadViewerNotifications(app);
   document
-    .querySelectorAll(".viewer-topbar__badge-dot")
+    .querySelectorAll(".viewer-topbar__badge-dot, .sidebar__alert-dot")
     .forEach((el) => el.classList.toggle("hidden", !hasUnread));
 }
 
@@ -4270,6 +4310,131 @@ function formatLoginHistoryDateTime(dateValue) {
   }).format(date);
 }
 
+function getAdminSecurityNotificationFingerprint(app) {
+  const items = Array.isArray(app.adminSecurityNotifications) ? app.adminSecurityNotifications : [];
+  return items
+    .map((item) => `${item.profile_id}|${item.logged_at}|${item.login_status}|${item.blocked_reason ?? ""}`)
+    .sort()
+    .join("||");
+}
+
+function markAdminSecurityNotificationsSeen(app) {
+  const userId = String(app.currentUser?.id ?? "anon");
+  const fingerprint = getAdminSecurityNotificationFingerprint(app);
+  const payload = { [userId]: fingerprint };
+  let merged = payload;
+  try {
+    const previous = safeJsonParse(localStorage.getItem("thompson.admin.security.notifications.seen.v1") || "{}");
+    if (previous.ok && previous.value && typeof previous.value === "object") {
+      merged = { ...previous.value, ...payload };
+    }
+  } catch {}
+  try {
+    localStorage.setItem("thompson.admin.security.notifications.seen.v1", JSON.stringify(merged));
+  } catch {}
+}
+
+function hasUnreadAdminSecurityNotifications(app) {
+  const userId = String(app.currentUser?.id ?? "anon");
+  const current = getAdminSecurityNotificationFingerprint(app);
+  if (!current) return false;
+  try {
+    const parsed = safeJsonParse(localStorage.getItem("thompson.admin.security.notifications.seen.v1") || "{}");
+    if (!parsed.ok || !parsed.value || typeof parsed.value !== "object") return true;
+    const seen = String(parsed.value[userId] ?? "");
+    return seen !== current;
+  } catch {
+    return true;
+  }
+}
+
+async function loadAdminSecurityNotifications(app) {
+  if (!app.authSession || !canManageProfiles(app.currentProfile?.role)) {
+    app.adminSecurityNotifications = [];
+    return [];
+  }
+  const { data, error } = await supabase.rpc("list_admin_security_notifications");
+  if (error) {
+    const missingColumnsMessage = getMissingManagedProfileColumnsMessage(error);
+    if (missingColumnsMessage) throw new Error(missingColumnsMessage);
+    throw error;
+  }
+  app.adminSecurityNotifications = Array.isArray(data) ? data : [];
+  return app.adminSecurityNotifications;
+}
+
+async function refreshAdminSecurityNotificationsSilently(app) {
+  if (!app?.authSession || !canManageProfiles(app?.currentProfile?.role)) return;
+  try {
+    await loadAdminSecurityNotifications(app);
+    applyAuthUi(app);
+    const popover = $("viewerNotificationPopover");
+    if (popover && !popover.classList.contains("hidden")) {
+      renderAdminSecurityNotifications(app);
+    } else {
+      syncViewerNotificationBadge(app);
+    }
+  } catch (error) {
+    console.error("Erro ao atualizar alertas de seguranca em segundo plano", error);
+  }
+}
+
+function renderAdminSecurityNotifications(app) {
+  const popover = $("viewerNotificationPopover");
+  const title = $("viewerNotificationTitle");
+  const text = $("viewerNotificationText");
+  const count = $("viewerNotificationCount");
+  const secondaryLabel = $("viewerNotificationSecondaryLabel");
+  const secondaryValue = $("viewerNotificationSecondaryValue");
+  const footnote = $("viewerNotificationFootnote");
+  const list = $("viewerNotificationList");
+  if (!popover || !title || !text || !count || !secondaryLabel || !secondaryValue || !footnote || !list) return;
+
+  const items = Array.isArray(app.adminSecurityNotifications) ? app.adminSecurityNotifications : [];
+  const total = items.length;
+  title.textContent = "Alertas de seguranca";
+  text.textContent = total === 0
+    ? "Nenhuma tentativa recente de novo device precisa da sua liberacao."
+    : total === 1
+      ? "1 paciente tentou entrar em um novo device e aguarda sua liberacao."
+      : `${total} pacientes tentaram entrar em novos devices e aguardam sua liberacao.`;
+  count.textContent = String(total);
+  secondaryLabel.textContent = "Status";
+  secondaryValue.textContent = total === 0 ? "Seguro" : "Pendentes";
+  footnote.textContent = total === 0
+    ? "Tudo sob controle no momento."
+    : "Clique no alerta para abrir a lista do paciente e liberar o novo device.";
+
+  if (total === 0) {
+    list.innerHTML = "";
+    list.classList.add("hidden");
+  } else {
+    list.innerHTML = items.map((item) => `
+      <button
+        class="admin-security-alert"
+        type="button"
+        data-admin-security-profile-id="${escapeHtml(item.profile_id)}"
+      >
+        <strong>${escapeHtml(String(item.profile_name ?? "Paciente"))}</strong>
+        <span>${escapeHtml(String(item.device_label ?? item.device_kind ?? "Novo device"))}</span>
+        <small>${escapeHtml(formatLoginHistoryDateTime(item.logged_at))}</small>
+      </button>
+    `).join("");
+    list.classList.remove("hidden");
+  }
+
+  markAdminSecurityNotificationsSeen(app);
+  syncViewerNotificationBadge(app);
+  popover.classList.remove("hidden");
+  requestAnimationFrame(() => popover.classList.add("viewer-notification-popover--open"));
+}
+
+async function showAdminSecurityNotifications(app) {
+  await loadAdminSecurityNotifications(app);
+  applyAuthUi(app);
+  renderAdminSecurityNotifications(app);
+}
+
 function getLoginHistoryStatusMeta(status, blockedReason = "") {
   const normalizedStatus = String(status ?? "").trim().toLowerCase();
   const normalizedReason = String(blockedReason ?? "").trim().toLowerCase();
@@ -4394,7 +4559,33 @@ async function releaseManagedPatientDeviceLock(app, profile) {
     throw error;
   }
   app.deviceHistoryEntries = await loadManagedProfileLoginHistory(app, safeProfileId);
+  try {
+    await loadAdminSecurityNotifications(app);
+  } catch (error) {
+    console.error("Erro ao atualizar notificacoes de seguranca apos liberacao", error);
+  }
+  applyAuthUi(app);
   renderManagedDeviceHistoryModal(app);
+}
+
+async function openAdminSecurityNotification(app, profileId) {
+  const safeProfileId = String(profileId ?? "").trim();
+  if (!safeProfileId) return;
+  try {
+    await loadManagedProfiles(app);
+  } catch (error) {
+    console.error("Erro ao atualizar perfis antes de abrir alerta de seguranca", error);
+  }
+  const profile = Array.isArray(app.managedProfiles)
+    ? app.managedProfiles.find((item) => String(item?.id ?? "").trim() === safeProfileId)
+    : null;
+  if (!profile) {
+    throw new Error("Nao foi possivel localizar o paciente desse alerta.");
+  }
+  app.view = "fisios";
+  renderState(app);
+  hideViewerNotifications();
+  await openManagedProfileDeviceHistoryModal(app, profile);
 }
 
 function formatDashboardDate(dateValue) {
@@ -5692,6 +5883,7 @@ async function mount() {
       deviceHistoryModalProfileId: null,
       deviceHistoryModalProfileName: "",
       isDeviceHistoryLoading: false,
+      adminSecurityNotifications: [],
       editingManagedProfileId: null,
       editingManagedProfileAvatarUrl: "",
       crefitoValidation: null,
@@ -5702,6 +5894,10 @@ async function mount() {
   updateFlowSelect(app);
   updateJsonStatus(app);
   renderState(app);
+
+  window.setInterval(() => {
+    refreshAdminSecurityNotificationsSilently(app);
+  }, 20000);
 
   const storedProtocol = loadProtocolFromStorage();
   if (storedProtocol) {
@@ -5853,35 +6049,93 @@ async function mount() {
     });
   }
 
-  const viewerNotificationsBtn = $("viewerNotificationsBtn");
-  if (viewerNotificationsBtn) {
-    viewerNotificationsBtn.addEventListener("click", (e) => {
+  const adminSecurityNotificationsBtn = $("adminSecurityNotificationsBtn");
+  if (adminSecurityNotificationsBtn) {
+    adminSecurityNotificationsBtn.addEventListener("click", async (e) => {
       e.stopPropagation();
       const popover = $("viewerNotificationPopover");
       if (popover && !popover.classList.contains("hidden")) {
         hideViewerNotifications();
         return;
       }
-      showViewerNotifications(app);
+      try {
+        await showViewerNotifications(app);
+      } catch (error) {
+        showAppToast(
+          getReadableRuntimeError(error, "Nao foi possivel carregar os alertas de seguranca."),
+          "error",
+          { title: "Seguranca", eyebrow: "Notificacoes", durationMs: 4200 }
+        );
+      }
+    });
+  }
+
+  const viewerNotificationsBtn = $("viewerNotificationsBtn");
+  if (viewerNotificationsBtn) {
+    viewerNotificationsBtn.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      const popover = $("viewerNotificationPopover");
+      if (popover && !popover.classList.contains("hidden")) {
+        hideViewerNotifications();
+        return;
+      }
+      try {
+        await showViewerNotifications(app);
+      } catch (error) {
+        showAppToast(
+          getReadableRuntimeError(error, "Nao foi possivel abrir as notificacoes."),
+          "error",
+          { title: "Notificacoes", eyebrow: "Acesso", durationMs: 4200 }
+        );
+      }
     });
   }
 
   const viewerProfileNotificationsBtn = $("viewerProfileNotificationsBtn");
   if (viewerProfileNotificationsBtn) {
-    viewerProfileNotificationsBtn.addEventListener("click", (e) => {
+    viewerProfileNotificationsBtn.addEventListener("click", async (e) => {
       e.stopPropagation();
       const popover = $("viewerNotificationPopover");
       if (popover && !popover.classList.contains("hidden")) {
         hideViewerNotifications();
         return;
       }
-      showViewerNotifications(app);
+      try {
+        await showViewerNotifications(app);
+      } catch (error) {
+        showAppToast(
+          getReadableRuntimeError(error, "Nao foi possivel abrir as notificacoes."),
+          "error",
+          { title: "Notificacoes", eyebrow: "Acesso", durationMs: 4200 }
+        );
+      }
     });
   }
 
   const viewerNotificationClose = $("viewerNotificationClose");
   if (viewerNotificationClose) {
     viewerNotificationClose.addEventListener("click", () => hideViewerNotifications());
+  }
+
+  const viewerNotificationPopover = $("viewerNotificationPopover");
+  if (viewerNotificationPopover) {
+    viewerNotificationPopover.addEventListener("click", async (event) => {
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+      const alertButton = target.closest("[data-admin-security-profile-id]");
+      if (!alertButton) return;
+      const profileId = String(alertButton.getAttribute("data-admin-security-profile-id") ?? "").trim();
+      if (!profileId) return;
+      try {
+        await openAdminSecurityNotification(app, profileId);
+      } catch (error) {
+        showAppToast(
+          getReadableRuntimeError(error, "Nao foi possivel abrir o historico desse paciente."),
+          "error",
+          { title: "Seguranca", eyebrow: "Alertas", durationMs: 4200 }
+        );
+      }
+    });
   }
 
   const appToastClose = $("appToastClose");
