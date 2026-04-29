@@ -1116,8 +1116,7 @@ function applyAuthUi(app) {
   const viewerProfileShortcutName = $("viewerProfileShortcutName");
   const viewerProfileShortcutAvatar = $("viewerProfileShortcutAvatar");
   const adminSecurityNotificationsBtn = $("adminSecurityNotificationsBtn");
-  const adminSecurityNotificationsLabel = $("adminSecurityNotificationsLabel");
-  const adminSecurityNotificationsDot = adminSecurityNotificationsBtn?.querySelector(".sidebar__alert-dot");
+  const adminSecurityNotificationsDot = adminSecurityNotificationsBtn?.querySelector(".viewer-topbar__badge-dot");
 
   if (sidebarRole) sidebarRole.textContent = getRoleLabel(role);
   if (sidebarUserName) sidebarUserName.textContent = displayName;
@@ -1134,14 +1133,6 @@ function applyAuthUi(app) {
   if (adminSecurityNotificationsBtn) {
     const canShowAdminSecurity = canManageProfiles(role);
     adminSecurityNotificationsBtn.classList.toggle("hidden", !canShowAdminSecurity);
-    const pendingCount = Array.isArray(app.adminSecurityNotifications) ? app.adminSecurityNotifications.length : 0;
-    if (adminSecurityNotificationsLabel) {
-      adminSecurityNotificationsLabel.textContent = pendingCount === 0
-        ? "Nenhum alerta novo"
-        : pendingCount === 1
-          ? "1 tentativa bloqueada"
-          : `${pendingCount} tentativas bloqueadas`;
-    }
     if (adminSecurityNotificationsDot) {
       adminSecurityNotificationsDot.classList.toggle("hidden", !hasUnreadAdminSecurityNotifications(app));
     }

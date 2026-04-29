@@ -892,65 +892,15 @@ body {
   color: #64748b;
 }
 
-.sidebar__alert {
-  position: relative;
-  width: 100%;
+.admin-topbar {
   display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 14px;
-  padding: 12px 14px;
-  border: 1px solid rgba(14, 165, 233, 0.14);
-  border-radius: 18px;
-  background: linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(241,245,249,0.98) 100%);
-  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
-  cursor: pointer;
+  justify-content: flex-end;
+  margin-bottom: 10px;
 }
 
-.sidebar__alert.hidden {
-  display: none;
-}
-
-.sidebar__alert-dot {
-  position: absolute;
-  top: 10px;
-  left: 38px;
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: #ef4444;
-  box-shadow: 0 0 0 3px rgba(255,255,255,0.94);
-}
-
-.sidebar__alert-dot.hidden {
-  display: none;
-}
-
-.sidebar__alert-icon {
-  width: 36px;
-  height: 36px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 12px;
-  background: rgba(14, 165, 233, 0.12);
-  font-size: 18px;
-}
-
-.sidebar__alert-copy {
-  display: grid;
-  gap: 2px;
-  text-align: left;
-}
-
-.sidebar__alert-copy strong {
-  font-size: 13px;
-  color: #0f172a;
-}
-
-.sidebar__alert-copy small {
-  font-size: 12px;
-  color: #64748b;
+.admin-topbar .viewer-topbar__icon {
+  background: rgba(255,255,255,0.92);
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.1);
 }
 
 .viewer-module-card__layout {
