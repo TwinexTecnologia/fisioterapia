@@ -1087,12 +1087,17 @@ async function deleteModule(app, module) {
 async function saveEditorModule(app) {
   app.builderDraft = ensureBuilderDraftConsistency(app.builderDraft);
   const issues = getBuilderValidationIssues(app.builderDraft);
-  renderBuilderValidation(app);
   if (issues.length > 0) {
+    focusBuilderValidationIssue(app, issues[0]);
+    renderBuilderWorkspace(app);
     showAppToast(
-      "Revise os pontos destacados no editor antes de salvar novamente.",
+      getBuilderValidationToastMessage(issues),
       "warning",
-      { title: "Ajuste o modulo" }
+      {
+        title: "Nao foi possivel salvar",
+        eyebrow: "Editor de modulos",
+        durationMs: 5200
+      }
     );
     return;
   }
@@ -2043,6 +2048,41 @@ function getBuilderReachability(draft) {
   return visited;
 }
 
+function getBuilderNodeDisplayName(draft, nodeId) {
+  const cleanDraft = ensureBuilderDraftConsistency(draft);
+  const node = cleanDraft.nodes.find((item) => item.id === nodeId);
+  if (!node) return "essa etapa";
+  const typeLabel = node.type === "interpretacao" ? "resultado" : "pergunta";
+  const title = String(node.title ?? "").trim();
+  if (title) return `${typeLabel} "${title}"`;
+
+  const sameTypeNodes = cleanDraft.nodes.filter((item) => item.type === node.type);
+  const position = Math.max(1, sameTypeNodes.findIndex((item) => item.id === node.id) + 1);
+  return `${typeLabel} ${position}`;
+}
+
+function getBuilderAnswerDisplayName(answer, index) {
+  const label = String(answer?.label ?? "").trim();
+  if (label) return `a resposta "${label}"`;
+  return `a resposta ${index + 1}`;
+}
+
+function focusBuilderValidationIssue(app, issue) {
+  const nodeId = String(issue?.nodeId ?? "").trim();
+  if (!nodeId) return;
+  app.selectedBuilderNodeId = nodeId;
+  app.isBuilderSidebarOpen = true;
+}
+
+function getBuilderValidationToastMessage(issues) {
+  if (!Array.isArray(issues) || issues.length === 0) {
+    return "Revise o modulo antes de salvar novamente.";
+  }
+  if (issues.length === 1) return issues[0].message;
+  const extraCount = issues.length - 1;
+  return `${issues[0].message} Corrija isso e mais ${extraCount} pendencia${extraCount === 1 ? "" : "s"} destacada${extraCount === 1 ? "" : "s"} no editor.`;
+}
+
 function getBuilderValidationIssues(draft) {
   const cleanDraft = ensureBuilderDraftConsistency(draft);
   const issues = [];
@@ -2050,23 +2090,45 @@ function getBuilderValidationIssues(draft) {
   const nodesById = Object.fromEntries(cleanDraft.nodes.map((node) => [node.id, node]));
 
   for (const node of cleanDraft.nodes) {
+    const nodeLabel = getBuilderNodeDisplayName(cleanDraft, node.id);
+    if (!String(node.title ?? "").trim()) {
+      issues.push({
+        nodeId: node.id,
+        message: `A ${nodeLabel} esta sem titulo. Dê um nome para essa etapa para o fisio entender o fluxo antes de salvar.`
+      });
+    }
     if (node.type !== "pergunta") continue;
     if (!Array.isArray(node.answers) || node.answers.length === 0) {
-      issues.push(`A pergunta "${node.title}" precisa ter pelo menos uma resposta.`);
+      issues.push({
+        nodeId: node.id,
+        message: `A ${nodeLabel} precisa ter pelo menos uma resposta. Sem resposta o fisio nao consegue seguir para a proxima etapa.`
+      });
     }
-    for (const answer of node.answers) {
+    node.answers.forEach((answer, answerIndex) => {
+      const answerLabel = getBuilderAnswerDisplayName(answer, answerIndex);
       if (!String(answer.label ?? "").trim()) {
-        issues.push(`A pergunta "${node.title}" possui resposta sem texto.`);
+        issues.push({
+          nodeId: node.id,
+          answerId: answer.id,
+          message: `A ${nodeLabel} tem ${answerLabel} sem texto. Escreva o nome dessa resposta para o fisio saber o que selecionar.`
+        });
       }
       if (!String(answer.nextNodeId ?? "").trim()) {
-        issues.push(`A pergunta "${node.title}" possui resposta sem próximo passo.`);
+        issues.push({
+          nodeId: node.id,
+          answerId: answer.id,
+          message: `A ${nodeLabel} tem ${answerLabel} sem proximo passo. Escolha para onde ela vai, senao o caminho fica aberto e o modulo nao salva.`
+        });
       }
-    }
+    });
   }
 
   const unreachableNodes = cleanDraft.nodes.filter((node) => !reachable.has(node.id));
-  if (unreachableNodes.length > 0) {
-    issues.push("Existem etapas fora do caminho principal.");
+  for (const node of unreachableNodes) {
+    issues.push({
+      nodeId: node.id,
+      message: `A ${getBuilderNodeDisplayName(cleanDraft, node.id)} esta fora do caminho principal. Conecte essa etapa ao fluxo inicial ou remova-a antes de salvar.`
+    });
   }
 
   const memo = new Map();
@@ -2089,10 +2151,19 @@ function getBuilderValidationIssues(draft) {
   }
 
   if (!hasResultPath(cleanDraft.startNodeId)) {
-    issues.push("Existe fluxo sem saída final.");
+    issues.push({
+      nodeId: cleanDraft.startNodeId,
+      message: `A ${getBuilderNodeDisplayName(cleanDraft, cleanDraft.startNodeId)} ainda nao chega a nenhum resultado final. Feche pelo menos um caminho completo ate um diagnostico para salvar.`
+    });
   }
 
-  return Array.from(new Set(issues));
+  const seen = new Set();
+  return issues.filter((issue) => {
+    const key = `${issue.nodeId ?? ""}::${issue.answerId ?? ""}::${issue.message}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 function getBuilderPathSummaries(draft, maxPaths = 6) {
@@ -2130,7 +2201,7 @@ function renderBuilderValidation(app) {
   for (const issue of issues) {
     const item = document.createElement("div");
     item.className = "builder-validation__item";
-    item.textContent = `⚠ ${issue}`;
+    item.textContent = `⚠ ${issue.message}`;
     wrap.appendChild(item);
   }
   return issues;
@@ -6911,7 +6982,7 @@ async function mount() {
         const issues = getBuilderValidationIssues(app.builderDraft);
         renderBuilderValidation(app);
         if (issues.length > 0) {
-          alert(`Corrija o fluxo antes de testar:\n\n- ${issues.join("\n- ")}`);
+          alert(`Corrija o fluxo antes de testar:\n\n- ${issues.map((issue) => issue.message).join("\n- ")}`);
           return;
         }
         const flow = buildFlowFromBuilderDraft(app.builderDraft);
