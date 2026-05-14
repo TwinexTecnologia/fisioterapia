@@ -7,7 +7,7 @@
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
     <title>Fisiotosta</title>
-    <link rel="stylesheet" href="./style.css?v=20260429mobile18" />
+    <link rel="stylesheet" href="./style.css?v=20260501module1" />
   </head>
   <body>
     <!-- TELA 0: LOGIN DO SISTEMA -->
@@ -39,6 +39,20 @@
           </div>
           <button type="submit" class="btn btn--start" style="width: 100%; margin-top: 10px;">Entrar no Sistema</button>
         </form>
+        <div id="loginRecoveryPanel" class="login-recovery hidden">
+          <div class="login-recovery__title">Redefinir senha</div>
+          <p class="muted">Digite a nova senha aberta pelo link de recuperação enviado para o e-mail do fisioterapeuta.</p>
+          <div class="input-group">
+            <label class="label">Nova senha</label>
+            <input type="password" id="loginRecoveryPassword" class="input-text" placeholder="Nova senha" />
+          </div>
+          <div class="input-group">
+            <label class="label">Confirmar nova senha</label>
+            <input type="password" id="loginRecoveryConfirm" class="input-text" placeholder="Repita a nova senha" />
+          </div>
+          <button id="btnSubmitRecovery" type="button" class="btn btn--start" style="width: 100%; margin-top: 10px;">Salvar nova senha</button>
+          <div id="loginRecoveryStatus" class="form-status hidden" style="margin-top: 12px;"></div>
+        </div>
         <div class="login-footer">
           <p id="loginError" style="color: red; font-size: 14px; display: none; margin-top: 10px;">E-mail ou senha incorretos.</p>
           <small class="muted" style="display: block; margin-top: 20px;">Use o e-mail e a senha cadastrados no sistema.</small>
@@ -744,6 +758,30 @@
                   <button id="btnClearVisualCover" class="btn btn--ghost btn--sm" type="button" style="flex: 0;">Limpar Capa</button>
                 </div>
 
+                <div class="input-group">
+                  <label class="label">Imagem da Homepage do Modulo</label>
+                  <input type="text" id="visualHomepageImageUrl" class="input-text" placeholder="Cole a URL ou envie a foto principal da homepage" />
+                  <small class="muted">Cada modulo precisa da propria foto de homepage para a tela inicial ficar unica.</small>
+                </div>
+
+                <div class="builder-actions">
+                  <button id="btnUploadVisualHomepage" class="btn btn--ghost btn--sm" type="button" style="flex: 0;">Enviar Homepage</button>
+                  <input id="visualHomepageFile" type="file" accept="image/*" class="hidden" />
+                  <button id="btnClearVisualHomepage" class="btn btn--ghost btn--sm" type="button" style="flex: 0;">Limpar Homepage</button>
+                </div>
+
+                <div class="input-group">
+                  <label class="label">Imagem do Diagnostico Final</label>
+                  <input type="text" id="visualDiagnosisIconUrl" class="input-text" placeholder="Cole a URL ou envie uma imagem sem fundo" />
+                  <small class="muted">Envie uma imagem sem fundo para aparecer no diagnostico final daquele modulo.</small>
+                </div>
+
+                <div class="builder-actions">
+                  <button id="btnUploadVisualDiagnosisIcon" class="btn btn--ghost btn--sm" type="button" style="flex: 0;">Enviar Diagnostico</button>
+                  <input id="visualDiagnosisIconFile" type="file" accept="image/*" class="hidden" />
+                  <button id="btnClearVisualDiagnosisIcon" class="btn btn--ghost btn--sm" type="button" style="flex: 0;">Limpar Diagnostico</button>
+                </div>
+
                 <div class="visual-editor-palette">
                   <div class="visual-editor-palette__group">
                     <div class="visual-editor-palette__title">Pergunta</div>
@@ -792,6 +830,17 @@
               <div class="visual-editor-preview-wrap">
                 <div id="visualPreviewCanvas" class="visual-preview" role="button" tabindex="0" aria-label="Abrir editor visual em tela grande">
                   <div class="visual-preview__topline">Preview visual do modulo</div>
+                  <div class="visual-preview__homepage">
+                    <div class="visual-preview__homepage-copy">
+                      <div class="visual-preview__homepage-badge">Homepage do modulo</div>
+                      <div id="visualPreviewHomepageTitle" class="visual-preview__homepage-title">Novo Modulo</div>
+                      <div class="visual-preview__homepage-subtitle">Como a capa inicial vai aparecer para o fisioterapeuta.</div>
+                    </div>
+                    <div class="visual-preview__homepage-media">
+                      <img id="visualPreviewHomepageImage" class="visual-preview__homepage-image hidden" alt="Preview da homepage do modulo" />
+                      <div id="visualPreviewHomepageFallback" class="visual-preview__homepage-fallback">Envie a foto da homepage</div>
+                    </div>
+                  </div>
                   <div class="visual-preview__hero">
                     <div id="visualPreviewArt" class="visual-preview__art">
                       <img id="visualPreviewCover" class="visual-preview__cover hidden" alt="Capa do modulo" />
@@ -812,7 +861,10 @@
                     <div id="visualPreviewAnswerB" class="visual-preview__answer">Resposta 2</div>
                   </div>
                   <div id="visualPreviewDiagnosis" class="visual-preview__diagnosis">
-                    <div class="visual-preview__label">Diagnostico</div>
+                    <div class="visual-preview__diagnosis-head">
+                      <img id="visualPreviewDiagnosisIcon" class="visual-preview__diagnosis-icon hidden" alt="Icone do diagnostico" />
+                      <div class="visual-preview__label">Diagnostico</div>
+                    </div>
                     <img id="visualPreviewDiagnosisImage" class="visual-preview__media hidden" alt="Preview do diagnostico" />
                     <div class="visual-preview__diagnosis-text">Exemplo de tela final do modulo</div>
                   </div>
@@ -890,7 +942,10 @@
             <div class="home-welcome">Seja bem vindo ao</div>
             <div class="home-hero">
               <h1 id="homeTitle" class="home-title">ROTEIRO DE<br>THOMPSOM</h1>
-              <div id="homeApple" class="home-apple" aria-hidden="true">🍎</div>
+              <div id="homeApple" class="home-apple" aria-hidden="true">
+                <img id="homeHeroImage" class="home-hero__image hidden" alt="Imagem principal do modulo" />
+                <span id="homeAppleFallback">🍎</span>
+              </div>
             </div>
 
             <h2 class="home-subtitle">Como utilizar</h2>
@@ -1007,7 +1062,8 @@
             <div class="diagnosis__card">
               <img id="diagnosisImage" class="diagnosis__image hidden" alt="Imagem do diagnostico" />
               <div class="diagnosis__icon" aria-hidden="true">
-                <svg viewBox="0 0 140 140" class="diagnosis__svg">
+                <img id="diagnosisIconImage" class="diagnosis__icon-image hidden" alt="Icone do diagnostico" />
+                <svg id="diagnosisIconFallback" viewBox="0 0 140 140" class="diagnosis__svg">
                   <circle cx="70" cy="70" r="48" fill="none" stroke="#222" stroke-width="3"/>
                   <circle cx="70" cy="70" r="31" fill="none" stroke="#222" stroke-width="2.5"/>
                   <circle cx="70" cy="70" r="14" fill="none" stroke="#222" stroke-width="2"/>
@@ -1158,6 +1214,6 @@
       </footer>
     </div>
 
-    <script type="module" src="./app.js?v=20260429mobile7"></script>
+    <script type="module" src="./app.js?v=20260501module1"></script>
   </body>
 </html>
