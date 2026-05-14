@@ -31,6 +31,38 @@ function getCrefitoLocalApiUrl() {
   return "http://127.0.0.1:8000/api/validate-crefito3";
 }
 
+function getLocationParams() {
+  const search = new URLSearchParams(window.location.search);
+  const hash = new URLSearchParams(String(window.location.hash ?? "").replace(/^#/, ""));
+  return { search, hash };
+}
+
+function isPasswordRecoveryMode() {
+  const { search, hash } = getLocationParams();
+  return search.get("type") === "recovery" || hash.get("type") === "recovery";
+}
+
+function getAuthRedirectUrl() {
+  const url = new URL(window.location.href);
+  url.hash = "";
+  return url.toString();
+}
+
+function clearAuthUrlArtifacts() {
+  const url = new URL(window.location.href);
+  const recoveryKeys = [
+    "type",
+    "access_token",
+    "refresh_token",
+    "expires_at",
+    "expires_in",
+    "token_type"
+  ];
+  recoveryKeys.forEach((key) => url.searchParams.delete(key));
+  url.hash = "";
+  window.history.replaceState({}, document.title, url.toString());
+}
+
 function now() {
   return Date.now();
 }
@@ -955,6 +987,16 @@ function syncRuntimeIntroModule(app) {
   const moduleName = normalizeDashboardModuleName(activeModule?.name ?? fallbackFlowName ?? "Roteiro de Thompson");
 
   homeTitle.innerHTML = formatRuntimeModuleTitle(moduleName);
+  const activeFlowId = String(activeModule?.startFlowId ?? activeModule?.flowId ?? fallbackFlowId ?? "").trim();
+  const blueprint = getModuleBlueprint(app?.protocol, activeFlowId);
+  const heroImage = $("homeHeroImage");
+  const heroFallback = $("homeAppleFallback");
+  const homeImageUrl = String(blueprint.intro.homeImageUrl ?? "").trim();
+  if (heroImage) {
+    heroImage.src = homeImageUrl;
+    heroImage.classList.toggle("hidden", !homeImageUrl);
+  }
+  if (heroFallback) heroFallback.classList.toggle("hidden", Boolean(homeImageUrl));
 }
 
 function hideAppToast() {
@@ -1069,7 +1111,11 @@ async function deleteModule(app, module) {
 
 async function saveEditorModule(app) {
   app.builderDraft = ensureBuilderDraftConsistency(app.builderDraft);
-  const issues = getBuilderValidationIssues(app.builderDraft);
+  syncVisualDraftFromDom(app);
+  const issues = [
+    ...getBuilderValidationIssues(app.builderDraft),
+    ...getModuleVisualValidationIssues(app.visualDraft)
+  ];
   if (issues.length > 0) {
     focusBuilderValidationIssue(app, issues[0]);
     renderBuilderWorkspace(app);
@@ -1085,7 +1131,6 @@ async function saveEditorModule(app) {
     return;
   }
 
-  syncVisualDraftFromDom(app);
   const flow = buildFlowFromBuilderDraft(app.builderDraft);
   const flowsById = { ...(app.protocol?.flowsById ?? {}) };
   const moduleBlueprints = { ...(app.protocol?.moduleBlueprints ?? {}) };
@@ -1128,6 +1173,29 @@ function setLoginError(message = "") {
   if (!loginError) return;
   loginError.textContent = message || "E-mail ou senha incorretos.";
   loginError.style.display = message ? "block" : "none";
+}
+
+function setLoginRecoveryStatus(message = "", tone = "") {
+  const status = $("loginRecoveryStatus");
+  if (!status) return;
+  status.textContent = message;
+  status.className = "form-status";
+  if (!message) {
+    status.classList.add("hidden");
+    return;
+  }
+  if (tone === "success") status.classList.add("form-status--success");
+  if (tone === "error") status.classList.add("form-status--error");
+}
+
+function setLoginRecoveryMode(enabled) {
+  const loginForm = $("formLogin");
+  const loginFooter = document.querySelector(".login-footer");
+  const recoveryPanel = $("loginRecoveryPanel");
+  if (loginForm) loginForm.classList.toggle("hidden", enabled);
+  if (loginFooter) loginFooter.classList.toggle("hidden", enabled);
+  if (recoveryPanel) recoveryPanel.classList.toggle("hidden", !enabled);
+  if (!enabled) setLoginRecoveryStatus("");
 }
 
 function getReadableAuthError(error) {
@@ -2051,9 +2119,18 @@ function getBuilderAnswerDisplayName(answer, index) {
 
 function focusBuilderValidationIssue(app, issue) {
   const nodeId = String(issue?.nodeId ?? "").trim();
-  if (!nodeId) return;
-  app.selectedBuilderNodeId = nodeId;
-  app.isBuilderSidebarOpen = true;
+  if (nodeId) {
+    app.selectedBuilderNodeId = nodeId;
+    app.isBuilderSidebarOpen = true;
+  }
+  const inputId = String(issue?.inputId ?? "").trim();
+  if (inputId) {
+    requestAnimationFrame(() => {
+      const input = $(inputId);
+      if (input?.focus) input.focus();
+      input?.scrollIntoView?.({ behavior: "smooth", block: "center" });
+    });
+  }
 }
 
 function getBuilderValidationToastMessage(issues) {
@@ -2063,6 +2140,27 @@ function getBuilderValidationToastMessage(issues) {
   if (issues.length === 1) return issues[0].message;
   const extraCount = issues.length - 1;
   return `${issues[0].message} Corrija isso e mais ${extraCount} pendencia${extraCount === 1 ? "" : "s"} destacada${extraCount === 1 ? "" : "s"} no editor.`;
+}
+
+function getModuleVisualValidationIssues(visualDraft) {
+  const blueprint = normalizeModuleBlueprint(visualDraft);
+  const issues = [];
+
+  if (!String(blueprint?.intro?.homeImageUrl ?? "").trim()) {
+    issues.push({
+      inputId: "visualHomepageImageUrl",
+      message: "A homepage do modulo esta sem foto. Envie a imagem principal para o fisioterapeuta identificar esse roteiro logo na entrada."
+    });
+  }
+
+  if (!String(blueprint?.diagnosis?.iconUrl ?? "").trim()) {
+    issues.push({
+      inputId: "visualDiagnosisIconUrl",
+      message: "O diagnostico final esta sem imagem. Envie uma arte sem fundo para esse modulo ficar unico tambem na tela final."
+    });
+  }
+
+  return issues;
 }
 
 function getBuilderValidationIssues(draft) {
@@ -2444,9 +2542,15 @@ function createDefaultModuleBlueprint() {
       diagnosisBg: "#d9d9d9",
       diagnosisText: "#111111"
     },
+    intro: {
+      homeImageUrl: ""
+    },
     branding: {
       iconUrl: "",
       coverImageUrl: ""
+    },
+    diagnosis: {
+      iconUrl: ""
     }
   };
 }
@@ -2462,9 +2566,17 @@ function normalizeModuleBlueprint(raw) {
       ...defaults.blocks,
       ...(raw?.blocks ?? {})
     },
+    intro: {
+      ...defaults.intro,
+      ...(raw?.intro ?? {})
+    },
     branding: {
       ...defaults.branding,
       ...(raw?.branding ?? {})
+    },
+    diagnosis: {
+      ...defaults.diagnosis,
+      ...(raw?.diagnosis ?? {})
     }
   };
 }
@@ -2490,9 +2602,15 @@ function syncVisualDraftFromDom(app) {
       diagnosisBg: $("visualDiagnosisBg")?.value ?? "#d9d9d9",
       diagnosisText: $("visualDiagnosisText")?.value ?? "#111111"
     },
+    intro: {
+      homeImageUrl: String($("visualHomepageImageUrl")?.value ?? "").trim()
+    },
     branding: {
       iconUrl: String($("visualIconUrl")?.value ?? "").trim(),
       coverImageUrl: String($("visualCoverImageUrl")?.value ?? "").trim()
+    },
+    diagnosis: {
+      iconUrl: String($("visualDiagnosisIconUrl")?.value ?? "").trim()
     }
   });
   return app.visualDraft;
@@ -2532,6 +2650,16 @@ function renderVisualPreview(app) {
 
   const moduleName = $("visualPreviewModuleName");
   if (moduleName) moduleName.textContent = String(draft.name ?? "Novo Modulo");
+  const homepageTitle = $("visualPreviewHomepageTitle");
+  if (homepageTitle) homepageTitle.textContent = String(draft.name ?? "Novo Modulo");
+  const homepageImage = $("visualPreviewHomepageImage");
+  const homepageFallback = $("visualPreviewHomepageFallback");
+  const homepageImageUrl = String(blueprint.intro.homeImageUrl ?? "").trim();
+  if (homepageImage) {
+    homepageImage.src = homepageImageUrl;
+    homepageImage.classList.toggle("hidden", !homepageImageUrl);
+  }
+  if (homepageFallback) homepageFallback.classList.toggle("hidden", Boolean(homepageImageUrl));
 
   const questionBox = $("visualPreviewQuestion");
   if (questionBox) {
@@ -2565,6 +2693,12 @@ function renderVisualPreview(app) {
   if (diagnosis) {
     diagnosis.style.background = blueprint.blocks.diagnosisBg;
     diagnosis.style.color = blueprint.blocks.diagnosisText;
+    const diagnosisIcon = $("visualPreviewDiagnosisIcon");
+    const diagnosisIconUrl = String(blueprint.diagnosis.iconUrl ?? "").trim();
+    if (diagnosisIcon) {
+      diagnosisIcon.src = diagnosisIconUrl;
+      diagnosisIcon.classList.toggle("hidden", !diagnosisIconUrl);
+    }
     const diagnosisImage = $("visualPreviewDiagnosisImage");
     const diagnosisImageUrl = String(diagnosisNode?.imageUrl ?? "").trim();
     const diagnosisContentType = String(diagnosisNode?.contentType ?? "text");
@@ -2583,7 +2717,16 @@ function renderVisualPreview(app) {
 
 function applyRuntimeModuleBlueprint(protocol, flowId) {
   const blueprint = getModuleBlueprint(protocol, flowId);
+  const screenProtocolIntro = $("screenProtocolIntro");
   const screenNode = $("screenNode");
+  if (screenProtocolIntro) {
+    screenProtocolIntro.style.backgroundColor = blueprint.page.backgroundColor;
+    screenProtocolIntro.style.backgroundImage = blueprint.page.backgroundImage ? `url("${blueprint.page.backgroundImage}")` : "none";
+    screenProtocolIntro.style.backgroundSize = blueprint.page.backgroundImage ? blueprint.page.backgroundSize : "auto";
+    screenProtocolIntro.style.backgroundPosition = "center";
+    screenProtocolIntro.style.fontFamily = blueprint.page.fontFamily;
+    screenProtocolIntro.style.color = blueprint.page.textColor;
+  }
   if (screenNode) {
     screenNode.style.backgroundColor = blueprint.page.backgroundColor;
     screenNode.style.backgroundImage = blueprint.page.backgroundImage ? `url("${blueprint.page.backgroundImage}")` : "none";
@@ -2616,8 +2759,10 @@ function fillVisualEditor(app) {
   if ($("visualAnswerText")) $("visualAnswerText").value = blueprint.blocks.answerText;
   if ($("visualDiagnosisBg")) $("visualDiagnosisBg").value = blueprint.blocks.diagnosisBg;
   if ($("visualDiagnosisText")) $("visualDiagnosisText").value = blueprint.blocks.diagnosisText;
+  if ($("visualHomepageImageUrl")) $("visualHomepageImageUrl").value = blueprint.intro.homeImageUrl;
   if ($("visualIconUrl")) $("visualIconUrl").value = blueprint.branding.iconUrl;
   if ($("visualCoverImageUrl")) $("visualCoverImageUrl").value = blueprint.branding.coverImageUrl;
+  if ($("visualDiagnosisIconUrl")) $("visualDiagnosisIconUrl").value = blueprint.diagnosis.iconUrl;
 
   renderVisualPreview(app);
 }
@@ -5077,6 +5222,7 @@ function renderManagedProfiles(app) {
         <div class="admin-table__actions">
           ${historyButtonMarkup}
           <button class="btn btn--ghost btn--sm" type="button" data-managed-profile-action="edit" data-profile-id="${escapeHtml(profile.id)}">Editar</button>
+          <button class="btn btn--ghost btn--sm" type="button" data-managed-profile-action="reset-password" data-profile-id="${escapeHtml(profile.id)}">Redefinir senha</button>
           <button class="${accessActionClass}" type="button" data-managed-profile-action="toggle-access" data-next-active="${isActive ? "false" : "true"}" data-profile-id="${escapeHtml(profile.id)}">${accessActionLabel}</button>
         </div>
       </td>
@@ -5310,6 +5456,18 @@ async function updateManagedProfileAccess(app, profile, nextActive) {
       ? { ...item, is_active: profilePayload.is_active }
       : item)
     : [];
+}
+
+async function sendManagedProfilePasswordReset(profile) {
+  const email = getManagedProfileEmail(profile);
+  if (!email) {
+    throw new Error("Esse cadastro ainda esta sem e-mail de login para redefinir a senha.");
+  }
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: getAuthRedirectUrl()
+  });
+  if (error) throw error;
+  return email;
 }
 
 function renderState(app) {
@@ -5683,6 +5841,8 @@ function renderState(app) {
   const diagnosisImage = $("diagnosisImage");
   const diagnosisActions = $("diagnosisActions");
   const diagnosisIcon = diagnosisView?.querySelector?.(".diagnosis__icon");
+  const diagnosisIconImage = $("diagnosisIconImage");
+  const diagnosisIconFallback = $("diagnosisIconFallback");
   if (diagnosisView) diagnosisView.classList.toggle("hidden", !isDiagnosisNode);
   if (diagnosisView) diagnosisView.style.fontFamily = runtimeBlueprint.page.fontFamily;
   if (diagnosisTitle && isDiagnosisNode) {
@@ -5695,6 +5855,14 @@ function renderState(app) {
   }
   if (diagnosisIcon) {
     diagnosisIcon.classList.toggle("hidden", !isDiagnosisNode || !cleanTitle);
+  }
+  const runtimeDiagnosisIconUrl = String(runtimeBlueprint.diagnosis.iconUrl ?? "").trim();
+  if (diagnosisIconImage) {
+    diagnosisIconImage.src = runtimeDiagnosisIconUrl;
+    diagnosisIconImage.classList.toggle("hidden", !isDiagnosisNode || !runtimeDiagnosisIconUrl);
+  }
+  if (diagnosisIconFallback) {
+    diagnosisIconFallback.classList.toggle("hidden", !isDiagnosisNode || Boolean(runtimeDiagnosisIconUrl));
   }
   if (diagnosisCard) {
     diagnosisCard.classList.toggle("diagnosis__card--with-media", Boolean(isDiagnosisNode && showNodeImage));
@@ -6149,17 +6317,33 @@ async function mount() {
   updateFlowSelect(app);
   updateJsonStatus(app);
   try {
-    const authContext = await ensurePatientDeviceAccess(await ensureActiveAuthContext(await loadAuthContext()));
-    app.authSession = authContext.session;
-    app.currentUser = authContext.user;
-    app.currentProfile = authContext.profile;
-    if (authContext.session) {
-      await hydrateAuthenticatedApp(app);
+    if (isPasswordRecoveryMode()) {
+      const { data, error } = await supabase.auth.getSession();
+      if (error) throw error;
+      app.authSession = data?.session ?? null;
+      app.currentUser = data?.session?.user ?? null;
+      app.currentProfile = null;
+      app.view = "login";
+      setLoginError("");
+      setLoginRecoveryMode(true);
+      if (!app.authSession) {
+        setLoginRecoveryStatus("Abra novamente o link do e-mail para cadastrar a nova senha.", "error");
+      }
+    } else {
+      const authContext = await ensurePatientDeviceAccess(await ensureActiveAuthContext(await loadAuthContext()));
+      app.authSession = authContext.session;
+      app.currentUser = authContext.user;
+      app.currentProfile = authContext.profile;
+      if (authContext.session) {
+        await hydrateAuthenticatedApp(app);
+      }
+      app.view = authContext.session ? getDefaultViewForRole(authContext.profile?.role) : "login";
+      setLoginRecoveryMode(false);
     }
-    app.view = authContext.session ? getDefaultViewForRole(authContext.profile?.role) : "login";
   } catch (authError) {
     console.error("Erro ao carregar sessão do Supabase", authError);
     app.view = "login";
+    setLoginRecoveryMode(false);
     setLoginError(getReadableAuthError(authError));
   }
   renderState(app);
@@ -6177,6 +6361,7 @@ async function mount() {
       }
 
       try {
+        setLoginRecoveryMode(false);
         setLoginError("");
         if (submitButton) submitButton.disabled = true;
         const { error } = await supabase.auth.signInWithPassword({ email, password });
@@ -6198,6 +6383,48 @@ async function mount() {
     });
   }
 
+  const btnSubmitRecovery = $("btnSubmitRecovery");
+  if (btnSubmitRecovery) {
+    btnSubmitRecovery.addEventListener("click", async () => {
+      const password = String($("loginRecoveryPassword")?.value ?? "");
+      const confirmPassword = String($("loginRecoveryConfirm")?.value ?? "");
+      if (!password || !confirmPassword) {
+        setLoginRecoveryStatus("Preencha e confirme a nova senha.", "error");
+        return;
+      }
+      if (password.length < 6) {
+        setLoginRecoveryStatus("A nova senha precisa ter pelo menos 6 caracteres.", "error");
+        return;
+      }
+      if (password !== confirmPassword) {
+        setLoginRecoveryStatus("A confirmacao da senha esta diferente.", "error");
+        return;
+      }
+      try {
+        if (btnSubmitRecovery instanceof HTMLButtonElement) btnSubmitRecovery.disabled = true;
+        setLoginRecoveryStatus("");
+        const { error } = await supabase.auth.updateUser({ password });
+        if (error) throw error;
+        setLoginRecoveryStatus("Senha atualizada com sucesso. Voce ja pode entrar com a nova senha.", "success");
+        $("loginRecoveryPassword").value = "";
+        $("loginRecoveryConfirm").value = "";
+        clearAuthUrlArtifacts();
+        await supabase.auth.signOut();
+        app.authSession = null;
+        app.currentUser = null;
+        app.currentProfile = null;
+        app.view = "login";
+        setLoginRecoveryMode(false);
+        setLoginError("Senha redefinida com sucesso. Entre com a nova senha.");
+        renderState(app);
+      } catch (error) {
+        setLoginRecoveryStatus(getReadableAuthError(error), "error");
+      } finally {
+        if (btnSubmitRecovery instanceof HTMLButtonElement) btnSubmitRecovery.disabled = false;
+      }
+    });
+  }
+
   const btnLogout = $("btnLogout");
   if (btnLogout) {
     btnLogout.addEventListener("click", async () => {
@@ -6209,6 +6436,7 @@ async function mount() {
       app.hasLoadedSupabaseModules = false;
       app.managedProfiles = [];
       app.view = "login";
+      setLoginRecoveryMode(false);
       setLoginError("");
       renderState(app);
     });
@@ -6701,8 +6929,9 @@ async function mount() {
       if (!(target instanceof Element)) return;
       const editButton = target.closest('[data-managed-profile-action="edit"]');
       const historyButton = target.closest('[data-managed-profile-action="device-history"]');
+      const resetPasswordButton = target.closest('[data-managed-profile-action="reset-password"]');
       const toggleAccessButton = target.closest('[data-managed-profile-action="toggle-access"]');
-      const actionButton = historyButton ?? editButton ?? toggleAccessButton;
+      const actionButton = historyButton ?? editButton ?? resetPasswordButton ?? toggleAccessButton;
       if (!actionButton) return;
 
       const profileId = String(actionButton.getAttribute("data-profile-id") ?? "").trim();
@@ -6738,6 +6967,38 @@ async function mount() {
         fillManagedProfileFormForEdit(app, profile);
         app.view = "fisios_form";
         renderState(app);
+        return;
+      }
+
+      if (resetPasswordButton) {
+        const profileName = String(profile.full_name ?? "esse fisioterapeuta").trim();
+        const shouldSend = window.confirm(`Enviar um e-mail para ${profileName} redefinir a senha de acesso?`);
+        if (!shouldSend) return;
+        try {
+          if (resetPasswordButton instanceof HTMLButtonElement) resetPasswordButton.disabled = true;
+          const email = await sendManagedProfilePasswordReset(profile);
+          showAppToast(
+            `Link de redefinicao enviado para ${email}. O fisioterapeuta podera criar uma nova senha pelo proprio e-mail.`,
+            "success",
+            {
+              title: "Redefinicao enviada",
+              eyebrow: "Gestao clinica",
+              durationMs: 5200
+            }
+          );
+        } catch (error) {
+          showAppToast(
+            getReadableRuntimeError(error, "Nao foi possivel enviar a redefinicao de senha."),
+            "error",
+            {
+              title: "Erro ao redefinir senha",
+              eyebrow: "Gestao clinica",
+              durationMs: 4200
+            }
+          );
+        } finally {
+          if (resetPasswordButton instanceof HTMLButtonElement) resetPasswordButton.disabled = false;
+        }
         return;
       }
 
@@ -7188,6 +7449,46 @@ async function mount() {
     });
   }
 
+  const btnUploadVisualHomepage = $("btnUploadVisualHomepage");
+  const visualHomepageFile = $("visualHomepageFile");
+  if (btnUploadVisualHomepage && visualHomepageFile) {
+    btnUploadVisualHomepage.addEventListener("click", () => visualHomepageFile.click());
+    visualHomepageFile.addEventListener("change", async () => {
+      const file = visualHomepageFile.files?.[0];
+      if (!file) return;
+      try {
+        const dataUrl = await readFileAsDataUrl(file);
+        if ($("visualHomepageImageUrl")) $("visualHomepageImageUrl").value = dataUrl;
+        syncVisualDraftFromDom(app);
+        renderVisualPreview(app);
+      } catch (err) {
+        alert(err instanceof Error ? err.message : "Falha ao carregar a imagem da homepage do modulo.");
+      } finally {
+        visualHomepageFile.value = "";
+      }
+    });
+  }
+
+  const btnUploadVisualDiagnosisIcon = $("btnUploadVisualDiagnosisIcon");
+  const visualDiagnosisIconFile = $("visualDiagnosisIconFile");
+  if (btnUploadVisualDiagnosisIcon && visualDiagnosisIconFile) {
+    btnUploadVisualDiagnosisIcon.addEventListener("click", () => visualDiagnosisIconFile.click());
+    visualDiagnosisIconFile.addEventListener("change", async () => {
+      const file = visualDiagnosisIconFile.files?.[0];
+      if (!file) return;
+      try {
+        const dataUrl = await readFileAsDataUrl(file);
+        if ($("visualDiagnosisIconUrl")) $("visualDiagnosisIconUrl").value = dataUrl;
+        syncVisualDraftFromDom(app);
+        renderVisualPreview(app);
+      } catch (err) {
+        alert(err instanceof Error ? err.message : "Falha ao carregar a imagem do diagnostico.");
+      } finally {
+        visualDiagnosisIconFile.value = "";
+      }
+    });
+  }
+
   const btnUploadNodeImage = $("btnUploadNodeImage");
   const nodeImageFile = $("builderSelectedNodeImageFile");
   if (btnUploadNodeImage && nodeImageFile) {
@@ -7267,6 +7568,24 @@ async function mount() {
   if (btnClearVisualCover) {
     btnClearVisualCover.addEventListener("click", () => {
       if ($("visualCoverImageUrl")) $("visualCoverImageUrl").value = "";
+      syncVisualDraftFromDom(app);
+      renderVisualPreview(app);
+    });
+  }
+
+  const btnClearVisualHomepage = $("btnClearVisualHomepage");
+  if (btnClearVisualHomepage) {
+    btnClearVisualHomepage.addEventListener("click", () => {
+      if ($("visualHomepageImageUrl")) $("visualHomepageImageUrl").value = "";
+      syncVisualDraftFromDom(app);
+      renderVisualPreview(app);
+    });
+  }
+
+  const btnClearVisualDiagnosisIcon = $("btnClearVisualDiagnosisIcon");
+  if (btnClearVisualDiagnosisIcon) {
+    btnClearVisualDiagnosisIcon.addEventListener("click", () => {
+      if ($("visualDiagnosisIconUrl")) $("visualDiagnosisIconUrl").value = "";
       syncVisualDraftFromDom(app);
       renderVisualPreview(app);
     });
@@ -7412,7 +7731,9 @@ async function mount() {
       "visualDiagnosisBg",
       "visualDiagnosisText",
       "visualIconUrl",
-      "visualCoverImageUrl"
+      "visualCoverImageUrl",
+      "visualHomepageImageUrl",
+      "visualDiagnosisIconUrl"
     ].includes(e.target.id)) {
       syncVisualDraftFromDom(app);
       renderVisualPreview(app);

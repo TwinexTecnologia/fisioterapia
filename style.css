@@ -1721,6 +1721,18 @@ body {
   text-align: center;
 }
 
+.login-recovery {
+  display: grid;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.login-recovery__title {
+  font-size: 16px;
+  font-weight: 800;
+  text-align: center;
+}
+
 @media (max-width: 640px) {
   #screenLogin.app--login {
     min-height: 100dvh;
@@ -2449,6 +2461,8 @@ body {
 
   .app--viewer-runtime .home-apple {
     font-size: clamp(58px, 18vw, 78px);
+    width: min(160px, 34vw);
+    min-height: 110px;
   }
 
   .app--viewer-runtime .home-subtitle {
@@ -4377,6 +4391,63 @@ body {
   font-weight: 800;
 }
 
+.visual-preview__homepage {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(180px, 240px);
+  gap: 16px;
+  align-items: center;
+  padding: 18px 20px;
+  border-radius: 24px;
+  border: 2px solid rgba(15, 23, 42, 0.12);
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.visual-preview__homepage-badge {
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.8;
+}
+
+.visual-preview__homepage-title {
+  margin-top: 8px;
+  font-size: 30px;
+  font-weight: 900;
+  line-height: 1.05;
+}
+
+.visual-preview__homepage-subtitle {
+  margin-top: 8px;
+  font-size: 14px;
+  opacity: 0.86;
+}
+
+.visual-preview__homepage-media {
+  min-height: 170px;
+  border-radius: 24px;
+  overflow: hidden;
+  background: rgba(15, 23, 42, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.visual-preview__homepage-image {
+  width: 100%;
+  height: 100%;
+  min-height: 170px;
+  object-fit: cover;
+}
+
+.visual-preview__homepage-fallback {
+  padding: 18px;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 700;
+  color: #475569;
+}
+
 .visual-preview__hero {
   display: grid;
   grid-template-columns: 110px 1fr;
@@ -4457,6 +4528,19 @@ body {
   margin-bottom: 8px;
 }
 
+.visual-preview__diagnosis-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.visual-preview__diagnosis-icon {
+  width: 56px;
+  height: 56px;
+  object-fit: contain;
+  filter: drop-shadow(0 6px 10px rgba(15, 23, 42, 0.16));
+}
+
 .visual-preview__text,
 .visual-preview__diagnosis-text {
   font-size: 28px;
@@ -4515,6 +4599,9 @@ body {
     left: 18px;
   }
   .visual-editor-layout {
+    grid-template-columns: 1fr;
+  }
+  .visual-preview__homepage {
     grid-template-columns: 1fr;
   }
   .visual-editor-preview-wrap {
@@ -4992,7 +5079,19 @@ body {
   flex-shrink: 0;
   font-size: clamp(110px, 12vw, 160px);
   line-height: 1;
-  filter: drop-shadow(0 3px 0 rgba(0, 0, 0, 0.2));
+  width: min(240px, 26vw);
+  min-height: 160px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.home-hero__image {
+  width: 100%;
+  max-width: 240px;
+  max-height: 240px;
+  object-fit: contain;
+  filter: drop-shadow(0 12px 24px rgba(15, 23, 42, 0.16));
 }
 
 .home-subtitle {
@@ -5626,6 +5725,13 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.diagnosis__icon-image {
+  width: 98px;
+  height: auto;
+  object-fit: contain;
+  filter: drop-shadow(0 10px 16px rgba(15, 23, 42, 0.18));
 }
 
 .diagnosis__svg {
