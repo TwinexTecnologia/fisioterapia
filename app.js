@@ -1242,7 +1242,7 @@ function translateRuntimeErrorMessage(message, fallback = "Ocorreu um erro inesp
   const rawMessage = String(message ?? "").trim();
   if (!rawMessage) return fallback;
   if (/row-level security|permission denied|42501/i.test(rawMessage)) {
-    return "Sem permissao para salvar este modulo no Supabase. Revise as permissoes da tabela de modulos.";
+    return "Sem permissao para salvar este modulo no Supabase. Rode o SQL de permissoes da tabela modules e tente novamente.";
   }
   if (/duplicate key value|23505/i.test(rawMessage)) {
     return "Ja existe um modulo com esse identificador. Tente salvar com outro nome ou outro slug.";
