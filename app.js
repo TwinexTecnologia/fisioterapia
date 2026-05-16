@@ -1000,13 +1000,17 @@ function syncRuntimeIntroModule(app) {
   const activeFlowId = String(activeModule?.startFlowId ?? activeModule?.flowId ?? fallbackFlowId ?? "").trim();
   const blueprint = getModuleBlueprint(app?.protocol, activeFlowId);
   const homeCover = $("homeCover");
+  const homeImmersiveImage = $("homeImmersiveImage");
   const heroImage = $("homeHeroImage");
   const heroFallback = $("homeAppleFallback");
   const homeImageUrl = String(blueprint.intro.homeImageUrl ?? "").trim();
   const immersiveHome = Boolean(blueprint?.intro?.immersiveHome) && Boolean(homeImageUrl);
   if (homeCover) {
     homeCover.classList.toggle("home-cover--immersive", immersiveHome);
-    homeCover.style.setProperty("--home-cover-immersive-image", immersiveHome ? `url("${homeImageUrl.replace(/"/g, '\\"')}")` : "none");
+  }
+  if (homeImmersiveImage) {
+    homeImmersiveImage.src = immersiveHome ? homeImageUrl : "";
+    homeImmersiveImage.classList.toggle("hidden", !immersiveHome);
   }
   if (heroImage) {
     heroImage.src = homeImageUrl;

@@ -5107,6 +5107,15 @@ body {
   overflow: hidden;
 }
 
+.home-immersive-image {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 0;
+}
+
 .home-cover::before {
   content: "";
   position: absolute;
@@ -5120,16 +5129,14 @@ body {
 
 .home-cover--immersive {
   justify-content: flex-end;
-  min-height: min(820px, calc(100vh - 56px));
+  min-height: min(680px, calc(100vh - 160px));
   padding: 28px;
   border-radius: 36px;
   background: rgba(15, 23, 42, 0.08);
 }
 
 .home-cover--immersive::before {
-  background:
-    linear-gradient(180deg, rgba(15, 23, 42, 0.08) 0%, rgba(15, 23, 42, 0.18) 38%, rgba(15, 23, 42, 0.62) 100%),
-    var(--home-cover-immersive-image, none) center/cover no-repeat;
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.08) 0%, rgba(15, 23, 42, 0.18) 38%, rgba(15, 23, 42, 0.62) 100%);
 }
 
 .home-cover--immersive .home-topline,
@@ -5146,6 +5153,7 @@ body {
 .home-cover--immersive .home-footer {
   margin-top: auto;
   margin-bottom: 0;
+  padding-bottom: 8px;
 }
 
 .home-cover--immersive .btn--start {
