@@ -1203,9 +1203,9 @@ body {
     padding: 10px 12px;
     align-items: center;
     background:
-      radial-gradient(circle at 18% 22%, rgba(255,255,255,0.92), rgba(255,255,255,0) 28%),
-      linear-gradient(180deg, rgba(255,255,255,0.76) 0%, rgba(255,255,255,0.68) 100%),
-      url("https://raw.githubusercontent.com/TwinexTecnologia/fisioterapia/chore/github-supabase-setup/ChatGPT%20Image%2028%20de%20abr.%20de%202026%2C%2021_39_47.png") center/cover no-repeat;
+      radial-gradient(circle at 18% 22%, rgba(96, 165, 250, 0.28), rgba(255,255,255,0) 28%),
+      linear-gradient(180deg, rgba(2, 8, 23, 0.52) 0%, rgba(8, 34, 71, 0.6) 100%),
+      url("https://raw.githubusercontent.com/TwinexTecnologia/fisioterapia/chore/github-supabase-setup/ChatGPT%20Image%2016%20de%20mai.%20de%202026%2C%2019_04_16.png") center/cover no-repeat;
   }
 
   .login-mobile-brand {
@@ -1684,8 +1684,9 @@ body {
   padding: 28px;
   background:
     radial-gradient(circle at top, rgba(59, 130, 246, 0.24), transparent 34%),
-    radial-gradient(circle at bottom right, rgba(249, 115, 22, 0.16), transparent 26%),
-    linear-gradient(180deg, #020817 0%, #06142c 38%, #082247 100%);
+    radial-gradient(circle at bottom right, rgba(249, 115, 22, 0.14), transparent 26%),
+    linear-gradient(180deg, rgba(2, 8, 23, 0.38) 0%, rgba(6, 20, 44, 0.62) 40%, rgba(8, 34, 71, 0.76) 100%),
+    url("https://raw.githubusercontent.com/TwinexTecnologia/fisioterapia/chore/github-supabase-setup/ChatGPT%20Image%2016%20de%20mai.%20de%202026%2C%2019_04_16.png") center/cover no-repeat;
 }
 
 .login-card {
