@@ -1375,6 +1375,28 @@ async function loadAuthContext() {
   return { session, user: session.user, profile };
 }
 
+async function refreshCurrentProfile(app) {
+  if (!app?.authSession || !app?.currentUser?.id) return app?.currentProfile ?? null;
+
+  const authContext = await loadAuthContext();
+  const nextSession = authContext?.session ?? null;
+  const nextUser = authContext?.user ?? null;
+  const nextProfile = authContext?.profile ?? null;
+
+  if (!nextSession?.user || !nextUser?.id || !nextProfile?.id) {
+    return app.currentProfile ?? null;
+  }
+
+  if (String(nextUser.id) !== String(app.currentUser.id)) {
+    return app.currentProfile ?? null;
+  }
+
+  app.authSession = nextSession;
+  app.currentUser = nextUser;
+  app.currentProfile = nextProfile;
+  return nextProfile;
+}
+
 async function ensureActiveAuthContext(authContext) {
   if (!authContext?.session || !authContext?.profile) return authContext;
   if (isManagedProfileActive(authContext.profile)) return authContext;
@@ -1555,6 +1577,8 @@ async function deleteSupabaseModuleBySlug(app, slug) {
 
 async function refreshSupabaseModules(app, options = {}) {
   if (!app.authSession || !app.currentUser?.id) return [];
+
+  await refreshCurrentProfile(app);
 
   let rows = await loadSupabaseModuleRows();
   const shouldSeedStarter = Boolean(options.seedStarterForAdmin) && isFisioAdminRole(app.currentProfile?.role);
