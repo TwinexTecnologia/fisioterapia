@@ -1101,6 +1101,46 @@ function closeBuilderValidationModal(app, shouldSave = false) {
   if (typeof resolver === "function") resolver(Boolean(shouldSave));
 }
 
+function setEditorSavingState(app, enabled, options = {}) {
+  app.isSavingEditorModule = Boolean(enabled);
+
+  const saveButtons = [$("btnSaveEditor"), $("btnSaveBuilderSidebar")];
+  const overlay = $("editorSavingOverlay");
+  const overlayTitle = $("editorSavingOverlayTitle");
+  const overlayText = $("editorSavingOverlayText");
+  const status = $("flowBuilderStatus");
+  const subtitle = $("editorSubtitle");
+
+  const buttonLabel = String(options.buttonLabel ?? "Salvando...");
+  const statusMessage = String(options.statusMessage ?? "Salvando alteracoes do modulo. Aguarde finalizar para evitar erro de carregamento.");
+  const subtitleMessage = String(options.subtitleMessage ?? "O modulo esta sendo salvo agora. Aguarde concluir antes de sair da tela.");
+
+  saveButtons.forEach((button) => {
+    if (!(button instanceof HTMLButtonElement)) return;
+    if (!button.dataset.defaultLabel) button.dataset.defaultLabel = button.textContent ?? "";
+    button.disabled = enabled;
+    button.classList.toggle("btn--saving", enabled);
+    button.textContent = enabled ? buttonLabel : button.dataset.defaultLabel;
+  });
+
+  if (overlay) {
+    overlay.classList.toggle("hidden", !enabled);
+    overlay.setAttribute("aria-hidden", enabled ? "false" : "true");
+  }
+  if (overlayTitle) overlayTitle.textContent = String(options.overlayTitle ?? "Salvando alterações...");
+  if (overlayText) overlayText.textContent = String(options.overlayText ?? "Aguarde até o módulo terminar de salvar para não perder nenhuma mudança.");
+
+  if (status) {
+    if (!status.dataset.defaultText) status.dataset.defaultText = status.textContent ?? "";
+    status.textContent = enabled ? statusMessage : status.dataset.defaultText;
+  }
+
+  if (subtitle) {
+    if (!subtitle.dataset.defaultText) subtitle.dataset.defaultText = subtitle.textContent ?? "";
+    subtitle.textContent = enabled ? subtitleMessage : subtitle.dataset.defaultText;
+  }
+}
+
 function openBuilderValidationModal(app, issues) {
   const modal = $("builderValidationModal");
   if (!modal) {
@@ -1220,6 +1260,7 @@ async function deleteModule(app, module) {
 }
 
 async function saveEditorModule(app) {
+  if (app.isSavingEditorModule) return;
   app.builderDraft = ensureBuilderDraftConsistency(app.builderDraft);
   syncVisualDraftFromDom(app);
   const issues = getEditorValidationIssues(app);
@@ -1230,48 +1271,60 @@ async function saveEditorModule(app) {
     if (!shouldSaveWithIssues) return;
   }
 
-  const flow = buildFlowFromBuilderDraft(app.builderDraft, { allowIncomplete: issues.length > 0 });
-  const blueprintToSave = createModuleBlueprintForSave(app.visualDraft, app.builderDraft, issues);
-  const flowsById = { ...(app.protocol?.flowsById ?? {}) };
-  const moduleBlueprints = { ...(app.protocol?.moduleBlueprints ?? {}) };
-  if (app.editorOriginalFlowId && app.editorOriginalFlowId !== flow.id) {
-    delete flowsById[app.editorOriginalFlowId];
-    delete moduleBlueprints[app.editorOriginalFlowId];
-  }
-  flowsById[flow.id] = flow;
-  moduleBlueprints[flow.id] = blueprintToSave;
-  const defaultFlowId = app.protocol?.defaultFlowId && flowsById[app.protocol.defaultFlowId]
-    ? app.protocol.defaultFlowId
-    : flow.id;
-  app.protocol = normalizeProtocol({
-    flowsById,
-    defaultFlowId,
-    moduleBlueprints
+  setEditorSavingState(app, true, {
+    buttonLabel: "Salvando...",
+    statusMessage: "Salvando alteracoes do modulo. Aguarde terminar o carregamento.",
+    subtitleMessage: "O modulo esta sendo salvo agora. Aguarde concluir antes de sair da tela.",
+    overlayTitle: "Salvando alterações...",
+    overlayText: "Estamos atualizando o módulo e carregando tudo para você com segurança."
   });
-  if (app.authSession) {
-    await upsertSupabaseModule(app, flow, blueprintToSave);
+
+  try {
+    const flow = buildFlowFromBuilderDraft(app.builderDraft, { allowIncomplete: issues.length > 0 });
+    const blueprintToSave = createModuleBlueprintForSave(app.visualDraft, app.builderDraft, issues);
+    const flowsById = { ...(app.protocol?.flowsById ?? {}) };
+    const moduleBlueprints = { ...(app.protocol?.moduleBlueprints ?? {}) };
     if (app.editorOriginalFlowId && app.editorOriginalFlowId !== flow.id) {
-      await deleteSupabaseModuleBySlug(app, app.editorOriginalFlowId);
+      delete flowsById[app.editorOriginalFlowId];
+      delete moduleBlueprints[app.editorOriginalFlowId];
     }
-    await refreshSupabaseModules(app);
+    flowsById[flow.id] = flow;
+    moduleBlueprints[flow.id] = blueprintToSave;
+    const defaultFlowId = app.protocol?.defaultFlowId && flowsById[app.protocol.defaultFlowId]
+      ? app.protocol.defaultFlowId
+      : flow.id;
+    app.protocol = normalizeProtocol({
+      flowsById,
+      defaultFlowId,
+      moduleBlueprints
+    });
+    if (app.authSession) {
+      await upsertSupabaseModule(app, flow, blueprintToSave);
+      if (app.editorOriginalFlowId && app.editorOriginalFlowId !== flow.id) {
+        await deleteSupabaseModuleBySlug(app, app.editorOriginalFlowId);
+      }
+      await refreshSupabaseModules(app);
+    }
+    app.selectedFlowId = flow.id;
+    app.currentModuleId = app.currentModuleId ?? flow.id;
+    app.session = initSession(flow.id, flow.startNodeId);
+    app.editorOriginalFlowId = flow.id;
+    saveProtocolToStorage(app.protocol);
+    showAppToast(
+      issues.length === 0
+        ? "Modulo salvo com sucesso!"
+        : "Modulo salvo com pendencias. Voce pode continuar editando depois sem perder o que ja fez.",
+      issues.length === 0 ? "success" : "warning",
+      {
+        title: normalizeDashboardModuleName(flow.name || "Modulo"),
+        eyebrow: issues.length === 0 ? "Editor de modulos" : "Modulo salvo"
+      }
+    );
+    app.view = "modulos";
+    renderState(app);
+  } finally {
+    setEditorSavingState(app, false);
   }
-  app.selectedFlowId = flow.id;
-  app.currentModuleId = app.currentModuleId ?? flow.id;
-  app.session = initSession(flow.id, flow.startNodeId);
-  app.editorOriginalFlowId = flow.id;
-  saveProtocolToStorage(app.protocol);
-  showAppToast(
-    issues.length === 0
-      ? "Modulo salvo com sucesso!"
-      : "Modulo salvo com pendencias. Voce pode continuar editando depois sem perder o que ja fez.",
-    issues.length === 0 ? "success" : "warning",
-    {
-      title: normalizeDashboardModuleName(flow.name || "Modulo"),
-      eyebrow: issues.length === 0 ? "Editor de modulos" : "Modulo salvo"
-    }
-  );
-  app.view = "modulos";
-  renderState(app);
 }
 
 function setLoginError(message = "") {

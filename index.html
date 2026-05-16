@@ -511,6 +511,13 @@
 
         <!-- TELA 4: EDITOR DE ROTEIROS -->
         <section id="screenEditor" class="screen screen--editor hidden">
+          <div id="editorSavingOverlay" class="editor-saving-overlay hidden" aria-live="polite" aria-hidden="true">
+            <div class="editor-saving-overlay__card">
+              <span class="editor-saving-overlay__spinner" aria-hidden="true"></span>
+              <strong id="editorSavingOverlayTitle">Salvando alterações...</strong>
+              <p id="editorSavingOverlayText">Aguarde até o módulo terminar de salvar para não perder nenhuma mudança.</p>
+            </div>
+          </div>
           <div class="row row--between">
             <h1 id="editorTitle" class="h1">Construtor de Módulo</h1>
             <button id="btnSaveEditor" class="btn btn--start-sm" style="flex: 0;" type="button">Salvar Módulo</button>
