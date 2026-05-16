@@ -764,6 +764,11 @@
                   <small class="muted">Cada modulo precisa da propria foto de homepage para a tela inicial ficar unica.</small>
                 </div>
 
+                <label class="builder-check builder-check--visual" for="visualHomepageImmersive">
+                  <input type="checkbox" id="visualHomepageImmersive" />
+                  <span>Usar imagem cheia na homepage e deixar somente o botao Start</span>
+                </label>
+
                 <div class="builder-actions">
                   <button id="btnUploadVisualHomepage" class="btn btn--ghost btn--sm" type="button" style="flex: 0;">Enviar Homepage</button>
                   <input id="visualHomepageFile" type="file" accept="image/*" class="hidden" />
@@ -839,6 +844,7 @@
                     <div class="visual-preview__homepage-media">
                       <img id="visualPreviewHomepageImage" class="visual-preview__homepage-image hidden" alt="Preview da homepage do modulo" />
                       <div id="visualPreviewHomepageFallback" class="visual-preview__homepage-fallback">Envie a foto da homepage</div>
+                      <div id="visualPreviewHomepageStart" class="visual-preview__homepage-start hidden">START</div>
                     </div>
                   </div>
                   <div class="visual-preview__hero">
@@ -936,6 +942,16 @@
 
         <!-- TELA 5: PREVIEW/TESTE DO FLUXO (O APP EM SI) -->
         <!-- O container do app do fisio vai renderizar aqui dentro para o Denis testar -->
+        <section id="screenProtocolIntro" class="screen screen--watermarked hidden">
+          <div class="screen-watermark" aria-hidden="true">
+            <span>DO DENIS KAUE MARTINS TOSTA CREFITO 212658-F</span>
+            <span>DO DENIS KAUE MARTINS TOSTA CREFITO 212658-F</span>
+            <span>DO DENIS KAUE MARTINS TOSTA CREFITO 212658-F</span>
+            <span>DO DENIS KAUE MARTINS TOSTA CREFITO 212658-F</span>
+            <span>DO DENIS KAUE MARTINS TOSTA CREFITO 212658-F</span>
+            <span>DO DENIS KAUE MARTINS TOSTA CREFITO 212658-F</span>
+          </div>
+          <div id="homeCover" class="home-cover">
         <section id="screenProtocolIntro" class="screen hidden">
           <div class="home-cover">
             <div id="homeTopline" class="home-topline">Usuario, usuario@email.com</div>
