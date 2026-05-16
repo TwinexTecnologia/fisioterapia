@@ -146,9 +146,9 @@ function getRoleLabel(role) {
 }
 
 function getAccessMetaLabel(role) {
-  if (isOwnerRole(role)) return "Painel Fisiotosta";
-  if (isFisioAdminRole(role)) return "Area clinica Fisiotosta";
-  return "Acesso Fisiotosta liberado";
+  if (isOwnerRole(role)) return "Painel Ajuste Certo";
+  if (isFisioAdminRole(role)) return "Area clinica Ajuste Certo";
+  return "Acesso Ajuste Certo liberado";
 }
 
 function isOwnerRole(role) {
@@ -852,8 +852,8 @@ function getOwnProfileViewCopy(role) {
     return {
       eyebrow: "Perfil profissional",
       title: "Ajuste seu perfil",
-      subtitle: "Atualize sua foto e os dados que aparecem na sua area Fisiotosta.",
-      cardHint: "Mantenha seu perfil profissional atualizado para personalizar melhor sua area de trabalho na Fisiotosta.",
+      subtitle: "Atualize sua foto e os dados que aparecem na sua area Ajuste Certo.",
+      cardHint: "Mantenha seu perfil profissional atualizado para personalizar melhor sua area de trabalho na Ajuste Certo.",
       showNotifications: false
     };
   }
@@ -861,8 +861,8 @@ function getOwnProfileViewCopy(role) {
   return {
     eyebrow: "Seu perfil",
     title: "Atualize seus dados",
-    subtitle: "Mantenha suas informacoes de atendimento e sua foto sempre atualizadas na Fisiotosta.",
-    cardHint: "Ajuste seus dados de exibicao para deixar sua area Fisiotosta mais personalizada.",
+    subtitle: "Mantenha suas informacoes de atendimento e sua foto sempre atualizadas na Ajuste Certo.",
+    cardHint: "Ajuste seus dados de exibicao para deixar sua area Ajuste Certo mais personalizada.",
     showNotifications: true
   };
 }
@@ -4413,8 +4413,8 @@ function renderViewerModulesHome(app, modules) {
   if (eyebrow) eyebrow.textContent = `Fisioterapia guiada • ${totalLabel}`;
   if (title) title.textContent = "Meus modulos";
   if (subtitle) subtitle.textContent = "Encontre rapidamente o protocolo liberado para o seu atendimento.";
-  if (heroTitle) heroTitle.textContent = `Ola, ${displayName.split(" ")[0] || "Fisio"}. Seu atendimento na Fisiotosta começa aqui.`;
-  if (heroSubtitle) heroSubtitle.textContent = "Acesse seus protocolos autorizados com busca rapida, identidade Fisiotosta e uma experiencia clinica mais clara.";
+  if (heroTitle) heroTitle.textContent = `Ola, ${displayName.split(" ")[0] || "Fisio"}. Seu atendimento na Ajuste Certo comeca aqui.`;
+  if (heroSubtitle) heroSubtitle.textContent = "Acesse seus protocolos autorizados com busca rapida, identidade Ajuste Certo e uma experiencia clinica mais clara.";
   if (searchInput && searchInput.value !== String(app.viewerModuleSearch ?? "")) searchInput.value = String(app.viewerModuleSearch ?? "");
   if (searchClear) searchClear.classList.toggle("hidden", !String(app.viewerModuleSearch ?? "").trim());
   if (summary) summary.textContent = searchTerm ? `${visibleLabel} para "${String(app.viewerModuleSearch ?? "").trim()}"` : totalLabel;
