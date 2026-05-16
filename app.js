@@ -553,7 +553,7 @@ function applyManagedProfileFormMode(app) {
 
   if (formTitle) {
     formTitle.textContent = editingProfile
-      ? "Editar fisioterapeuta"
+      ? `Editar ${context.childLabel}`
       : context.formTitle;
   }
   if (formSubtitle) {
@@ -5850,148 +5850,6 @@ async function sendManagedProfilePasswordReset(profile) {
   return email;
 }
 
-function setManagedPasswordResetManualStatus(message = "", variant = "") {
-  const status = $("managedPasswordResetManualStatus");
-  if (!status) return;
-  status.textContent = message;
-  status.className = "form-status";
-  if (!message) {
-    status.classList.add("hidden");
-    return;
-  }
-  if (variant === "success") status.classList.add("form-status--success");
-  if (variant === "error") status.classList.add("form-status--error");
-}
-
-async function copyTextToClipboard(text) {
-  const safeText = String(text ?? "").trim();
-  if (!safeText) {
-    throw new Error("Nao ha nenhum texto disponivel para copiar.");
-  }
-
-  if (navigator?.clipboard?.writeText) {
-    await navigator.clipboard.writeText(safeText);
-    return;
-  }
-
-  const textarea = document.createElement("textarea");
-  textarea.value = safeText;
-  textarea.setAttribute("readonly", "true");
-  textarea.style.position = "fixed";
-  textarea.style.opacity = "0";
-  document.body.appendChild(textarea);
-  textarea.select();
-  const copied = document.execCommand("copy");
-  document.body.removeChild(textarea);
-  if (!copied) {
-    throw new Error("Nao foi possivel copiar o e-mail automaticamente.");
-  }
-}
-
-function closeManagedPasswordResetModal(app) {
-  app.managedPasswordResetProfileId = null;
-  app.managedPasswordResetMode = "choice";
-  app.isManagedPasswordResetSubmitting = false;
-  setManagedPasswordResetManualStatus("");
-
-  const modal = $("managedPasswordResetModal");
-  if (modal) {
-    modal.classList.add("hidden");
-    modal.setAttribute("aria-hidden", "true");
-  }
-}
-
-function renderManagedPasswordResetModal(app) {
-  const modal = $("managedPasswordResetModal");
-  const title = $("managedPasswordResetModalTitle");
-  const subtitle = $("managedPasswordResetModalSubtitle");
-  const nameEl = $("managedPasswordResetModalName");
-  const textEl = $("managedPasswordResetModalText");
-  const choiceView = $("managedPasswordResetChoiceView");
-  const manualView = $("managedPasswordResetManualView");
-  const manualEmail = $("managedPasswordResetManualEmail");
-  const emailButton = $("btnManagedPasswordResetByEmail");
-  const manualButton = $("btnManagedPasswordResetManualFlow");
-  const backButton = $("btnManagedPasswordResetBack");
-  const cancelButton = $("btnManagedPasswordResetCancel");
-  const closeButton = $("btnCloseManagedPasswordResetModal");
-  const copyButton = $("btnCopyManagedPasswordResetEmail");
-  if (!modal) return;
-
-  const profileId = String(app.managedPasswordResetProfileId ?? "").trim();
-  const profile = Array.isArray(app.managedProfiles)
-    ? app.managedProfiles.find((item) => String(item?.id ?? "").trim() === profileId)
-    : null;
-  if (!profile) {
-    closeManagedPasswordResetModal(app);
-    return;
-  }
-
-  const isManualView = String(app.managedPasswordResetMode ?? "choice") === "manual";
-  const isSubmitting = Boolean(app.isManagedPasswordResetSubmitting);
-  const profileName = String(profile.full_name ?? "esse fisioterapeuta").trim() || "esse fisioterapeuta";
-  const email = getManagedProfileEmail(profile);
-  const hasEmail = Boolean(email);
-
-  if (title) {
-    title.textContent = isManualView
-      ? "Reset manual guiado"
-      : "Redefinir senha";
-  }
-  if (subtitle) {
-    subtitle.textContent = isManualView
-      ? "Use este passo a passo para localizar o usuario no Supabase Auth e concluir a troca de senha manualmente."
-      : "Escolha como deseja ajudar esse fisioterapeuta a recuperar o acesso.";
-  }
-  if (nameEl) {
-    nameEl.textContent = profileName;
-  }
-  if (textEl) {
-    textEl.textContent = isManualView
-      ? hasEmail
-        ? `Use o e-mail ${email} para encontrar o usuario no Supabase Auth.`
-        : "Esse cadastro ainda esta sem e-mail de login. Cadastre um e-mail antes de tentar o reset manual."
-      : hasEmail
-        ? `Voce pode enviar um link de redefinicao para ${email} ou seguir um fluxo manual guiado.`
-        : "Esse cadastro ainda esta sem e-mail de login. Primeiro defina um e-mail para liberar a recuperacao de acesso.";
-  }
-  if (choiceView) choiceView.classList.toggle("hidden", isManualView);
-  if (manualView) manualView.classList.toggle("hidden", !isManualView);
-  if (backButton) backButton.classList.toggle("hidden", !isManualView);
-  if (manualEmail) manualEmail.value = email;
-
-  if (emailButton instanceof HTMLButtonElement) {
-    emailButton.disabled = isSubmitting || !hasEmail;
-  }
-  if (manualButton instanceof HTMLButtonElement) {
-    manualButton.disabled = isSubmitting;
-  }
-  if (backButton instanceof HTMLButtonElement) {
-    backButton.disabled = isSubmitting;
-  }
-  if (cancelButton instanceof HTMLButtonElement) {
-    cancelButton.disabled = isSubmitting;
-  }
-  if (closeButton instanceof HTMLButtonElement) {
-    closeButton.disabled = isSubmitting;
-  }
-  if (copyButton instanceof HTMLButtonElement) {
-    copyButton.disabled = isSubmitting || !hasEmail;
-  }
-
-  modal.classList.remove("hidden");
-  modal.setAttribute("aria-hidden", "false");
-}
-
-function openManagedPasswordResetModal(app, profile) {
-  if (!profile) return;
-  app.managedPasswordResetProfileId = String(profile.id ?? "").trim();
-  app.managedPasswordResetMode = "choice";
-  app.isManagedPasswordResetSubmitting = false;
-  setManagedPasswordResetManualStatus("");
-  renderManagedPasswordResetModal(app);
-}
-
 function renderState(app) {
   try {
     console.log("--> renderState disparado! app.view =", app.view);
@@ -6807,9 +6665,6 @@ async function mount() {
       adminSecurityNotifications: [],
       editingManagedProfileId: null,
       editingManagedProfileAvatarUrl: "",
-      managedPasswordResetProfileId: null,
-      managedPasswordResetMode: "choice",
-      isManagedPasswordResetSubmitting: false,
       crefitoValidation: null,
       viewerModuleSearch: "",
       view: "login"
@@ -7252,108 +7107,6 @@ async function mount() {
     });
   }
 
-  const btnCloseManagedPasswordResetModal = $("btnCloseManagedPasswordResetModal");
-  if (btnCloseManagedPasswordResetModal) {
-    btnCloseManagedPasswordResetModal.addEventListener("click", () => closeManagedPasswordResetModal(app));
-  }
-
-  const btnManagedPasswordResetCancel = $("btnManagedPasswordResetCancel");
-  if (btnManagedPasswordResetCancel) {
-    btnManagedPasswordResetCancel.addEventListener("click", () => closeManagedPasswordResetModal(app));
-  }
-
-  const btnManagedPasswordResetBack = $("btnManagedPasswordResetBack");
-  if (btnManagedPasswordResetBack) {
-    btnManagedPasswordResetBack.addEventListener("click", () => {
-      app.managedPasswordResetMode = "choice";
-      setManagedPasswordResetManualStatus("");
-      renderManagedPasswordResetModal(app);
-    });
-  }
-
-  const btnManagedPasswordResetManualFlow = $("btnManagedPasswordResetManualFlow");
-  if (btnManagedPasswordResetManualFlow) {
-    btnManagedPasswordResetManualFlow.addEventListener("click", () => {
-      app.managedPasswordResetMode = "manual";
-      setManagedPasswordResetManualStatus("");
-      renderManagedPasswordResetModal(app);
-    });
-  }
-
-  const btnManagedPasswordResetByEmail = $("btnManagedPasswordResetByEmail");
-  if (btnManagedPasswordResetByEmail) {
-    btnManagedPasswordResetByEmail.addEventListener("click", async () => {
-      const profileId = String(app.managedPasswordResetProfileId ?? "").trim();
-      const profile = Array.isArray(app.managedProfiles)
-        ? app.managedProfiles.find((item) => String(item?.id ?? "").trim() === profileId)
-        : null;
-      if (!profile) {
-        closeManagedPasswordResetModal(app);
-        showAppToast("Nao foi possivel localizar o cadastro para redefinir a senha.", "error", {
-          title: "Cadastro nao encontrado",
-          eyebrow: "Gestao clinica"
-        });
-        return;
-      }
-
-      try {
-        app.isManagedPasswordResetSubmitting = true;
-        renderManagedPasswordResetModal(app);
-        const email = await sendManagedProfilePasswordReset(profile);
-        closeManagedPasswordResetModal(app);
-        showAppToast(
-          `Link de redefinicao enviado para ${email}. O fisioterapeuta podera criar uma nova senha pelo proprio e-mail.`,
-          "success",
-          {
-            title: "Redefinicao enviada",
-            eyebrow: "Gestao clinica",
-            durationMs: 5200
-          }
-        );
-      } catch (error) {
-        app.isManagedPasswordResetSubmitting = false;
-        renderManagedPasswordResetModal(app);
-        showAppToast(
-          getReadableRuntimeError(error, "Nao foi possivel enviar a redefinicao de senha."),
-          "error",
-          {
-            title: "Erro ao redefinir senha",
-            eyebrow: "Gestao clinica",
-            durationMs: 4200
-          }
-        );
-      }
-    });
-  }
-
-  const btnCopyManagedPasswordResetEmail = $("btnCopyManagedPasswordResetEmail");
-  if (btnCopyManagedPasswordResetEmail) {
-    btnCopyManagedPasswordResetEmail.addEventListener("click", async () => {
-      const profileId = String(app.managedPasswordResetProfileId ?? "").trim();
-      const profile = Array.isArray(app.managedProfiles)
-        ? app.managedProfiles.find((item) => String(item?.id ?? "").trim() === profileId)
-        : null;
-      const email = getManagedProfileEmail(profile);
-      if (!email) {
-        setManagedPasswordResetManualStatus(
-          "Esse cadastro ainda esta sem e-mail de login. Defina um e-mail antes de tentar o reset manual.",
-          "error"
-        );
-        return;
-      }
-
-      try {
-        await copyTextToClipboard(email);
-        setManagedPasswordResetManualStatus("E-mail copiado. Agora voce pode localizar o usuario no Supabase Auth.", "success");
-      } catch (error) {
-        setManagedPasswordResetManualStatus(
-          getReadableRuntimeError(error, "Nao foi possivel copiar o e-mail automaticamente."),
-          "error"
-        );
-      }
-    });
-  }
-
   const viewerModuleSearch = $("viewerModuleSearch");
   if (viewerModuleSearch) {
     viewerModuleSearch.addEventListener("input", (e) => {
@@ -7419,11 +7172,6 @@ async function mount() {
       const builderValidationModal = $("builderValidationModal");
       if (builderValidationModal && !builderValidationModal.classList.contains("hidden")) {
         closeBuilderValidationModal(app, false);
-        return;
-      }
-      const managedPasswordResetModal = $("managedPasswordResetModal");
-      if (managedPasswordResetModal && !managedPasswordResetModal.classList.contains("hidden")) {
-        closeManagedPasswordResetModal(app);
       }
     }
   });
@@ -7644,7 +7392,34 @@ async function mount() {
       }
 
       if (resetPasswordButton) {
-        openManagedPasswordResetModal(app, profile);
+        const profileName = String(profile.full_name ?? "esse fisioterapeuta").trim();
+        const shouldSend = window.confirm(`Enviar um e-mail para ${profileName} redefinir a senha de acesso?`);
+        if (!shouldSend) return;
+        try {
+          if (resetPasswordButton instanceof HTMLButtonElement) resetPasswordButton.disabled = true;
+          const email = await sendManagedProfilePasswordReset(profile);
+          showAppToast(
+            `Link de redefinicao enviado para ${email}. O fisioterapeuta podera criar uma nova senha pelo proprio e-mail.`,
+            "success",
+            {
+              title: "Redefinicao enviada",
+              eyebrow: "Gestao clinica",
+              durationMs: 5200
+            }
+          );
+        } catch (error) {
+          showAppToast(
+            getReadableRuntimeError(error, "Nao foi possivel enviar a redefinicao de senha."),
+            "error",
+            {
+              title: "Erro ao redefinir senha",
+              eyebrow: "Gestao clinica",
+              durationMs: 4200
+            }
+          );
+        } finally {
+          if (resetPasswordButton instanceof HTMLButtonElement) resetPasswordButton.disabled = false;
+        }
         return;
       }
 
@@ -7701,17 +7476,6 @@ async function mount() {
       if (!(target instanceof Element)) return;
       if (target.closest('[data-action="close-managed-device-history-modal"]')) {
         closeManagedDeviceHistoryModal(app);
-      }
-    });
-  }
-
-  const managedPasswordResetModal = $("managedPasswordResetModal");
-  if (managedPasswordResetModal) {
-    managedPasswordResetModal.addEventListener("click", (event) => {
-      const target = event.target;
-      if (!(target instanceof Element)) return;
-      if (target.closest('[data-action="close-managed-password-reset-modal"]')) {
-        closeManagedPasswordResetModal(app);
       }
     });
   }
