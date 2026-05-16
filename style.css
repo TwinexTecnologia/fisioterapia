@@ -606,6 +606,16 @@ body {
   display: none;
 }
 
+.login-mobile-brand {
+  justify-content: center;
+  margin-bottom: 22px;
+}
+
+.login-mobile-brand__logo {
+  width: min(220px, 56vw);
+  filter: drop-shadow(0 22px 34px rgba(15, 23, 42, 0.26));
+}
+
 .viewer-mobile-nav-backdrop {
   display: none;
 }
@@ -1698,7 +1708,7 @@ body {
 
 .login-header__logo {
   display: block;
-  width: min(280px, 86%);
+  width: min(320px, 88%);
   margin: 0 auto 16px;
   filter: drop-shadow(0 22px 34px rgba(15, 23, 42, 0.2));
 }
