@@ -511,6 +511,13 @@
 
         <!-- TELA 4: EDITOR DE ROTEIROS -->
         <section id="screenEditor" class="screen screen--editor hidden">
+          <div id="editorSavingOverlay" class="editor-saving-overlay hidden" aria-live="polite" aria-hidden="true">
+            <div class="editor-saving-overlay__card">
+              <span class="editor-saving-overlay__spinner" aria-hidden="true"></span>
+              <strong id="editorSavingOverlayTitle">Salvando alterações...</strong>
+              <p id="editorSavingOverlayText">Aguarde até o módulo terminar de salvar para não perder nenhuma mudança.</p>
+            </div>
+          </div>
           <div class="row row--between">
             <h1 id="editorTitle" class="h1">Construtor de Módulo</h1>
             <button id="btnSaveEditor" class="btn btn--start-sm" style="flex: 0;" type="button">Salvar Módulo</button>
@@ -1222,6 +1229,81 @@
         </div>
       </div>
 
+      <div id="managedPasswordResetModal" class="builder-modal hidden" aria-hidden="true">
+        <div class="builder-modal__backdrop" data-action="close-managed-password-reset-modal"></div>
+        <div class="builder-modal__dialog managed-password-reset-modal" role="dialog" aria-modal="true" aria-labelledby="managedPasswordResetModalTitle">
+          <div class="row row--between">
+            <div>
+              <h3 id="managedPasswordResetModalTitle" class="flow-editor-panel__title">Redefinir senha</h3>
+              <p id="managedPasswordResetModalSubtitle" class="muted">Escolha como deseja ajudar esse fisioterapeuta a recuperar o acesso.</p>
+            </div>
+            <button id="btnCloseManagedPasswordResetModal" class="btn btn--ghost btn--sm" type="button" style="flex: 0;">Fechar</button>
+          </div>
+
+          <div class="managed-password-reset-modal__hero">
+            <span class="managed-password-reset-modal__icon" aria-hidden="true">🔑</span>
+            <div class="managed-password-reset-modal__copy">
+              <strong id="managedPasswordResetModalName">Fisioterapeuta selecionado</strong>
+              <p id="managedPasswordResetModalText">Voce pode enviar um link de redefinicao por e-mail ou seguir um fluxo manual guiado.</p>
+            </div>
+          </div>
+
+          <div id="managedPasswordResetChoiceView" class="managed-password-reset-modal__view">
+            <div class="managed-password-reset-modal__options">
+              <button id="btnManagedPasswordResetByEmail" class="managed-password-reset-option" type="button">
+                <strong>Enviar por e-mail</strong>
+                <span>Dispara um link de redefinicao para o e-mail de login do fisioterapeuta.</span>
+              </button>
+              <button id="btnManagedPasswordResetManualFlow" class="managed-password-reset-option" type="button">
+                <strong>Reset manual guiado</strong>
+                <span>Mostra o passo a passo para o admin redefinir manualmente no Supabase Auth.</span>
+              </button>
+            </div>
+          </div>
+
+          <div id="managedPasswordResetManualView" class="managed-password-reset-modal__view hidden">
+            <div class="managed-password-reset-manual">
+              <div class="managed-password-reset-manual__card">
+                <span class="managed-password-reset-manual__step">1</span>
+                <div>
+                  <strong>Abra o painel do Supabase</strong>
+                  <p>Entre em <code>Authentication &gt; Users</code> e localize esse login pelo e-mail abaixo.</p>
+                </div>
+              </div>
+              <div class="managed-password-reset-manual__card">
+                <span class="managed-password-reset-manual__step">2</span>
+                <div>
+                  <strong>Defina uma senha temporaria</strong>
+                  <p>Abra o usuario, escolha a opcao de atualizar a senha e salve uma senha provisoria.</p>
+                </div>
+              </div>
+              <div class="managed-password-reset-manual__card">
+                <span class="managed-password-reset-manual__step">3</span>
+                <div>
+                  <strong>Avise o fisioterapeuta</strong>
+                  <p>Compartilhe a senha temporaria em canal seguro e oriente a troca no primeiro acesso.</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="input-group">
+              <label class="label">E-mail para localizar no Supabase</label>
+              <div class="managed-password-reset-manual__email-row">
+                <input id="managedPasswordResetManualEmail" class="input-text" type="text" readonly />
+                <button id="btnCopyManagedPasswordResetEmail" class="btn btn--ghost btn--sm" type="button" style="flex: 0;">Copiar e-mail</button>
+              </div>
+            </div>
+
+            <div id="managedPasswordResetManualStatus" class="form-status hidden"></div>
+          </div>
+
+          <div class="row" style="justify-content:flex-end; margin-top: 8px; gap: 12px;">
+            <button id="btnManagedPasswordResetBack" class="btn btn--ghost hidden" type="button">Voltar</button>
+            <button id="btnManagedPasswordResetCancel" class="btn btn--ghost" type="button">Fechar</button>
+          </div>
+        </div>
+      </div>
+
       <div id="deleteModuleModal" class="builder-modal hidden" aria-hidden="true">
         <div class="builder-modal__backdrop" data-action="close-delete-module-modal"></div>
         <div class="builder-modal__dialog builder-modal__dialog--danger" role="dialog" aria-modal="true" aria-labelledby="deleteModuleModalTitle">
@@ -1281,6 +1363,6 @@
       </footer>
     </div>
 
-    <script type="module" src="./app.js?v=20260516editor2"></script>
+    <script type="module" src="./app.js?v=20260516password1"></script>
   </body>
 </html>
