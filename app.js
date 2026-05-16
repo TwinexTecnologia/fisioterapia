@@ -643,6 +643,46 @@ function getManagedProfileModules(profile) {
   return [];
 }
 
+function buildManagedModuleAliases(module) {
+  const values = new Set();
+  const normalizedName = normalizeDashboardModuleName(module?.name ?? module?.slug ?? module?.flowId ?? module?.startFlowId ?? "");
+  const candidates = [
+    module?.slug,
+    module?.flowId,
+    module?.startFlowId,
+    module?.id,
+    module?.name,
+    normalizedName
+  ];
+
+  for (const candidate of candidates) {
+    const raw = String(candidate ?? "").trim();
+    if (!raw) continue;
+
+    values.add(raw);
+    values.add(raw.toLowerCase());
+
+    const normalized = normalizeDashboardModuleName(raw);
+    if (normalized) {
+      values.add(normalized);
+      values.add(normalized.toLowerCase());
+      const normalizedSlug = slugifyText(normalized);
+      if (normalizedSlug) values.add(normalizedSlug);
+    }
+
+    const rawSlug = slugifyText(raw);
+    if (rawSlug) values.add(rawSlug);
+  }
+
+  return Array.from(values);
+}
+
+function getManagedModuleStoredValue(module) {
+  const stableId = String(module?.slug ?? module?.flowId ?? module?.startFlowId ?? "").trim();
+  if (stableId) return stableId;
+  return normalizeDashboardModuleName(module?.name ?? module?.id ?? "");
+}
+
 function getAvailableManagedModuleOptions(app) {
   const supabaseModules = getSupabaseBackedModules(app)
     .filter((module) => String(module?.status ?? "").trim().toLowerCase() === "published");
@@ -651,15 +691,17 @@ function getAvailableManagedModuleOptions(app) {
   const seen = new Set();
 
   for (const module of sourceModules) {
-    const name = normalizeDashboardModuleName(module?.name ?? module?.slug ?? module?.flowId ?? module?.startFlowId ?? "");
-    if (!name) continue;
-    const key = slugifyText(name) || name.toLowerCase();
+    const label = normalizeDashboardModuleName(module?.name ?? module?.slug ?? module?.flowId ?? module?.startFlowId ?? "");
+    const value = getManagedModuleStoredValue(module);
+    if (!label || !value) continue;
+    const key = slugifyText(value) || value.toLowerCase();
     if (seen.has(key)) continue;
     seen.add(key);
     options.push({
       key,
-      value: name,
-      label: name
+      value,
+      label,
+      aliases: buildManagedModuleAliases(module)
     });
   }
 
@@ -668,7 +710,10 @@ function getAvailableManagedModuleOptions(app) {
 
 function getDefaultManagedModuleSelection(app) {
   const options = getAvailableManagedModuleOptions(app);
-  const starter = options.find((option) => normalizeDashboardModuleName(option.value) === "Roteiro de Thompson");
+  const starter = options.find((option) => (
+    normalizeDashboardModuleName(option.label) === "Roteiro de Thompson"
+    || option.aliases.some((alias) => normalizeDashboardModuleName(alias) === "Roteiro de Thompson")
+  ));
   return starter ? [starter.value] : [];
 }
 
@@ -677,11 +722,9 @@ function renderManagedModuleOptions(app, selectedModules = null) {
   if (!container) return;
 
   const options = getAvailableManagedModuleOptions(app);
-  const selectedLookup = new Set(
-    (Array.isArray(selectedModules) ? selectedModules : getDefaultManagedModuleSelection(app))
-      .map((entry) => normalizeDashboardModuleName(entry))
-      .filter(Boolean)
-  );
+  const selectedLookup = buildAllowedModuleLookup({
+    allowed_modules: Array.isArray(selectedModules) ? selectedModules : getDefaultManagedModuleSelection(app)
+  });
 
   if (options.length === 0) {
     container.innerHTML = `<div class="muted">Nenhum modulo real disponivel para liberar no momento.</div>`;
@@ -689,7 +732,7 @@ function renderManagedModuleOptions(app, selectedModules = null) {
   }
 
   container.innerHTML = options.map((option) => {
-    const checked = selectedLookup.has(normalizeDashboardModuleName(option.value)) ? "checked" : "";
+    const checked = option.aliases.some((alias) => selectedLookup.has(alias)) ? "checked" : "";
     return `
       <label class="checkbox-label">
         <input type="checkbox" data-managed-module-option value="${escapeHtml(option.value)}" ${checked}>
@@ -705,7 +748,7 @@ function getSelectedManagedModuleValues() {
   document
     .querySelectorAll('[data-managed-module-option]:checked')
     .forEach((input) => {
-      const value = normalizeDashboardModuleName(input?.value ?? "");
+      const value = String(input?.value ?? "").trim();
       const key = slugifyText(value) || value.toLowerCase();
       if (!value || seen.has(key)) return;
       seen.add(key);
