@@ -878,6 +878,23 @@ async function loadOwnProfileDetails(app, options = {}) {
   return app.currentProfile;
 }
 
+function preloadOwnProfileDetails(app) {
+  loadOwnProfileDetails(app)
+    .then(() => {
+      applyAuthUi(app);
+      if (app?.view === "viewer_profile") {
+        syncOwnProfileScreenCopy(app);
+        fillViewerProfileForm(app);
+      }
+      if (isFisioPacienteRole(app?.currentProfile?.role)) {
+        syncViewerNotificationBadge(app);
+      }
+    })
+    .catch((error) => {
+      console.error("Erro ao pre-carregar perfil completo do usuario", error);
+    });
+}
+
 function isViewerRuntimeView(app) {
   return isFisioPacienteRole(app?.currentProfile?.role)
     && (app?.view === "intro" || app?.view === "node");
@@ -1466,6 +1483,7 @@ async function hydrateAuthenticatedApp(app) {
     console.error("Erro ao carregar notificacoes de seguranca", error);
     app.adminSecurityNotifications = [];
   }
+  preloadOwnProfileDetails(app);
 }
 
 function buildModuleDescription(flowId) {
@@ -4267,13 +4285,19 @@ function buildAllowedModuleLookup(profile) {
   for (const entry of allowed) {
     const raw = String(entry ?? "").trim();
     const normalizedName = normalizeDashboardModuleName(raw);
+    const normalizedSlug = slugifyText(normalizedName).replace(/_/g, " ");
+    const rawSlug = slugifyText(raw).replace(/_/g, " ");
     const candidates = [
       raw,
       raw.toLowerCase(),
       normalizedName,
       normalizedName.toLowerCase(),
       slugifyText(raw),
-      slugifyText(normalizedName)
+      slugifyText(normalizedName),
+      raw.replace(/_/g, " "),
+      normalizedName.replace(/_/g, " "),
+      normalizedSlug,
+      rawSlug
     ];
 
     for (const candidate of candidates) {
@@ -4714,7 +4738,7 @@ function syncViewerNotificationBadge(app) {
 
 function getModulesForView(app) {
   const supabaseModules = getSupabaseBackedModules(app);
-  if (app.authSession && app.hasLoadedSupabaseModules) {
+  if (app.authSession && app.hasLoadedSupabaseModules && supabaseModules.length > 0) {
     return filterModulesForCurrentProfile(app, supabaseModules);
   }
   if (supabaseModules.length > 0) return filterModulesForCurrentProfile(app, supabaseModules);
