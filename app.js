@@ -1110,6 +1110,7 @@ function setEditorSavingState(app, enabled, options = {}) {
   const overlayText = $("editorSavingOverlayText");
   const status = $("flowBuilderStatus");
   const subtitle = $("editorSubtitle");
+  const showOverlay = options.showOverlay !== false;
 
   const buttonLabel = String(options.buttonLabel ?? "Salvando...");
   const statusMessage = String(options.statusMessage ?? "Salvando alteracoes do modulo. Aguarde finalizar para evitar erro de carregamento.");
@@ -1124,8 +1125,8 @@ function setEditorSavingState(app, enabled, options = {}) {
   });
 
   if (overlay) {
-    overlay.classList.toggle("hidden", !enabled);
-    overlay.setAttribute("aria-hidden", enabled ? "false" : "true");
+    overlay.classList.toggle("hidden", !enabled || !showOverlay);
+    overlay.setAttribute("aria-hidden", enabled && showOverlay ? "false" : "true");
   }
   if (overlayTitle) overlayTitle.textContent = String(options.overlayTitle ?? "Salvando alterações...");
   if (overlayText) overlayText.textContent = String(options.overlayText ?? "Aguarde até o módulo terminar de salvar para não perder nenhuma mudança.");
@@ -1259,24 +1260,63 @@ async function deleteModule(app, module) {
   });
 }
 
-async function saveEditorModule(app) {
-  if (app.isSavingEditorModule) return;
+function clearEditorAutoSaveTimer(app) {
+  if (!app?.editorAutoSaveTimer) return;
+  window.clearTimeout(app.editorAutoSaveTimer);
+  app.editorAutoSaveTimer = 0;
+}
+
+function resetEditorAutoSaveState(app) {
+  clearEditorAutoSaveTimer(app);
+  app.isEditorDirty = false;
+  app.hasPendingEditorAutoSave = false;
+}
+
+function scheduleEditorAutoSave(app, options = {}) {
+  if (!app || app.view !== "editor") return;
+  app.isEditorDirty = true;
+
+  if (app.isSavingEditorModule) {
+    app.hasPendingEditorAutoSave = true;
+    return;
+  }
+
+  clearEditorAutoSaveTimer(app);
+  const delayMs = Number(options.immediate ? 220 : 900);
+  app.editorAutoSaveTimer = window.setTimeout(() => {
+    app.editorAutoSaveTimer = 0;
+    void autoSaveEditorModule(app);
+  }, delayMs);
+}
+
+async function persistEditorModule(app, options = {}) {
+  if (app.isSavingEditorModule) {
+    if (options.autosave) app.hasPendingEditorAutoSave = true;
+    return false;
+  }
+
+  clearEditorAutoSaveTimer(app);
   app.builderDraft = ensureBuilderDraftConsistency(app.builderDraft);
   syncVisualDraftFromDom(app);
   const issues = getEditorValidationIssues(app);
-  if (issues.length > 0) {
+  if (issues.length > 0 && options.requireIssueConfirmation !== false) {
     focusBuilderValidationIssue(app, issues[0]);
     renderBuilderWorkspace(app);
     const shouldSaveWithIssues = await openBuilderValidationModal(app, issues);
-    if (!shouldSaveWithIssues) return;
+    if (!shouldSaveWithIssues) return false;
   }
 
   setEditorSavingState(app, true, {
     buttonLabel: "Salvando...",
-    statusMessage: "Salvando alteracoes do modulo. Aguarde terminar o carregamento.",
-    subtitleMessage: "O modulo esta sendo salvo agora. Aguarde concluir antes de sair da tela.",
+    statusMessage: options.autosave
+      ? "Salvando modulo automaticamente para voce nao perder nenhuma alteracao."
+      : "Salvando alteracoes do modulo. Aguarde terminar o carregamento.",
+    subtitleMessage: options.autosave
+      ? "As alteracoes do editor estao sendo salvas agora em segundo plano."
+      : "O modulo esta sendo salvo agora. Aguarde concluir antes de sair da tela.",
     overlayTitle: "Salvando alterações...",
-    overlayText: "Estamos atualizando o módulo e carregando tudo para você com segurança."
+    overlayText: "Estamos atualizando o módulo e carregando tudo para você com segurança.",
+    showOverlay: !options.autosave
   });
 
   try {
@@ -1310,21 +1350,70 @@ async function saveEditorModule(app) {
     app.session = initSession(flow.id, flow.startNodeId);
     app.editorOriginalFlowId = flow.id;
     saveProtocolToStorage(app.protocol);
+    app.isEditorDirty = false;
+    app.hasPendingEditorAutoSave = false;
+
+    if (options.showSuccessToast !== false) {
+      showAppToast(
+        issues.length === 0
+          ? "Modulo salvo com sucesso!"
+          : "Modulo salvo com pendencias. Voce pode continuar editando depois sem perder o que ja fez.",
+        issues.length === 0 ? "success" : "warning",
+        {
+          title: normalizeDashboardModuleName(flow.name || "Modulo"),
+          eyebrow: issues.length === 0 ? "Editor de modulos" : "Modulo salvo"
+        }
+      );
+    }
+
+    if (options.navigateAfterSave !== false) {
+      resetEditorAutoSaveState(app);
+      app.view = "modulos";
+      renderState(app);
+    }
+    return true;
+  } finally {
+    setEditorSavingState(app, false, {
+      showOverlay: !options.autosave
+    });
+    if (app.hasPendingEditorAutoSave && app.view === "editor") {
+      app.hasPendingEditorAutoSave = false;
+      scheduleEditorAutoSave(app, { immediate: true });
+    }
+  }
+}
+
+async function autoSaveEditorModule(app) {
+  if (!app || app.view !== "editor" || !app.isEditorDirty) return false;
+  try {
+    return await persistEditorModule(app, {
+      autosave: true,
+      navigateAfterSave: false,
+      showSuccessToast: false,
+      requireIssueConfirmation: false
+    });
+  } catch (error) {
+    console.error("Falha ao salvar modulo automaticamente", error);
     showAppToast(
-      issues.length === 0
-        ? "Modulo salvo com sucesso!"
-        : "Modulo salvo com pendencias. Voce pode continuar editando depois sem perder o que ja fez.",
-      issues.length === 0 ? "success" : "warning",
+      getReadableRuntimeError(error, "Nao foi possivel salvar automaticamente o modulo."),
+      "error",
       {
-        title: normalizeDashboardModuleName(flow.name || "Modulo"),
-        eyebrow: issues.length === 0 ? "Editor de modulos" : "Modulo salvo"
+        title: "Erro ao salvar modulo",
+        eyebrow: "Editor de modulos",
+        durationMs: 4200
       }
     );
-    app.view = "modulos";
-    renderState(app);
-  } finally {
-    setEditorSavingState(app, false);
+    return false;
   }
+}
+
+async function saveEditorModule(app) {
+  return persistEditorModule(app, {
+    autosave: false,
+    navigateAfterSave: true,
+    showSuccessToast: true,
+    requireIssueConfirmation: true
+  });
 }
 
 function setLoginError(message = "") {
@@ -6665,6 +6754,10 @@ async function mount() {
       adminSecurityNotifications: [],
       editingManagedProfileId: null,
       editingManagedProfileAvatarUrl: "",
+      isSavingEditorModule: false,
+      isEditorDirty: false,
+      hasPendingEditorAutoSave: false,
+      editorAutoSaveTimer: 0,
       crefitoValidation: null,
       viewerModuleSearch: "",
       view: "login"
@@ -6673,6 +6766,17 @@ async function mount() {
   updateFlowSelect(app);
   updateJsonStatus(app);
   renderState(app);
+
+  window.addEventListener("beforeunload", (event) => {
+    const hasPendingEditorWork = app.view === "editor" && (
+      app.isSavingEditorModule
+      || app.isEditorDirty
+      || Boolean(app.editorAutoSaveTimer)
+    );
+    if (!hasPendingEditorWork) return;
+    event.preventDefault();
+    event.returnValue = "";
+  });
 
   window.setInterval(() => {
     refreshAdminSecurityNotificationsSilently(app);
@@ -7582,6 +7686,7 @@ async function mount() {
       app.isBuilderSidebarOpen = false;
       app.answerRoutingDraft = null;
       app.visualDraft = createDefaultModuleBlueprint();
+      resetEditorAutoSaveState(app);
       app.view = "editor";
       renderState(app);
     });
@@ -7615,6 +7720,7 @@ async function mount() {
       app.isBuilderSidebarOpen = true;
       app.answerRoutingDraft = null;
       renderBuilderWorkspace(app);
+      scheduleEditorAutoSave(app, { immediate: true });
     });
   }
 
@@ -7630,6 +7736,7 @@ async function mount() {
       app.isBuilderSidebarOpen = true;
       app.answerRoutingDraft = null;
       renderBuilderWorkspace(app);
+      scheduleEditorAutoSave(app, { immediate: true });
     });
   }
 
@@ -7693,6 +7800,7 @@ async function mount() {
       if (!node || node.type !== "pergunta") return;
       node.answers.push(createBuilderAnswer(""));
       renderBuilderWorkspace(app);
+      scheduleEditorAutoSave(app, { immediate: true });
     });
   }
 
@@ -7723,6 +7831,7 @@ async function mount() {
       app.isBuilderSidebarOpen = true;
       app.answerRoutingDraft = null;
       renderBuilderWorkspace(app);
+      scheduleEditorAutoSave(app, { immediate: true });
     });
   }
 
@@ -7734,6 +7843,7 @@ async function mount() {
       app.builderDraft.startNodeId = node.id;
       app.isBuilderSidebarOpen = true;
       renderBuilderWorkspace(app);
+      scheduleEditorAutoSave(app, { immediate: true });
     });
   }
 
@@ -7808,6 +7918,7 @@ async function mount() {
       app.isBuilderSidebarOpen = true;
       closeBuilderRouteModal(app);
       renderBuilderWorkspace(app);
+      scheduleEditorAutoSave(app, { immediate: true });
     });
   }
 
@@ -7823,6 +7934,7 @@ async function mount() {
         if ($("visualBackgroundImage")) $("visualBackgroundImage").value = dataUrl;
         syncVisualDraftFromDom(app);
         renderVisualPreview(app);
+        scheduleEditorAutoSave(app, { immediate: true });
       } catch (err) {
         alert(err instanceof Error ? err.message : "Falha ao carregar a imagem de fundo.");
       } finally {
@@ -7843,6 +7955,7 @@ async function mount() {
         if ($("visualIconUrl")) $("visualIconUrl").value = dataUrl;
         syncVisualDraftFromDom(app);
         renderVisualPreview(app);
+        scheduleEditorAutoSave(app, { immediate: true });
       } catch (err) {
         alert(err instanceof Error ? err.message : "Falha ao carregar o icone.");
       } finally {
@@ -7863,6 +7976,7 @@ async function mount() {
         if ($("visualCoverImageUrl")) $("visualCoverImageUrl").value = dataUrl;
         syncVisualDraftFromDom(app);
         renderVisualPreview(app);
+        scheduleEditorAutoSave(app, { immediate: true });
       } catch (err) {
         alert(err instanceof Error ? err.message : "Falha ao carregar a capa do modulo.");
       } finally {
@@ -7883,6 +7997,7 @@ async function mount() {
         if ($("visualHomepageImageUrl")) $("visualHomepageImageUrl").value = dataUrl;
         syncVisualDraftFromDom(app);
         renderVisualPreview(app);
+        scheduleEditorAutoSave(app, { immediate: true });
       } catch (err) {
         alert(err instanceof Error ? err.message : "Falha ao carregar a imagem da homepage do modulo.");
       } finally {
@@ -7903,6 +8018,7 @@ async function mount() {
         if ($("visualDiagnosisIconUrl")) $("visualDiagnosisIconUrl").value = dataUrl;
         syncVisualDraftFromDom(app);
         renderVisualPreview(app);
+        scheduleEditorAutoSave(app, { immediate: true });
       } catch (err) {
         alert(err instanceof Error ? err.message : "Falha ao carregar a imagem do diagnostico.");
       } finally {
@@ -7928,6 +8044,7 @@ async function mount() {
         syncBuilderJsonPreview(app);
         renderBuilderFlowEditor(app);
         renderVisualPreview(app);
+        scheduleEditorAutoSave(app, { immediate: true });
       } catch (err) {
         alert(err instanceof Error ? err.message : "Falha ao carregar a imagem da etapa.");
       } finally {
@@ -7948,6 +8065,7 @@ async function mount() {
       syncBuilderJsonPreview(app);
       renderBuilderFlowEditor(app);
       renderVisualPreview(app);
+      scheduleEditorAutoSave(app, { immediate: true });
     });
   }
 
@@ -7965,6 +8083,7 @@ async function mount() {
       syncBuilderJsonPreview(app);
       renderBuilderFlowEditor(app);
       renderVisualPreview(app);
+      scheduleEditorAutoSave(app, { immediate: true });
     });
   }
 
@@ -7974,6 +8093,7 @@ async function mount() {
       if ($("visualBackgroundImage")) $("visualBackgroundImage").value = "";
       syncVisualDraftFromDom(app);
       renderVisualPreview(app);
+      scheduleEditorAutoSave(app, { immediate: true });
     });
   }
 
@@ -7983,6 +8103,7 @@ async function mount() {
       if ($("visualIconUrl")) $("visualIconUrl").value = "";
       syncVisualDraftFromDom(app);
       renderVisualPreview(app);
+      scheduleEditorAutoSave(app, { immediate: true });
     });
   }
 
@@ -7992,6 +8113,7 @@ async function mount() {
       if ($("visualCoverImageUrl")) $("visualCoverImageUrl").value = "";
       syncVisualDraftFromDom(app);
       renderVisualPreview(app);
+      scheduleEditorAutoSave(app, { immediate: true });
     });
   }
 
@@ -8001,6 +8123,7 @@ async function mount() {
       if ($("visualHomepageImageUrl")) $("visualHomepageImageUrl").value = "";
       syncVisualDraftFromDom(app);
       renderVisualPreview(app);
+      scheduleEditorAutoSave(app, { immediate: true });
     });
   }
 
@@ -8010,6 +8133,7 @@ async function mount() {
       if ($("visualDiagnosisIconUrl")) $("visualDiagnosisIconUrl").value = "";
       syncVisualDraftFromDom(app);
       renderVisualPreview(app);
+      scheduleEditorAutoSave(app, { immediate: true });
     });
   }
 
@@ -8056,6 +8180,7 @@ async function mount() {
       syncBuilderJsonPreview(app);
       renderVisualPreview(app);
       if (nodeId === app.selectedBuilderNodeId) fillBuilderInspector(app);
+      scheduleEditorAutoSave(app);
       return;
     }
 
@@ -8083,6 +8208,7 @@ async function mount() {
       }
       syncBuilderJsonPreview(app);
       renderVisualPreview(app);
+      scheduleEditorAutoSave(app);
       return;
     }
 
@@ -8097,6 +8223,7 @@ async function mount() {
       fillBuilderInspector(app);
       renderBuilderFlowEditor(app);
       renderVisualPreview(app);
+      scheduleEditorAutoSave(app);
       return;
     }
 
@@ -8115,6 +8242,7 @@ async function mount() {
       syncBuilderJsonPreview(app);
       renderBuilderFlowEditor(app);
       renderVisualPreview(app);
+      scheduleEditorAutoSave(app);
       return;
     }
 
@@ -8126,6 +8254,7 @@ async function mount() {
       syncBuilderJsonPreview(app);
       renderBuilderFlowEditor(app);
       renderVisualPreview(app);
+      scheduleEditorAutoSave(app);
       return;
     }
 
@@ -8137,6 +8266,7 @@ async function mount() {
       syncBuilderJsonPreview(app);
       renderBuilderFlowEditor(app);
       renderVisualPreview(app);
+      scheduleEditorAutoSave(app);
       return;
     }
 
@@ -8159,6 +8289,7 @@ async function mount() {
     ].includes(e.target.id)) {
       syncVisualDraftFromDom(app);
       renderVisualPreview(app);
+      scheduleEditorAutoSave(app);
     }
 
   });
@@ -8168,6 +8299,7 @@ async function mount() {
       app.builderDraft.startNodeId = String(e.target.value ?? "");
       app.selectedBuilderNodeId = app.builderDraft.startNodeId;
       renderBuilderWorkspace(app);
+      scheduleEditorAutoSave(app, { immediate: true });
       return;
     }
 
@@ -8179,6 +8311,7 @@ async function mount() {
       if (node.type === "pergunta" && !Array.isArray(node.answers)) node.answers = [];
       app.builderDraft = ensureBuilderDraftConsistency(app.builderDraft);
       renderBuilderWorkspace(app);
+      scheduleEditorAutoSave(app, { immediate: true });
       return;
     }
 
@@ -8190,6 +8323,7 @@ async function mount() {
       syncBuilderJsonPreview(app);
       renderBuilderFlowEditor(app);
       renderVisualPreview(app);
+      scheduleEditorAutoSave(app, { immediate: true });
       return;
     }
 
@@ -8201,6 +8335,7 @@ async function mount() {
       syncBuilderJsonPreview(app);
       renderBuilderFlowEditor(app);
       renderVisualPreview(app);
+      scheduleEditorAutoSave(app, { immediate: true });
     }
   });
 
@@ -8235,6 +8370,7 @@ async function mount() {
         app.isBuilderSidebarOpen = false;
         app.answerRoutingDraft = null;
         app.visualDraft = blueprint;
+        resetEditorAutoSaveState(app);
         app.view = "editor";
         renderState(app);
       }
@@ -8287,6 +8423,7 @@ async function mount() {
         app.selectedBuilderNodeId = nodeId;
         app.isBuilderSidebarOpen = true;
         renderBuilderWorkspace(app);
+        scheduleEditorAutoSave(app, { immediate: true });
       }
       return;
     }
@@ -8304,6 +8441,7 @@ async function mount() {
         app.selectedBuilderNodeId = nodeId;
         app.isBuilderSidebarOpen = true;
         renderBuilderWorkspace(app);
+        scheduleEditorAutoSave(app, { immediate: true });
       }
       return;
     }
@@ -8333,6 +8471,7 @@ async function mount() {
       app.isBuilderSidebarOpen = true;
       app.answerRoutingDraft = null;
       renderBuilderWorkspace(app);
+      scheduleEditorAutoSave(app, { immediate: true });
       return;
     }
 
