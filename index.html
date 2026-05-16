@@ -7,7 +7,7 @@
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
     <title>Ajuste Certo</title>
-    <link rel="stylesheet" href="./style.css?v=20260516login4" />
+    <link rel="stylesheet" href="./style.css?v=20260516editor2" />
   </head>
   <body>
     <!-- TELA 0: LOGIN DO SISTEMA -->
@@ -681,8 +681,8 @@
           <div id="visualEditorSection" class="card form-card visual-editor-card">
             <div class="row row--between">
               <div>
-                <h2 class="h2">Editor Visual PDF</h2>
-                <p class="muted">Ajuste fundo, imagem, fonte, cores e estilo do módulo com preview ao vivo.</p>
+                <h2 class="h2">Visual do Módulo</h2>
+                <p class="muted">Defina a identidade visual de cada módulo com preview ao vivo. A foto da homepage fica salva só naquele módulo.</p>
               </div>
               <div class="visual-editor-toolbar">
                 <button id="btnOpenVisualFullscreen" class="btn btn--ghost btn--sm" type="button" style="flex: 0;">Abrir Tela Grande</button>
@@ -692,94 +692,133 @@
 
             <div class="visual-editor-layout">
               <div class="visual-editor-controls">
-                <div class="row-inputs">
-                  <div class="input-group">
-                    <label class="label">Cor de Fundo</label>
-                    <input type="color" id="visualBackgroundColor" class="input-text visual-color-input" />
+                <div class="visual-editor-guide">
+                  <div class="visual-editor-guide__item">
+                    <strong>Homepage do módulo</strong>
+                    <span>Suba uma foto só desse módulo. Na abertura vai aparecer a imagem e apenas o botão <code>Start</code>.</span>
                   </div>
-                  <div class="input-group">
-                    <label class="label">Fonte Principal</label>
-                    <select id="visualFontFamily" class="input-text">
-                      <option value="Arial, sans-serif">Arial</option>
-                      <option value="Georgia, serif">Georgia</option>
-                      <option value="'Trebuchet MS', sans-serif">Trebuchet MS</option>
-                      <option value="'Times New Roman', serif">Times New Roman</option>
-                      <option value="'Verdana', sans-serif">Verdana</option>
-                    </select>
+                  <div class="visual-editor-guide__item">
+                    <strong>Capa do módulo</strong>
+                    <span>Essa imagem é a miniatura do card em <code>Meus módulos</code>. Cada módulo pode ter uma capa diferente.</span>
+                  </div>
+                  <div class="visual-editor-guide__item">
+                    <strong>Diagnóstico final</strong>
+                    <span>Use uma arte sem fundo para deixar a tela final personalizada sem afetar os outros módulos.</span>
                   </div>
                 </div>
 
-                <div class="row-inputs">
-                  <div class="input-group">
-                    <label class="label">Imagem de Fundo</label>
-                    <input type="text" id="visualBackgroundImage" class="input-text" placeholder="Cole a URL ou envie uma imagem" />
+                <div class="visual-editor-section">
+                  <div class="visual-editor-section__header">
+                    <h3 class="visual-editor-section__title">Abertura do Módulo</h3>
+                    <p class="muted">Aqui você define a primeira tela que o fisioterapeuta verá antes de clicar em <code>Start</code>.</p>
                   </div>
                   <div class="input-group">
-                    <label class="label">Ajuste da Imagem</label>
-                    <select id="visualBackgroundSize" class="input-text">
-                      <option value="cover">Cobrir</option>
-                      <option value="contain">Conter</option>
-                      <option value="auto">Original</option>
-                    </select>
+                    <label class="label">Imagem da Homepage do Modulo</label>
+                    <input type="text" id="visualHomepageImageUrl" class="input-text" placeholder="Cole a URL ou envie a foto principal da homepage" />
+                    <small class="muted">Essa foto fica salva só neste módulo. Se você trocar em outro módulo, os demais não mudam.</small>
                   </div>
-                </div>
-
-                <div class="builder-actions">
-                  <button id="btnUploadVisualBackground" class="btn btn--ghost btn--sm" type="button" style="flex: 0;">Enviar Fundo</button>
-                  <input id="visualBackgroundFile" type="file" accept="image/*" class="hidden" />
-                  <button id="btnClearVisualBackground" class="btn btn--ghost btn--sm" type="button" style="flex: 0;">Limpar Fundo</button>
-                </div>
-
-                <div class="row-inputs">
-                  <div class="input-group">
-                    <label class="label">URL do Icone/Imagem</label>
-                    <input type="text" id="visualIconUrl" class="input-text" placeholder="Ex: logo, casinha, maca, imagem do PDF" />
-                  </div>
-                  <div class="input-group">
-                    <label class="label">Cor Base do Texto</label>
-                    <input type="color" id="visualTextColor" class="input-text visual-color-input" />
+                  <div class="builder-actions">
+                    <button id="btnUploadVisualHomepage" class="btn btn--ghost btn--sm" type="button" style="flex: 0;">Enviar Homepage</button>
+                    <input id="visualHomepageFile" type="file" accept="image/*" class="hidden" />
+                    <button id="btnClearVisualHomepage" class="btn btn--ghost btn--sm" type="button" style="flex: 0;">Limpar Homepage</button>
                   </div>
                 </div>
 
-                <div class="builder-actions">
-                  <button id="btnUploadVisualIcon" class="btn btn--ghost btn--sm" type="button" style="flex: 0;">Enviar Icone</button>
-                  <input id="visualIconFile" type="file" accept="image/*" class="hidden" />
-                  <button id="btnClearVisualIcon" class="btn btn--ghost btn--sm" type="button" style="flex: 0;">Limpar Icone</button>
+                <div class="visual-editor-section">
+                  <div class="visual-editor-section__header">
+                    <h3 class="visual-editor-section__title">Tela Geral</h3>
+                    <p class="muted">Use esse bloco para definir fundo, fonte e tom geral do módulo inteiro.</p>
+                  </div>
+                  <div class="row-inputs">
+                    <div class="input-group">
+                      <label class="label">Cor de Fundo</label>
+                      <input type="color" id="visualBackgroundColor" class="input-text visual-color-input" />
+                      <small class="muted">Exemplo: um bege claro ou azul suave para toda a tela do fluxo.</small>
+                    </div>
+                    <div class="input-group">
+                      <label class="label">Fonte Principal</label>
+                      <select id="visualFontFamily" class="input-text">
+                        <option value="Arial, sans-serif">Arial</option>
+                        <option value="Georgia, serif">Georgia</option>
+                        <option value="'Trebuchet MS', sans-serif">Trebuchet MS</option>
+                        <option value="'Times New Roman', serif">Times New Roman</option>
+                        <option value="'Verdana', sans-serif">Verdana</option>
+                      </select>
+                      <small class="muted">Escolha a fonte que será usada nos títulos e textos principais do módulo.</small>
+                    </div>
+                  </div>
+
+                  <div class="row-inputs">
+                    <div class="input-group">
+                      <label class="label">Imagem de Fundo</label>
+                      <input type="text" id="visualBackgroundImage" class="input-text" placeholder="Cole a URL ou envie uma imagem para o fundo das telas" />
+                      <small class="muted">Serve para todas as telas internas do fluxo, não para a homepage de entrada.</small>
+                    </div>
+                    <div class="input-group">
+                      <label class="label">Ajuste da Imagem</label>
+                      <select id="visualBackgroundSize" class="input-text">
+                        <option value="cover">Cobrir</option>
+                        <option value="contain">Conter</option>
+                        <option value="auto">Original</option>
+                      </select>
+                      <small class="muted">Use <code>Cobrir</code> na maioria dos casos para preencher melhor a tela.</small>
+                    </div>
+                  </div>
+
+                  <div class="builder-actions">
+                    <button id="btnUploadVisualBackground" class="btn btn--ghost btn--sm" type="button" style="flex: 0;">Enviar Fundo</button>
+                    <input id="visualBackgroundFile" type="file" accept="image/*" class="hidden" />
+                    <button id="btnClearVisualBackground" class="btn btn--ghost btn--sm" type="button" style="flex: 0;">Limpar Fundo</button>
+                  </div>
                 </div>
 
-                <div class="input-group">
-                  <label class="label">Imagem de Capa do Modulo</label>
-                  <input type="text" id="visualCoverImageUrl" class="input-text" placeholder="Cole a URL ou envie uma imagem para o card do modulo" />
-                </div>
+                <div class="visual-editor-section">
+                  <div class="visual-editor-section__header">
+                    <h3 class="visual-editor-section__title">Identidade do Módulo</h3>
+                    <p class="muted">Essas imagens ajudam o fisioterapeuta a reconhecer o módulo no card, no preview e no resultado final.</p>
+                  </div>
+                  <div class="row-inputs">
+                    <div class="input-group">
+                      <label class="label">URL do Icone/Imagem</label>
+                      <input type="text" id="visualIconUrl" class="input-text" placeholder="Ex: logo, símbolo clínico ou ícone do módulo" />
+                      <small class="muted">Use quando quiser mostrar um ícone de apoio no visual do módulo.</small>
+                    </div>
+                    <div class="input-group">
+                      <label class="label">Cor Base do Texto</label>
+                      <input type="color" id="visualTextColor" class="input-text visual-color-input" />
+                      <small class="muted">Define a cor principal dos textos que ficam fora das caixas coloridas.</small>
+                    </div>
+                  </div>
 
-                <div class="builder-actions">
-                  <button id="btnUploadVisualCover" class="btn btn--ghost btn--sm" type="button" style="flex: 0;">Enviar Capa</button>
-                  <input id="visualCoverFile" type="file" accept="image/*" class="hidden" />
-                  <button id="btnClearVisualCover" class="btn btn--ghost btn--sm" type="button" style="flex: 0;">Limpar Capa</button>
-                </div>
+                  <div class="builder-actions">
+                    <button id="btnUploadVisualIcon" class="btn btn--ghost btn--sm" type="button" style="flex: 0;">Enviar Icone</button>
+                    <input id="visualIconFile" type="file" accept="image/*" class="hidden" />
+                    <button id="btnClearVisualIcon" class="btn btn--ghost btn--sm" type="button" style="flex: 0;">Limpar Icone</button>
+                  </div>
 
-                <div class="input-group">
-                  <label class="label">Imagem da Homepage do Modulo</label>
-                  <input type="text" id="visualHomepageImageUrl" class="input-text" placeholder="Cole a URL ou envie a foto principal da homepage" />
-                  <small class="muted">Cada modulo precisa da propria foto de homepage para a tela inicial ficar unica.</small>
-                </div>
+                  <div class="input-group">
+                    <label class="label">Imagem de Capa do Modulo</label>
+                    <input type="text" id="visualCoverImageUrl" class="input-text" placeholder="Cole a URL ou envie a imagem do card do módulo" />
+                    <small class="muted">Essa capa aparece na listagem de módulos. Pode ser diferente da imagem da homepage.</small>
+                  </div>
 
-                <div class="builder-actions">
-                  <button id="btnUploadVisualHomepage" class="btn btn--ghost btn--sm" type="button" style="flex: 0;">Enviar Homepage</button>
-                  <input id="visualHomepageFile" type="file" accept="image/*" class="hidden" />
-                  <button id="btnClearVisualHomepage" class="btn btn--ghost btn--sm" type="button" style="flex: 0;">Limpar Homepage</button>
-                </div>
+                  <div class="builder-actions">
+                    <button id="btnUploadVisualCover" class="btn btn--ghost btn--sm" type="button" style="flex: 0;">Enviar Capa</button>
+                    <input id="visualCoverFile" type="file" accept="image/*" class="hidden" />
+                    <button id="btnClearVisualCover" class="btn btn--ghost btn--sm" type="button" style="flex: 0;">Limpar Capa</button>
+                  </div>
 
-                <div class="input-group">
-                  <label class="label">Imagem do Diagnostico Final</label>
-                  <input type="text" id="visualDiagnosisIconUrl" class="input-text" placeholder="Cole a URL ou envie uma imagem sem fundo" />
-                  <small class="muted">Envie uma imagem sem fundo para aparecer no diagnostico final daquele modulo.</small>
-                </div>
+                  <div class="input-group">
+                    <label class="label">Imagem do Diagnostico Final</label>
+                    <input type="text" id="visualDiagnosisIconUrl" class="input-text" placeholder="Cole a URL ou envie uma imagem sem fundo" />
+                    <small class="muted">Ideal para a arte final do diagnóstico. Cada módulo pode ter sua própria imagem.</small>
+                  </div>
 
-                <div class="builder-actions">
-                  <button id="btnUploadVisualDiagnosisIcon" class="btn btn--ghost btn--sm" type="button" style="flex: 0;">Enviar Diagnostico</button>
-                  <input id="visualDiagnosisIconFile" type="file" accept="image/*" class="hidden" />
-                  <button id="btnClearVisualDiagnosisIcon" class="btn btn--ghost btn--sm" type="button" style="flex: 0;">Limpar Diagnostico</button>
+                  <div class="builder-actions">
+                    <button id="btnUploadVisualDiagnosisIcon" class="btn btn--ghost btn--sm" type="button" style="flex: 0;">Enviar Diagnostico</button>
+                    <input id="visualDiagnosisIconFile" type="file" accept="image/*" class="hidden" />
+                    <button id="btnClearVisualDiagnosisIcon" class="btn btn--ghost btn--sm" type="button" style="flex: 0;">Limpar Diagnostico</button>
+                  </div>
                 </div>
 
                 <div class="visual-editor-palette">
@@ -831,15 +870,13 @@
                 <div id="visualPreviewCanvas" class="visual-preview" role="button" tabindex="0" aria-label="Abrir editor visual em tela grande">
                   <div class="visual-preview__topline">Preview visual do modulo</div>
                   <div class="visual-preview__homepage">
-                    <div class="visual-preview__homepage-copy">
-                      <div class="visual-preview__homepage-badge">Homepage do modulo</div>
-                      <div id="visualPreviewHomepageTitle" class="visual-preview__homepage-title">Novo Modulo</div>
-                      <div class="visual-preview__homepage-subtitle">Como a capa inicial vai aparecer para o fisioterapeuta.</div>
-                    </div>
+                    <div class="visual-preview__homepage-badge">Homepage do modulo</div>
                     <div class="visual-preview__homepage-media">
                       <img id="visualPreviewHomepageImage" class="visual-preview__homepage-image hidden" alt="Preview da homepage do modulo" />
                       <div id="visualPreviewHomepageFallback" class="visual-preview__homepage-fallback">Envie a foto da homepage</div>
+                      <button class="visual-preview__homepage-start" type="button" tabindex="-1">START</button>
                     </div>
+                    <div class="visual-preview__homepage-note">Na abertura ficará somente a imagem enviada para este módulo e o botão <code>Start</code>.</div>
                   </div>
                   <div class="visual-preview__hero">
                     <div id="visualPreviewArt" class="visual-preview__art">
@@ -936,15 +973,7 @@
 
         <!-- TELA 5: PREVIEW/TESTE DO FLUXO (O APP EM SI) -->
         <!-- O container do app do fisio vai renderizar aqui dentro para o Denis testar -->
-        <section id="screenProtocolIntro" class="screen screen--watermarked hidden">
-          <div class="screen-watermark" aria-hidden="true">
-            <span>DO DENIS KAUE MARTINS TOSTA CREFITO 212658-F</span>
-            <span>DO DENIS KAUE MARTINS TOSTA CREFITO 212658-F</span>
-            <span>DO DENIS KAUE MARTINS TOSTA CREFITO 212658-F</span>
-            <span>DO DENIS KAUE MARTINS TOSTA CREFITO 212658-F</span>
-            <span>DO DENIS KAUE MARTINS TOSTA CREFITO 212658-F</span>
-            <span>DO DENIS KAUE MARTINS TOSTA CREFITO 212658-F</span>
-          </div>
+        <section id="screenProtocolIntro" class="screen hidden">
           <div class="home-cover">
             <div id="homeTopline" class="home-topline">Usuario, usuario@email.com</div>
             <div class="home-welcome">Seja bem vindo ao</div>
@@ -1011,15 +1040,7 @@
           </div>
         </section>
 
-        <section id="screenNode" class="screen screen--watermarked hidden">
-          <div class="screen-watermark" aria-hidden="true">
-            <span>DO DENIS KAUE MARTINS TOSTA CREFITO 212658-F</span>
-            <span>DO DENIS KAUE MARTINS TOSTA CREFITO 212658-F</span>
-            <span>DO DENIS KAUE MARTINS TOSTA CREFITO 212658-F</span>
-            <span>DO DENIS KAUE MARTINS TOSTA CREFITO 212658-F</span>
-            <span>DO DENIS KAUE MARTINS TOSTA CREFITO 212658-F</span>
-            <span>DO DENIS KAUE MARTINS TOSTA CREFITO 212658-F</span>
-          </div>
+        <section id="screenNode" class="screen hidden">
           <div class="breadcrumbWrap">
             <div id="breadcrumb" class="breadcrumb"></div>
           </div>
@@ -1172,6 +1193,35 @@
         <button id="appToastClose" class="app-toast__close" type="button" aria-label="Fechar aviso">OK</button>
       </div>
 
+      <div id="builderValidationModal" class="builder-modal hidden" aria-hidden="true">
+        <div class="builder-modal__backdrop" data-action="close-builder-validation-modal"></div>
+        <div class="builder-modal__dialog builder-modal__dialog--warning" role="dialog" aria-modal="true" aria-labelledby="builderValidationModalTitle">
+          <div class="row row--between">
+            <div>
+              <h3 id="builderValidationModalTitle" class="flow-editor-panel__title">Salvar modulo com pendencias?</h3>
+              <p id="builderValidationModalSubtitle" class="muted">Voce pode salvar agora mesmo e continuar editando depois.</p>
+            </div>
+            <button id="btnCloseBuilderValidationModal" class="btn btn--ghost btn--sm" type="button" style="flex: 0;">Fechar</button>
+          </div>
+
+          <div class="builder-validation-modal__hero">
+            <span class="builder-validation-modal__icon" aria-hidden="true">🧩</span>
+            <div class="builder-validation-modal__copy">
+              <strong>O modulo ainda nao esta completo</strong>
+              <p>Mesmo assim ele pode ser salvo agora. As orientacoes abaixo continuam marcadas para voce voltar exatamente onde faltou ajustar.</p>
+            </div>
+          </div>
+
+          <div id="builderValidationModalList" class="builder-validation-modal__list"></div>
+          <div id="builderValidationModalExtra" class="builder-validation-modal__extra hidden"></div>
+
+          <div class="row" style="justify-content:flex-end; margin-top: 8px; gap: 12px;">
+            <button id="btnCancelBuilderValidation" class="btn btn--ghost" type="button">Continuar editando</button>
+            <button id="btnConfirmBuilderValidation" class="btn btn--start-sm" type="button">OK, salvar modulo</button>
+          </div>
+        </div>
+      </div>
+
       <div id="deleteModuleModal" class="builder-modal hidden" aria-hidden="true">
         <div class="builder-modal__backdrop" data-action="close-delete-module-modal"></div>
         <div class="builder-modal__dialog builder-modal__dialog--danger" role="dialog" aria-modal="true" aria-labelledby="deleteModuleModalTitle">
@@ -1231,6 +1281,6 @@
       </footer>
     </div>
 
-    <script type="module" src="./app.js?v=20260501module1"></script>
+    <script type="module" src="./app.js?v=20260516editor2"></script>
   </body>
 </html>
