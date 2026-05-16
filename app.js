@@ -999,9 +999,15 @@ function syncRuntimeIntroModule(app) {
   homeTitle.innerHTML = formatRuntimeModuleTitle(moduleName);
   const activeFlowId = String(activeModule?.startFlowId ?? activeModule?.flowId ?? fallbackFlowId ?? "").trim();
   const blueprint = getModuleBlueprint(app?.protocol, activeFlowId);
+  const homeCover = $("homeCover");
   const heroImage = $("homeHeroImage");
   const heroFallback = $("homeAppleFallback");
   const homeImageUrl = String(blueprint.intro.homeImageUrl ?? "").trim();
+  const immersiveHome = Boolean(blueprint?.intro?.immersiveHome) && Boolean(homeImageUrl);
+  if (homeCover) {
+    homeCover.classList.toggle("home-cover--immersive", immersiveHome);
+    homeCover.style.setProperty("--home-cover-immersive-image", immersiveHome ? `url("${homeImageUrl.replace(/"/g, '\\"')}")` : "none");
+  }
   if (heroImage) {
     heroImage.src = homeImageUrl;
     heroImage.classList.toggle("hidden", !homeImageUrl);
@@ -2690,7 +2696,8 @@ function createDefaultModuleBlueprint() {
       diagnosisText: "#111111"
     },
     intro: {
-      homeImageUrl: ""
+      homeImageUrl: "",
+      immersiveHome: false
     },
     branding: {
       iconUrl: "",
@@ -2769,7 +2776,8 @@ function syncVisualDraftFromDom(app) {
       diagnosisText: $("visualDiagnosisText")?.value ?? "#111111"
     },
     intro: {
-      homeImageUrl: String($("visualHomepageImageUrl")?.value ?? "").trim()
+      homeImageUrl: String($("visualHomepageImageUrl")?.value ?? "").trim(),
+      immersiveHome: Boolean($("visualHomepageImmersive")?.checked)
     },
     branding: {
       iconUrl: String($("visualIconUrl")?.value ?? "").trim(),
@@ -2820,12 +2828,19 @@ function renderVisualPreview(app) {
   if (homepageTitle) homepageTitle.textContent = String(draft.name ?? "Novo Modulo");
   const homepageImage = $("visualPreviewHomepageImage");
   const homepageFallback = $("visualPreviewHomepageFallback");
+  const homepageStart = $("visualPreviewHomepageStart");
+  const homepageSection = preview.querySelector(".visual-preview__homepage");
   const homepageImageUrl = String(blueprint.intro.homeImageUrl ?? "").trim();
+  const immersiveHome = Boolean(blueprint?.intro?.immersiveHome) && Boolean(homepageImageUrl);
+  if (homepageSection) {
+    homepageSection.classList.toggle("visual-preview__homepage--immersive", immersiveHome);
+  }
   if (homepageImage) {
     homepageImage.src = homepageImageUrl;
     homepageImage.classList.toggle("hidden", !homepageImageUrl);
   }
   if (homepageFallback) homepageFallback.classList.toggle("hidden", Boolean(homepageImageUrl));
+  if (homepageStart) homepageStart.classList.toggle("hidden", !immersiveHome);
 
   const questionBox = $("visualPreviewQuestion");
   if (questionBox) {
@@ -2926,6 +2941,7 @@ function fillVisualEditor(app) {
   if ($("visualDiagnosisBg")) $("visualDiagnosisBg").value = blueprint.blocks.diagnosisBg;
   if ($("visualDiagnosisText")) $("visualDiagnosisText").value = blueprint.blocks.diagnosisText;
   if ($("visualHomepageImageUrl")) $("visualHomepageImageUrl").value = blueprint.intro.homeImageUrl;
+  if ($("visualHomepageImmersive")) $("visualHomepageImmersive").checked = Boolean(blueprint.intro.immersiveHome);
   if ($("visualIconUrl")) $("visualIconUrl").value = blueprint.branding.iconUrl;
   if ($("visualCoverImageUrl")) $("visualCoverImageUrl").value = blueprint.branding.coverImageUrl;
   if ($("visualDiagnosisIconUrl")) $("visualDiagnosisIconUrl").value = blueprint.diagnosis.iconUrl;
@@ -7986,6 +8002,12 @@ async function mount() {
   });
 
   document.body.addEventListener("change", (e) => {
+    if (e.target?.id === "visualHomepageImmersive") {
+      syncVisualDraftFromDom(app);
+      renderVisualPreview(app);
+      return;
+    }
+
     if (e.target?.id === "builderStartNodeId") {
       app.builderDraft.startNodeId = String(e.target.value ?? "");
       app.selectedBuilderNodeId = app.builderDraft.startNodeId;
