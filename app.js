@@ -1044,12 +1044,16 @@ function syncRuntimeIntroModule(app) {
   const blueprint = getModuleBlueprint(app?.protocol, activeFlowId);
   const heroImage = $("homeHeroImage");
   const heroFallback = $("homeAppleFallback");
+  const homeCover = document.querySelector("#screenProtocolIntro .home-cover");
   const homeImageUrl = String(blueprint.intro.homeImageUrl ?? "").trim();
+  const hasHomeImage = Boolean(homeImageUrl);
   if (heroImage) {
     heroImage.src = homeImageUrl;
-    heroImage.classList.toggle("hidden", !homeImageUrl);
+    heroImage.alt = `Imagem inicial do modulo ${moduleName}`;
+    heroImage.classList.toggle("hidden", !hasHomeImage);
   }
-  if (heroFallback) heroFallback.classList.toggle("hidden", Boolean(homeImageUrl));
+  if (heroFallback) heroFallback.classList.toggle("hidden", hasHomeImage);
+  if (homeCover) homeCover.classList.toggle("home-cover--immersive", hasHomeImage);
 }
 
 function hideAppToast() {
@@ -1087,6 +1091,59 @@ function showAppToast(message = "", tone = "success", options = {}) {
     currentToast.classList.add("hidden");
     appToastHideTimer = 0;
   }, Number(options.durationMs ?? 3200));
+}
+
+function closeBuilderValidationModal(app, shouldSave = false) {
+  const modal = $("builderValidationModal");
+  if (modal) modal.classList.add("hidden");
+  const resolver = app.pendingBuilderValidationResolver;
+  app.pendingBuilderValidationResolver = null;
+  if (typeof resolver === "function") resolver(Boolean(shouldSave));
+}
+
+function openBuilderValidationModal(app, issues) {
+  const modal = $("builderValidationModal");
+  if (!modal) {
+    return Promise.resolve(window.confirm(buildBuilderValidationProceedMessage(issues)));
+  }
+
+  const titleEl = $("builderValidationModalTitle");
+  const subtitleEl = $("builderValidationModalSubtitle");
+  const listEl = $("builderValidationModalList");
+  const extraEl = $("builderValidationModalExtra");
+  const safeIssues = Array.isArray(issues) ? issues : [];
+  const listedIssues = safeIssues.slice(0, 6);
+  const remainingCount = Math.max(0, safeIssues.length - listedIssues.length);
+
+  if (titleEl) {
+    titleEl.textContent = `Salvar modulo com ${safeIssues.length} pendencia${safeIssues.length === 1 ? "" : "s"}?`;
+  }
+  if (subtitleEl) {
+    subtitleEl.textContent = "Voce pode salvar agora mesmo e depois voltar ao ponto exato que falta ajustar.";
+  }
+  if (listEl) {
+    listEl.innerHTML = listedIssues.map((issue, index) => `
+      <div class="builder-validation-modal__item">
+        <strong>${index + 1}. ${escapeHtml(issue.message ?? "Pendencia no modulo")}</strong>
+        ${issue?.where ? `<span>${escapeHtml(issue.where)}</span>` : ""}
+      </div>
+    `).join("");
+  }
+  if (extraEl) {
+    extraEl.textContent = remainingCount > 0
+      ? `E mais ${remainingCount} pendencia${remainingCount === 1 ? "" : "s"} marcada${remainingCount === 1 ? "" : "s"} no editor.`
+      : "";
+    extraEl.classList.toggle("hidden", remainingCount === 0);
+  }
+
+  if (typeof app.pendingBuilderValidationResolver === "function") {
+    app.pendingBuilderValidationResolver(false);
+  }
+
+  return new Promise((resolve) => {
+    app.pendingBuilderValidationResolver = resolve;
+    modal.classList.remove("hidden");
+  });
 }
 
 function closeDeleteModuleModal(app) {
@@ -1169,7 +1226,7 @@ async function saveEditorModule(app) {
   if (issues.length > 0) {
     focusBuilderValidationIssue(app, issues[0]);
     renderBuilderWorkspace(app);
-    const shouldSaveWithIssues = window.confirm(buildBuilderValidationProceedMessage(issues));
+    const shouldSaveWithIssues = await openBuilderValidationModal(app, issues);
     if (!shouldSaveWithIssues) return;
   }
 
@@ -1203,12 +1260,16 @@ async function saveEditorModule(app) {
   app.session = initSession(flow.id, flow.startNodeId);
   app.editorOriginalFlowId = flow.id;
   saveProtocolToStorage(app.protocol);
-  if (issues.length === 0) {
-    showAppToast("Modulo salvo com sucesso!", "success", {
+  showAppToast(
+    issues.length === 0
+      ? "Modulo salvo com sucesso!"
+      : "Modulo salvo com pendencias. Voce pode continuar editando depois sem perder o que ja fez.",
+    issues.length === 0 ? "success" : "warning",
+    {
       title: normalizeDashboardModuleName(flow.name || "Modulo"),
-      eyebrow: "Editor de modulos"
-    });
-  }
+      eyebrow: issues.length === 0 ? "Editor de modulos" : "Modulo salvo"
+    }
+  );
   app.view = "modulos";
   renderState(app);
 }
@@ -2317,15 +2378,15 @@ function getModuleVisualValidationIssues(visualDraft) {
   if (!String(blueprint?.intro?.homeImageUrl ?? "").trim()) {
     issues.push({
       inputId: "visualHomepageImageUrl",
-      where: "Editor Visual PDF > Imagem da Homepage do Modulo",
-      message: "A homepage do modulo esta sem foto. Envie a imagem principal para o fisioterapeuta identificar esse roteiro logo na entrada."
+      where: "Visual do Modulo > Abertura do Modulo > Imagem da Homepage do Modulo",
+      message: "A homepage do modulo esta sem foto. Envie a imagem principal para abrir o modulo com a imagem e o botao Start."
     });
   }
 
   if (!String(blueprint?.diagnosis?.iconUrl ?? "").trim()) {
     issues.push({
       inputId: "visualDiagnosisIconUrl",
-      where: "Editor Visual PDF > Imagem do Diagnostico Final",
+      where: "Visual do Modulo > Identidade do Modulo > Imagem do Diagnostico Final",
       message: "O diagnostico final esta sem imagem. Envie uma arte sem fundo para esse modulo ficar unico tambem na tela final."
     });
   }
@@ -6941,6 +7002,21 @@ async function mount() {
     appToastClose.addEventListener("click", () => hideAppToast());
   }
 
+  const btnCloseBuilderValidationModal = $("btnCloseBuilderValidationModal");
+  if (btnCloseBuilderValidationModal) {
+    btnCloseBuilderValidationModal.addEventListener("click", () => closeBuilderValidationModal(app, false));
+  }
+
+  const btnCancelBuilderValidation = $("btnCancelBuilderValidation");
+  if (btnCancelBuilderValidation) {
+    btnCancelBuilderValidation.addEventListener("click", () => closeBuilderValidationModal(app, false));
+  }
+
+  const btnConfirmBuilderValidation = $("btnConfirmBuilderValidation");
+  if (btnConfirmBuilderValidation) {
+    btnConfirmBuilderValidation.addEventListener("click", () => closeBuilderValidationModal(app, true));
+  }
+
   const btnCloseDeleteModuleModal = $("btnCloseDeleteModuleModal");
   if (btnCloseDeleteModuleModal) {
     btnCloseDeleteModuleModal.addEventListener("click", () => closeDeleteModuleModal(app));
@@ -7038,7 +7114,13 @@ async function mount() {
   });
 
   document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") hideViewerNotifications();
+    if (e.key === "Escape") {
+      hideViewerNotifications();
+      const builderValidationModal = $("builderValidationModal");
+      if (builderValidationModal && !builderValidationModal.classList.contains("hidden")) {
+        closeBuilderValidationModal(app, false);
+      }
+    }
   });
 
   window.addEventListener("resize", () => {
@@ -8114,6 +8196,12 @@ async function mount() {
     const closeDeleteModuleEl = e.target?.closest?.("[data-action='close-delete-module-modal']");
     if (closeDeleteModuleEl) {
       closeDeleteModuleModal(app);
+      return;
+    }
+
+    const closeBuilderValidationEl = e.target?.closest?.("[data-action='close-builder-validation-modal']");
+    if (closeBuilderValidationEl) {
+      closeBuilderValidationModal(app, false);
       return;
     }
 
