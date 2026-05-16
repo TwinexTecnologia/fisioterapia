@@ -4421,7 +4421,29 @@ body {
   font-weight: 800;
 }
 
+.builder-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: -2px 0 14px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #334155;
+}
+
+.builder-check input {
+  margin-top: 3px;
+}
+
+.builder-check--visual {
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  background: rgba(248, 250, 252, 0.92);
+}
+
 .visual-preview__homepage {
+  position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1.1fr) minmax(180px, 240px);
   gap: 16px;
@@ -4476,6 +4498,46 @@ body {
   font-size: 14px;
   font-weight: 700;
   color: #475569;
+}
+
+.visual-preview__homepage-start {
+  position: absolute;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%);
+  min-width: 124px;
+  padding: 12px 20px;
+  border-radius: 999px;
+  border: 2px solid rgba(15, 23, 42, 0.84);
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 14px 32px rgba(15, 23, 42, 0.18);
+  font-size: 18px;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-align: center;
+  color: #0f172a;
+  z-index: 2;
+}
+
+.visual-preview__homepage--immersive {
+  grid-template-columns: minmax(0, 1fr);
+  min-height: 320px;
+  padding: 0;
+  background: rgba(15, 23, 42, 0.94);
+}
+
+.visual-preview__homepage--immersive .visual-preview__homepage-copy {
+  display: none;
+}
+
+.visual-preview__homepage--immersive .visual-preview__homepage-media {
+  min-height: 320px;
+  border-radius: 22px;
+  background: rgba(15, 23, 42, 0.94);
+}
+
+.visual-preview__homepage--immersive .visual-preview__homepage-image {
+  min-height: 320px;
 }
 
 .visual-preview__hero {
@@ -5054,6 +5116,44 @@ body {
     radial-gradient(circle at 30% 40%, rgba(129, 199, 132, 0.18), transparent 30%),
     radial-gradient(circle at 50% 75%, rgba(144, 202, 249, 0.16), transparent 28%);
   pointer-events: none;
+}
+
+.home-cover--immersive {
+  justify-content: flex-end;
+  min-height: min(820px, calc(100vh - 56px));
+  padding: 28px;
+  border-radius: 36px;
+  background: rgba(15, 23, 42, 0.08);
+}
+
+.home-cover--immersive::before {
+  background:
+    linear-gradient(180deg, rgba(15, 23, 42, 0.08) 0%, rgba(15, 23, 42, 0.18) 38%, rgba(15, 23, 42, 0.62) 100%),
+    var(--home-cover-immersive-image, none) center/cover no-repeat;
+}
+
+.home-cover--immersive .home-topline,
+.home-cover--immersive .home-welcome,
+.home-cover--immersive .home-hero,
+.home-cover--immersive .home-subtitle,
+.home-cover--immersive .legend-list,
+.home-cover--immersive .home-tips,
+.home-cover--immersive .home-credits,
+.home-cover--immersive .home-greetings {
+  display: none;
+}
+
+.home-cover--immersive .home-footer {
+  margin-top: auto;
+  margin-bottom: 0;
+}
+
+.home-cover--immersive .btn--start {
+  min-width: min(280px, 100%);
+  background: rgba(255, 255, 255, 0.94);
+  color: #0f172a;
+  border-color: rgba(15, 23, 42, 0.92);
+  box-shadow: 0 20px 42px rgba(15, 23, 42, 0.28);
 }
 
 .home-topline,
