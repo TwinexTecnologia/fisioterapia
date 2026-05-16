@@ -701,3 +701,91 @@ to authenticated;
 
 grant execute on function public.list_admin_security_notifications()
 to authenticated;
+
+create table if not exists public.modules (
+  id bigint generated always as identity primary key,
+  owner_id uuid not null references public.profiles(id) on delete cascade,
+  slug text not null unique,
+  name text not null,
+  description text,
+  status text not null default 'published',
+  protocol_json jsonb not null,
+  blueprint_json jsonb not null default '{}'::jsonb,
+  cover_image_url text,
+  created_at timestamptz not null default timezone('utc', now()),
+  updated_at timestamptz not null default timezone('utc', now())
+);
+
+alter table public.modules
+add column if not exists owner_id uuid references public.profiles(id) on delete cascade,
+add column if not exists slug text,
+add column if not exists name text,
+add column if not exists description text,
+add column if not exists status text not null default 'published',
+add column if not exists protocol_json jsonb not null default '{}'::jsonb,
+add column if not exists blueprint_json jsonb not null default '{}'::jsonb,
+add column if not exists cover_image_url text,
+add column if not exists created_at timestamptz not null default timezone('utc', now()),
+add column if not exists updated_at timestamptz not null default timezone('utc', now());
+
+create unique index if not exists modules_slug_idx
+on public.modules(slug);
+
+create index if not exists modules_owner_id_idx
+on public.modules(owner_id);
+
+alter table public.modules enable row level security;
+
+drop policy if exists modules_select_authenticated on public.modules;
+drop policy if exists modules_insert_admins on public.modules;
+drop policy if exists modules_update_admins on public.modules;
+drop policy if exists modules_delete_admins on public.modules;
+
+create policy modules_select_authenticated
+on public.modules
+for select
+to authenticated
+using (true);
+
+create policy modules_insert_admins
+on public.modules
+for insert
+to authenticated
+with check (
+  owner_id = auth.uid()
+  and (
+    public.is_owner_user()
+    or public.is_fisio_admin_user()
+  )
+);
+
+create policy modules_update_admins
+on public.modules
+for update
+to authenticated
+using (
+  owner_id = auth.uid()
+  and (
+    public.is_owner_user()
+    or public.is_fisio_admin_user()
+  )
+)
+with check (
+  owner_id = auth.uid()
+  and (
+    public.is_owner_user()
+    or public.is_fisio_admin_user()
+  )
+);
+
+create policy modules_delete_admins
+on public.modules
+for delete
+to authenticated
+using (
+  owner_id = auth.uid()
+  and (
+    public.is_owner_user()
+    or public.is_fisio_admin_user()
+  )
+);
