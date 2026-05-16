@@ -1238,9 +1238,36 @@ function getReadableAuthError(error) {
   return rawMessage;
 }
 
+function translateRuntimeErrorMessage(message, fallback = "Ocorreu um erro inesperado.") {
+  const rawMessage = String(message ?? "").trim();
+  if (!rawMessage) return fallback;
+  if (/row-level security|permission denied|42501/i.test(rawMessage)) {
+    return "Sem permissao para salvar este modulo no Supabase. Revise as permissoes da tabela de modulos.";
+  }
+  if (/duplicate key value|23505/i.test(rawMessage)) {
+    return "Ja existe um modulo com esse identificador. Tente salvar com outro nome ou outro slug.";
+  }
+  if (/column .* does not exist|42703|schema cache/i.test(rawMessage)) {
+    return "Falta atualizar a estrutura do Supabase para salvar esse modulo.";
+  }
+  if (/relation .* does not exist|42P01/i.test(rawMessage)) {
+    return "A tabela de modulos nao foi encontrada no Supabase.";
+  }
+  if (/invalid input syntax|22P02/i.test(rawMessage)) {
+    return "Um dos dados do modulo ficou em formato invalido para salvar.";
+  }
+  if (/failed to fetch|networkerror|load failed|network request failed/i.test(rawMessage)) {
+    return "Nao foi possivel conectar ao Supabase para salvar o modulo agora.";
+  }
+  if (/json object requested|PGRST116/i.test(rawMessage)) {
+    return "O Supabase retornou um resultado inesperado ao salvar esse modulo.";
+  }
+  return rawMessage;
+}
+
 function getReadableRuntimeError(error, fallback = "Ocorreu um erro inesperado.") {
   if (error instanceof Error) {
-    return error.message || fallback;
+    return translateRuntimeErrorMessage(error.message || fallback, fallback);
   }
 
   const authMessage = String(error?.message ?? "").trim();
@@ -1249,22 +1276,25 @@ function getReadableRuntimeError(error, fallback = "Ocorreu um erro inesperado."
   const codeMessage = String(error?.code ?? "").trim();
   if (authMessage) {
     const extras = [detailsMessage, hintMessage].filter(Boolean).join(" ");
-    return [authMessage, extras].filter(Boolean).join(" ").trim();
+    return translateRuntimeErrorMessage([authMessage, extras].filter(Boolean).join(" ").trim(), fallback);
   }
 
   const nestedError = String(error?.error_description ?? error?.error ?? "").trim();
-  if (nestedError) return nestedError;
+  if (nestedError) return translateRuntimeErrorMessage(nestedError, fallback);
 
   if (detailsMessage || hintMessage || codeMessage) {
-    return [detailsMessage, hintMessage, codeMessage ? `Codigo: ${codeMessage}` : ""]
-      .filter(Boolean)
-      .join(" ")
-      .trim();
+    return translateRuntimeErrorMessage(
+      [detailsMessage, hintMessage, codeMessage ? `Codigo: ${codeMessage}` : ""]
+        .filter(Boolean)
+        .join(" ")
+        .trim(),
+      fallback
+    );
   }
 
   try {
     const serialized = JSON.stringify(error);
-    if (serialized && serialized !== "{}") return serialized;
+    if (serialized && serialized !== "{}") return translateRuntimeErrorMessage(serialized, fallback);
   } catch {}
 
   return fallback;
@@ -6031,6 +6061,7 @@ function renderState(app) {
   const diagnosisCard = diagnosisView?.querySelector?.(".diagnosis__card");
   const diagnosisPath = $("diagnosisPath");
   const diagnosisTitle = $("diagnosisTitle");
+  const diagnosisBody = $("diagnosisBody");
   const diagnosisImage = $("diagnosisImage");
   const diagnosisActions = $("diagnosisActions");
   const diagnosisIcon = diagnosisView?.querySelector?.(".diagnosis__icon");
@@ -6041,6 +6072,10 @@ function renderState(app) {
   if (diagnosisTitle && isDiagnosisNode) {
     diagnosisTitle.innerHTML = escapeHtml(cleanTitle).replace(/\n/g, "<br>");
     diagnosisTitle.classList.toggle("hidden", !cleanTitle);
+  }
+  if (diagnosisBody) {
+    diagnosisBody.innerHTML = escapeHtml(cleanBody).replace(/\n/g, "<br>");
+    diagnosisBody.classList.toggle("hidden", !isDiagnosisNode || !cleanBody);
   }
   if (diagnosisImage) {
     diagnosisImage.src = imageUrl;
