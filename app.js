@@ -1129,26 +1129,16 @@ async function deleteModule(app, module) {
 async function saveEditorModule(app) {
   app.builderDraft = ensureBuilderDraftConsistency(app.builderDraft);
   syncVisualDraftFromDom(app);
-  const issues = [
-    ...getBuilderValidationIssues(app.builderDraft),
-    ...getModuleVisualValidationIssues(app.visualDraft)
-  ];
+  const issues = getEditorValidationIssues(app);
   if (issues.length > 0) {
     focusBuilderValidationIssue(app, issues[0]);
     renderBuilderWorkspace(app);
-    showAppToast(
-      getBuilderValidationToastMessage(issues),
-      "warning",
-      {
-        title: "Nao foi possivel salvar",
-        eyebrow: "Editor de modulos",
-        durationMs: 5200
-      }
-    );
-    return;
+    const shouldSaveWithIssues = window.confirm(buildBuilderValidationProceedMessage(issues));
+    if (!shouldSaveWithIssues) return;
   }
 
-  const flow = buildFlowFromBuilderDraft(app.builderDraft);
+  const flow = buildFlowFromBuilderDraft(app.builderDraft, { allowIncomplete: issues.length > 0 });
+  const blueprintToSave = createModuleBlueprintForSave(app.visualDraft, app.builderDraft, issues);
   const flowsById = { ...(app.protocol?.flowsById ?? {}) };
   const moduleBlueprints = { ...(app.protocol?.moduleBlueprints ?? {}) };
   if (app.editorOriginalFlowId && app.editorOriginalFlowId !== flow.id) {
@@ -1156,7 +1146,7 @@ async function saveEditorModule(app) {
     delete moduleBlueprints[app.editorOriginalFlowId];
   }
   flowsById[flow.id] = flow;
-  moduleBlueprints[flow.id] = normalizeModuleBlueprint(app.visualDraft);
+  moduleBlueprints[flow.id] = blueprintToSave;
   const defaultFlowId = app.protocol?.defaultFlowId && flowsById[app.protocol.defaultFlowId]
     ? app.protocol.defaultFlowId
     : flow.id;
@@ -1166,7 +1156,7 @@ async function saveEditorModule(app) {
     moduleBlueprints
   });
   if (app.authSession) {
-    await upsertSupabaseModule(app, flow, app.visualDraft);
+    await upsertSupabaseModule(app, flow, blueprintToSave);
     if (app.editorOriginalFlowId && app.editorOriginalFlowId !== flow.id) {
       await deleteSupabaseModuleBySlug(app, app.editorOriginalFlowId);
     }
@@ -1177,10 +1167,12 @@ async function saveEditorModule(app) {
   app.session = initSession(flow.id, flow.startNodeId);
   app.editorOriginalFlowId = flow.id;
   saveProtocolToStorage(app.protocol);
-  showAppToast("Modulo salvo com sucesso!", "success", {
-    title: normalizeDashboardModuleName(flow.name || "Modulo"),
-    eyebrow: "Editor de modulos"
-  });
+  if (issues.length === 0) {
+    showAppToast("Modulo salvo com sucesso!", "success", {
+      title: normalizeDashboardModuleName(flow.name || "Modulo"),
+      eyebrow: "Editor de modulos"
+    });
+  }
   app.view = "modulos";
   renderState(app);
 }
@@ -2151,13 +2143,66 @@ function focusBuilderValidationIssue(app, issue) {
   }
 }
 
-function getBuilderValidationToastMessage(issues) {
+function buildBuilderValidationProceedMessage(issues) {
   if (!Array.isArray(issues) || issues.length === 0) {
-    return "Revise o modulo antes de salvar novamente.";
+    return "Deseja salvar esse modulo agora?";
   }
-  if (issues.length === 1) return issues[0].message;
-  const extraCount = issues.length - 1;
-  return `${issues[0].message} Corrija isso e mais ${extraCount} pendencia${extraCount === 1 ? "" : "s"} destacada${extraCount === 1 ? "" : "s"} no editor.`;
+  const listedIssues = issues
+    .slice(0, 6)
+    .map((issue, index) => `${index + 1}. ${issue.message}${issue.where ? `\n   Onde ajustar: ${issue.where}` : ""}`)
+    .join("\n\n");
+  const remainingCount = Math.max(0, issues.length - 6);
+  const extraMessage = remainingCount > 0
+    ? `\n\nE mais ${remainingCount} pendencia${remainingCount === 1 ? "" : "s"} marcada${remainingCount === 1 ? "" : "s"} no editor.`
+    : "";
+  return `Esse modulo ainda tem pendencias.\n\n${listedIssues}${extraMessage}\n\nDeseja salvar mesmo assim? O modulo sera salvo como rascunho e essas orientacoes vao continuar marcadas quando voce voltar para editar.`;
+}
+
+function normalizeEditorPendingIssue(issue) {
+  if (!issue || typeof issue !== "object") return null;
+  return {
+    nodeId: String(issue.nodeId ?? "").trim(),
+    answerId: String(issue.answerId ?? "").trim(),
+    inputId: String(issue.inputId ?? "").trim(),
+    message: String(issue.message ?? "").trim(),
+    where: String(issue.where ?? "").trim()
+  };
+}
+
+function cloneBuilderDraftForStorage(draft) {
+  try {
+    return ensureBuilderDraftConsistency(JSON.parse(JSON.stringify(draft ?? createEmptyBuilderDraft())));
+  } catch {
+    return createEmptyBuilderDraft();
+  }
+}
+
+function createModuleBlueprintForSave(visualDraft, builderDraft, issues = []) {
+  return normalizeModuleBlueprint({
+    ...visualDraft,
+    editor: {
+      builderDraft: cloneBuilderDraftForStorage(builderDraft),
+      pendingIssues: (Array.isArray(issues) ? issues : [])
+        .map((issue) => normalizeEditorPendingIssue(issue))
+        .filter((issue) => issue && issue.message),
+      savedWithPendingIssues: Array.isArray(issues) && issues.length > 0
+    }
+  });
+}
+
+function getStoredBuilderDraftFromBlueprint(blueprint, fallbackFlow) {
+  const storedDraft = blueprint?.editor?.builderDraft;
+  if (storedDraft && typeof storedDraft === "object") {
+    return cloneBuilderDraftForStorage(storedDraft);
+  }
+  return createBuilderDraftFromFlow(fallbackFlow);
+}
+
+function getEditorValidationIssues(app) {
+  return [
+    ...getBuilderValidationIssues(app.builderDraft),
+    ...getModuleVisualValidationIssues(app.visualDraft)
+  ];
 }
 
 function getModuleVisualValidationIssues(visualDraft) {
@@ -2167,6 +2212,7 @@ function getModuleVisualValidationIssues(visualDraft) {
   if (!String(blueprint?.intro?.homeImageUrl ?? "").trim()) {
     issues.push({
       inputId: "visualHomepageImageUrl",
+      where: "Editor Visual PDF > Imagem da Homepage do Modulo",
       message: "A homepage do modulo esta sem foto. Envie a imagem principal para o fisioterapeuta identificar esse roteiro logo na entrada."
     });
   }
@@ -2174,6 +2220,7 @@ function getModuleVisualValidationIssues(visualDraft) {
   if (!String(blueprint?.diagnosis?.iconUrl ?? "").trim()) {
     issues.push({
       inputId: "visualDiagnosisIconUrl",
+      where: "Editor Visual PDF > Imagem do Diagnostico Final",
       message: "O diagnostico final esta sem imagem. Envie uma arte sem fundo para esse modulo ficar unico tambem na tela final."
     });
   }
@@ -2192,6 +2239,8 @@ function getBuilderValidationIssues(draft) {
     if (!String(node.title ?? "").trim()) {
       issues.push({
         nodeId: node.id,
+        inputId: "builderSelectedNodeTitle",
+        where: "Painel lateral da etapa > campo Titulo",
         message: `A ${nodeLabel} esta sem titulo. Dê um nome para essa etapa para o fisio entender o fluxo antes de salvar.`
       });
     }
@@ -2199,6 +2248,7 @@ function getBuilderValidationIssues(draft) {
     if (!Array.isArray(node.answers) || node.answers.length === 0) {
       issues.push({
         nodeId: node.id,
+        where: "Painel lateral da etapa > Proximos Passos > Adicionar Resposta",
         message: `A ${nodeLabel} precisa ter pelo menos uma resposta. Sem resposta o fisio nao consegue seguir para a proxima etapa.`
       });
     }
@@ -2208,6 +2258,7 @@ function getBuilderValidationIssues(draft) {
         issues.push({
           nodeId: node.id,
           answerId: answer.id,
+          where: "Painel lateral da etapa > texto da resposta",
           message: `A ${nodeLabel} tem ${answerLabel} sem texto. Escreva o nome dessa resposta para o fisio saber o que selecionar.`
         });
       }
@@ -2215,6 +2266,7 @@ function getBuilderValidationIssues(draft) {
         issues.push({
           nodeId: node.id,
           answerId: answer.id,
+          where: "Painel lateral da etapa > resposta > Proximo passo",
           message: `A ${nodeLabel} tem ${answerLabel} sem proximo passo. Escolha para onde ela vai, senao o caminho fica aberto e o modulo nao salva.`
         });
       }
@@ -2225,6 +2277,7 @@ function getBuilderValidationIssues(draft) {
   for (const node of unreachableNodes) {
     issues.push({
       nodeId: node.id,
+      where: "Conecte essa etapa a alguma resposta do fluxo principal",
       message: `A ${getBuilderNodeDisplayName(cleanDraft, node.id)} esta fora do caminho principal. Conecte essa etapa ao fluxo inicial ou remova-a antes de salvar.`
     });
   }
@@ -2251,6 +2304,7 @@ function getBuilderValidationIssues(draft) {
   if (!hasResultPath(cleanDraft.startNodeId)) {
     issues.push({
       nodeId: cleanDraft.startNodeId,
+      where: "Feche pelo menos um caminho completo ate um diagnostico",
       message: `A ${getBuilderNodeDisplayName(cleanDraft, cleanDraft.startNodeId)} ainda nao chega a nenhum resultado final. Feche pelo menos um caminho completo ate um diagnostico para salvar.`
     });
   }
@@ -2291,15 +2345,28 @@ function getBuilderPathSummaries(draft, maxPaths = 6) {
 }
 
 function renderBuilderValidation(app) {
-  const issues = getBuilderValidationIssues(app.builderDraft);
+  const issues = getEditorValidationIssues(app);
   const wrap = $("builderValidationList");
   if (!wrap) return issues;
   wrap.innerHTML = "";
   wrap.classList.toggle("hidden", issues.length === 0);
+  if (issues.length > 0) {
+    const summary = document.createElement("div");
+    summary.className = "builder-validation__summary";
+    summary.textContent = `Esse modulo ainda tem ${issues.length} pendencia${issues.length === 1 ? "" : "s"} salva${issues.length === 1 ? "" : "s"}. Pode continuar editando normalmente; toque em uma orientacao para ir direto ao ponto.`;
+    wrap.appendChild(summary);
+  }
   for (const issue of issues) {
-    const item = document.createElement("div");
+    const item = document.createElement("button");
     item.className = "builder-validation__item";
-    item.textContent = `⚠ ${issue.message}`;
+    item.type = "button";
+    item.textContent = issue.where
+      ? `⚠ ${issue.message} Onde ajustar: ${issue.where}.`
+      : `⚠ ${issue.message}`;
+    item.addEventListener("click", () => {
+      focusBuilderValidationIssue(app, issue);
+      renderBuilderWorkspace(app);
+    });
     wrap.appendChild(item);
   }
   return issues;
@@ -2569,12 +2636,23 @@ function createDefaultModuleBlueprint() {
     },
     diagnosis: {
       iconUrl: ""
+    },
+    editor: {
+      builderDraft: null,
+      pendingIssues: [],
+      savedWithPendingIssues: false
     }
   };
 }
 
 function normalizeModuleBlueprint(raw) {
   const defaults = createDefaultModuleBlueprint();
+  let normalizedStoredDraft = null;
+  try {
+    normalizedStoredDraft = raw?.editor?.builderDraft ? cloneBuilderDraftForStorage(raw.editor.builderDraft) : null;
+  } catch {
+    normalizedStoredDraft = null;
+  }
   return {
     page: {
       ...defaults.page,
@@ -2595,6 +2673,14 @@ function normalizeModuleBlueprint(raw) {
     diagnosis: {
       ...defaults.diagnosis,
       ...(raw?.diagnosis ?? {})
+    },
+    editor: {
+      ...defaults.editor,
+      ...(raw?.editor ?? {}),
+      builderDraft: normalizedStoredDraft,
+      pendingIssues: (Array.isArray(raw?.editor?.pendingIssues) ? raw.editor.pendingIssues : [])
+        .map((issue) => normalizeEditorPendingIssue(issue))
+        .filter((issue) => issue && issue.message)
     }
   };
 }
@@ -2911,51 +2997,108 @@ function createBuilderDraftFromFlow(flow) {
   });
 }
 
-function buildFlowFromBuilderDraft(draft) {
+function buildFlowFromBuilderDraft(draft, options = {}) {
   const cleanDraft = ensureBuilderDraftConsistency(draft);
+  const allowIncomplete = options.allowIncomplete === true;
   const flowId = slugifyText(cleanDraft.id || cleanDraft.name || "novo_modulo") || "novo_modulo";
   const flowName = String(cleanDraft.name ?? "").trim() || "Novo Módulo";
-  const nodeIds = new Set(cleanDraft.nodes.map((node) => node.id));
+  const workingNodes = Array.isArray(cleanDraft.nodes) ? [...cleanDraft.nodes] : [];
+  const nodeIds = new Set(workingNodes.map((node) => node.id));
 
-  if (!cleanDraft.startNodeId || !nodeIds.has(cleanDraft.startNodeId)) {
-    throw new Error("Escolha qual pergunta inicia o módulo.");
+  const createDraftFallbackResult = () => ({
+    id: `${flowId}__diagnostico_pendente`,
+    type: "interpretacao",
+    title: "Diagnostico pendente",
+    body: "Esse modulo foi salvo com pendencias. Volte ao editor para fechar os caminhos e concluir o conteudo.",
+    contentType: "text",
+    imageUrl: ""
+  });
+
+  const extraNodes = [];
+  const ensureDraftFallbackResultId = () => {
+    const fallbackId = `${flowId}__diagnostico_pendente`;
+    if (!nodeIds.has(fallbackId) && !extraNodes.some((node) => node.id === fallbackId)) {
+      extraNodes.push(createDraftFallbackResult());
+      nodeIds.add(fallbackId);
+    }
+    return fallbackId;
+  };
+
+  let startNodeId = String(cleanDraft.startNodeId ?? "").trim();
+  if (!startNodeId || !nodeIds.has(startNodeId)) {
+    if (!allowIncomplete) {
+      throw new Error("Escolha qual pergunta inicia o módulo.");
+    }
+    const firstQuestion = workingNodes.find((node) => node.type === "pergunta");
+    if (firstQuestion) {
+      startNodeId = firstQuestion.id;
+    } else {
+      const questionId = `${flowId}__pergunta_inicial`;
+      const resultId = ensureDraftFallbackResultId();
+      workingNodes.unshift({
+        id: questionId,
+        type: "pergunta",
+        title: "Pergunta inicial pendente",
+        body: "Complete essa etapa no editor para terminar o modulo.",
+        contentType: "text",
+        imageUrl: "",
+        answers: [{ id: `${questionId}__answer_1`, label: "Continuar", nextNodeId: resultId }]
+      });
+      nodeIds.add(questionId);
+      startNodeId = questionId;
+    }
   }
 
-  const startNode = cleanDraft.nodes.find((node) => node.id === cleanDraft.startNodeId);
-  if (!startNode || startNode.type !== "pergunta") {
+  const startNode = workingNodes.find((node) => node.id === startNodeId);
+  if ((!startNode || startNode.type !== "pergunta") && !allowIncomplete) {
     throw new Error("A etapa inicial precisa ser uma pergunta.");
   }
 
-  const nodes = cleanDraft.nodes.map((node) => {
+  const nodes = workingNodes.map((node, nodeIndex) => {
     const title = String(node.title ?? "").trim();
-    if (!title) {
+    if (!title && !allowIncomplete) {
       throw new Error("Toda etapa precisa ter um título.");
     }
+    const safeTitle = title || (node.type === "interpretacao" ? `Diagnostico ${nodeIndex + 1} pendente` : `Pergunta ${nodeIndex + 1} pendente`);
 
     if (node.type === "pergunta") {
-      const answers = (Array.isArray(node.answers) ? node.answers : [])
+      let answers = (Array.isArray(node.answers) ? node.answers : [])
         .map((answer) => ({
           label: String(answer.label ?? "").trim(),
           nextNodeId: String(answer.nextNodeId ?? "").trim()
         }));
 
       if (answers.length === 0) {
-        throw new Error(`A pergunta "${title}" precisa de pelo menos uma resposta.`);
+        if (!allowIncomplete) {
+          throw new Error(`A pergunta "${safeTitle}" precisa de pelo menos uma resposta.`);
+        }
+        answers = [{
+          label: "Resposta pendente",
+          nextNodeId: ensureDraftFallbackResultId()
+        }];
       }
 
-      for (const answer of answers) {
-        if (!answer.label) {
-          throw new Error(`A pergunta "${title}" possui resposta sem texto. Escreva a opcao antes de salvar.`);
+      answers = answers.map((answer, answerIndex) => {
+        if (!allowIncomplete) {
+          if (!answer.label) {
+            throw new Error(`A pergunta "${safeTitle}" possui resposta sem texto. Escreva a opcao antes de salvar.`);
+          }
+          if (!answer.nextNodeId || !nodeIds.has(answer.nextNodeId)) {
+            throw new Error(`A resposta "${answer.label}" da pergunta "${safeTitle}" precisa apontar para outra etapa ou diagnóstico.`);
+          }
         }
-        if (!answer.nextNodeId || !nodeIds.has(answer.nextNodeId)) {
-          throw new Error(`A resposta "${answer.label}" da pergunta "${title}" precisa apontar para outra etapa ou diagnóstico.`);
-        }
-      }
+        return {
+          label: answer.label || `Resposta ${answerIndex + 1} pendente`,
+          nextNodeId: answer.nextNodeId && nodeIds.has(answer.nextNodeId)
+            ? answer.nextNodeId
+            : ensureDraftFallbackResultId()
+        };
+      });
 
       return {
         id: node.id,
         type: "pergunta",
-        title,
+        title: safeTitle,
         body: String(node.body ?? "").trim(),
         contentType: ["image", "mixed"].includes(String(node.contentType ?? "")) ? String(node.contentType) : "text",
         imageUrl: String(node.imageUrl ?? "").trim(),
@@ -2966,7 +3109,7 @@ function buildFlowFromBuilderDraft(draft) {
     return {
       id: node.id,
       type: "interpretacao",
-      title,
+      title: safeTitle,
       body: String(node.body ?? "").trim(),
       contentType: ["image", "mixed"].includes(String(node.contentType ?? "")) ? String(node.contentType) : "text",
       imageUrl: String(node.imageUrl ?? "").trim()
@@ -2976,8 +3119,8 @@ function buildFlowFromBuilderDraft(draft) {
   return normalizeFlow({
     id: flowId,
     name: flowName,
-    startNodeId: cleanDraft.startNodeId,
-    nodes
+    startNodeId,
+    nodes: [...nodes, ...extraNodes]
   });
 }
 
@@ -7829,13 +7972,14 @@ async function mount() {
         app.currentModuleId = module.id;
         app.editorMode = "simple";
         const flow = app.protocol.flowsById[module.startFlowId];
+        const blueprint = getModuleBlueprint(app.protocol, flow.id);
         app.editorOriginalFlowId = flow.id;
-        app.builderDraft = createBuilderDraftFromFlow(flow);
+        app.builderDraft = getStoredBuilderDraftFromBlueprint(blueprint, flow);
         app.selectedBuilderNodeId = app.builderDraft.startNodeId;
         app.builderViewMode = "simple";
         app.isBuilderSidebarOpen = false;
         app.answerRoutingDraft = null;
-        app.visualDraft = getModuleBlueprint(app.protocol, flow.id);
+        app.visualDraft = blueprint;
         app.view = "editor";
         renderState(app);
       }
