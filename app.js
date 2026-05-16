@@ -908,6 +908,16 @@ function closeViewerMobileNav() {
   if (backdrop) backdrop.classList.add("hidden");
 }
 
+function closeViewerMobileNavDeferred() {
+  // Defer menu close by one tick to avoid mobile click-through on the screen below.
+  window.setTimeout(() => closeViewerMobileNav(), 0);
+}
+
+function consumeUiClick(event) {
+  event?.preventDefault?.();
+  event?.stopPropagation?.();
+}
+
 function openViewerMobileNav() {
   const appContainer = $("appContainer");
   const backdrop = $("viewerMobileNavBackdrop");
@@ -1217,10 +1227,23 @@ function getReadableRuntimeError(error, fallback = "Ocorreu um erro inesperado."
   }
 
   const authMessage = String(error?.message ?? "").trim();
-  if (authMessage) return authMessage;
+  const detailsMessage = String(error?.details ?? "").trim();
+  const hintMessage = String(error?.hint ?? "").trim();
+  const codeMessage = String(error?.code ?? "").trim();
+  if (authMessage) {
+    const extras = [detailsMessage, hintMessage].filter(Boolean).join(" ");
+    return [authMessage, extras].filter(Boolean).join(" ").trim();
+  }
 
   const nestedError = String(error?.error_description ?? error?.error ?? "").trim();
   if (nestedError) return nestedError;
+
+  if (detailsMessage || hintMessage || codeMessage) {
+    return [detailsMessage, hintMessage, codeMessage ? `Codigo: ${codeMessage}` : ""]
+      .filter(Boolean)
+      .join(" ")
+      .trim();
+  }
 
   try {
     const serialized = JSON.stringify(error);
@@ -1464,7 +1487,10 @@ async function upsertSupabaseModule(app, flow, blueprint) {
     .select("id, owner_id, slug, name, description, status, protocol_json, blueprint_json, cover_image_url")
     .single();
 
-  if (error) throw error;
+  if (error) {
+    console.error("Erro ao salvar modulo no Supabase", { error, payload });
+    throw new Error(getReadableRuntimeError(error, "Nao foi possivel salvar o modulo no banco de dados."));
+  }
   return data;
 }
 
@@ -5631,7 +5657,7 @@ function renderState(app) {
   const screenEditor = $("screenEditor");
   const appContainer = $("appContainer");
   const mainAdmin = $("mainAdmin");
-  closeViewerMobileNav();
+  closeViewerMobileNavDeferred();
   
   // Esconder todas
   if (screenLogin) screenLogin.classList.add("hidden");
@@ -6588,7 +6614,8 @@ async function mount() {
   // Navegação Global Sidebar
   const navDashboard = $("navDashboard");
   if (navDashboard) {
-    navDashboard.addEventListener("click", async () => {
+    navDashboard.addEventListener("click", async (e) => {
+      consumeUiClick(e);
       console.log("Clicou em Dashboard");
       try {
         await refreshSupabaseModules(app);
@@ -6603,7 +6630,8 @@ async function mount() {
 
   const navFisios = $("navFisios");
   if (navFisios) {
-    navFisios.addEventListener("click", async () => {
+    navFisios.addEventListener("click", async (e) => {
+      consumeUiClick(e);
       console.log("Clicou em Fisioterapeutas");
       try {
         await loadManagedProfiles(app);
@@ -6618,7 +6646,8 @@ async function mount() {
 
   const navModulos = $("navModulos");
   if (navModulos) {
-    navModulos.addEventListener("click", async () => {
+    navModulos.addEventListener("click", async (e) => {
+      consumeUiClick(e);
       console.log("Clicou em Módulos");
       try {
         await refreshSupabaseModules(app);
@@ -6632,7 +6661,8 @@ async function mount() {
 
   const navPerfil = $("navPerfil");
   if (navPerfil) {
-    navPerfil.addEventListener("click", () => {
+    navPerfil.addEventListener("click", (e) => {
+      consumeUiClick(e);
       app.view = "viewer_profile";
       renderState(app);
     });
@@ -6640,7 +6670,8 @@ async function mount() {
 
   const viewerProfileShortcut = $("viewerProfileShortcut");
   if (viewerProfileShortcut) {
-    viewerProfileShortcut.addEventListener("click", () => {
+    viewerProfileShortcut.addEventListener("click", (e) => {
+      consumeUiClick(e);
       app.view = "viewer_profile";
       renderState(app);
     });
@@ -6665,18 +6696,25 @@ async function mount() {
 
   const viewerMobileMenuBtn = $("viewerMobileMenuBtn");
   if (viewerMobileMenuBtn) {
-    viewerMobileMenuBtn.addEventListener("click", () => toggleViewerMobileNav());
+    viewerMobileMenuBtn.addEventListener("click", (e) => {
+      consumeUiClick(e);
+      toggleViewerMobileNav();
+    });
   }
 
   const viewerMobileNavBackdrop = $("viewerMobileNavBackdrop");
   if (viewerMobileNavBackdrop) {
-    viewerMobileNavBackdrop.addEventListener("click", () => closeViewerMobileNav());
+    viewerMobileNavBackdrop.addEventListener("click", (e) => {
+      consumeUiClick(e);
+      closeViewerMobileNav();
+    });
   }
 
   const viewerMobileProfileBtn = $("viewerMobileProfileBtn");
   if (viewerMobileProfileBtn) {
-    viewerMobileProfileBtn.addEventListener("click", () => {
-      closeViewerMobileNav();
+    viewerMobileProfileBtn.addEventListener("click", (e) => {
+      consumeUiClick(e);
+      closeViewerMobileNavDeferred();
       app.view = "viewer_profile";
       renderState(app);
     });
@@ -6684,7 +6722,8 @@ async function mount() {
 
   const viewerMobileHomeBtn = $("viewerMobileHomeBtn");
   if (viewerMobileHomeBtn) {
-    viewerMobileHomeBtn.addEventListener("click", async () => {
+    viewerMobileHomeBtn.addEventListener("click", async (e) => {
+      consumeUiClick(e);
       try {
         await refreshSupabaseModules(app);
       } catch (error) {
@@ -6698,7 +6737,8 @@ async function mount() {
 
   const viewerMobileBottomProfileBtn = $("viewerMobileBottomProfileBtn");
   if (viewerMobileBottomProfileBtn) {
-    viewerMobileBottomProfileBtn.addEventListener("click", () => {
+    viewerMobileBottomProfileBtn.addEventListener("click", (e) => {
+      consumeUiClick(e);
       app.view = "viewer_profile";
       renderState(app);
       window.scrollTo({ top: 0, behavior: "smooth" });
@@ -6858,8 +6898,9 @@ async function mount() {
       try {
         await saveEditorModule(app);
       } catch (e) {
+        console.error("Falha ao salvar modulo pelo botao lateral", e);
         showAppToast(
-          e instanceof Error ? e.message : String(e),
+          getReadableRuntimeError(e, "Nao foi possivel salvar o modulo."),
           "error",
           { title: "Erro ao salvar modulo", eyebrow: "Editor de modulos", durationMs: 4200 }
         );
@@ -7315,8 +7356,9 @@ async function mount() {
       try {
         await saveEditorModule(app);
       } catch (e) {
+        console.error("Falha ao salvar modulo pelo editor", e);
         showAppToast(
-          e instanceof Error ? e.message : String(e),
+          getReadableRuntimeError(e, "Nao foi possivel salvar o modulo."),
           "error",
           { title: "Erro ao salvar modulo", eyebrow: "Editor de modulos", durationMs: 4200 }
         );
