@@ -1311,9 +1311,76 @@ function scheduleEditorAutoSave(app, options = {}) {
   }, delayMs);
 }
 
+function isSupabaseStatementTimeoutError(error) {
+  const message = String(error?.message ?? error?.details ?? error?.hint ?? error ?? "").toLowerCase();
+  const code = String(error?.code ?? "").trim();
+  return code === "57014" || message.includes("statement timeout") || message.includes("canceling statement due to statement timeout");
+}
+
+function waitMs(duration) {
+  return new Promise((resolve) => window.setTimeout(resolve, duration));
+}
+
+function buildLocalSupabaseModuleRow(app, flow, blueprint, overrides = {}) {
+  const payload = buildSupabaseModulePayload(app, flow, blueprint);
+  const existing = Array.isArray(app.supabaseModules)
+    ? app.supabaseModules.find((row) => String(row?.slug ?? "") === String(flow.id ?? ""))
+    : null;
+  return {
+    id: String(overrides.id ?? existing?.id ?? flow.id),
+    owner_id: String(overrides.owner_id ?? existing?.owner_id ?? app.currentUser?.id ?? ""),
+    slug: String(flow.id ?? payload.slug ?? ""),
+    name: String(overrides.name ?? payload.name ?? flow.name ?? ""),
+    description: String(overrides.description ?? payload.description ?? ""),
+    status: String(overrides.status ?? payload.status ?? "published"),
+    protocol_json: overrides.protocol_json ?? payload.protocol_json,
+    blueprint_json: overrides.blueprint_json ?? payload.blueprint_json,
+    cover_image_url: String(overrides.cover_image_url ?? payload.cover_image_url ?? ""),
+    created_at: overrides.created_at ?? existing?.created_at ?? null,
+    updated_at: overrides.updated_at ?? existing?.updated_at ?? new Date().toISOString()
+  };
+}
+
+function mergeSavedModuleIntoLocalState(app, row, previousSlug = "") {
+  if (!app) return;
+  const savedRow = row && typeof row === "object" ? row : null;
+  if (!savedRow) return;
+
+  const nextSlug = String(savedRow.slug ?? savedRow.protocol_json?.id ?? "").trim();
+  const oldSlug = String(previousSlug ?? "").trim();
+  const rows = Array.isArray(app.supabaseModules) ? app.supabaseModules : [];
+  const filtered = rows.filter((item) => {
+    const slug = String(item?.slug ?? item?.protocol_json?.id ?? "").trim();
+    if (!slug) return true;
+    if (oldSlug && slug === oldSlug) return false;
+    if (nextSlug && slug === nextSlug) return false;
+    return true;
+  });
+
+  filtered.push(savedRow);
+  app.supabaseModules = filterModulesForCurrentProfile(app, filtered);
+  app.hasLoadedSupabaseModules = true;
+  app.protocol = mergeProtocolWithSupabaseModules(app.protocol, app.supabaseModules);
+}
+
 async function persistEditorModule(app, options = {}) {
   if (app.isSavingEditorModule) {
-    if (options.autosave) app.hasPendingEditorAutoSave = true;
+    if (options.autosave) {
+      app.hasPendingEditorAutoSave = true;
+      return app.editorSavePromise ?? false;
+    }
+    if (app.editorSavePromise) {
+      await app.editorSavePromise;
+      if (app.isEditorDirty || app.hasPendingEditorAutoSave) {
+        return persistEditorModule(app, options);
+      }
+      if (options.navigateAfterSave !== false) {
+        resetEditorAutoSaveState(app);
+        app.view = "modulos";
+        renderState(app);
+      }
+      return true;
+    }
     return false;
   }
 
@@ -1341,7 +1408,7 @@ async function persistEditorModule(app, options = {}) {
     showOverlay: !options.autosave
   });
 
-  try {
+  app.editorSavePromise = (async () => {
     const flow = buildFlowFromBuilderDraft(app.builderDraft, { allowIncomplete: issues.length > 0 });
     const blueprintToSave = createModuleBlueprintForSave(app.visualDraft, app.builderDraft, issues);
     const flowsById = { ...(app.protocol?.flowsById ?? {}) };
@@ -1361,14 +1428,14 @@ async function persistEditorModule(app, options = {}) {
       moduleBlueprints
     });
     if (app.authSession) {
-      await upsertSupabaseModule(app, flow, blueprintToSave);
+      const savedModuleRow = await upsertSupabaseModule(app, flow, blueprintToSave);
       if (app.editorOriginalFlowId && app.editorOriginalFlowId !== flow.id) {
         await deleteSupabaseModuleBySlug(app, app.editorOriginalFlowId);
       }
-      await refreshSupabaseModules(app);
+      mergeSavedModuleIntoLocalState(app, savedModuleRow, app.editorOriginalFlowId);
     }
     app.selectedFlowId = flow.id;
-    app.currentModuleId = app.currentModuleId ?? flow.id;
+    app.currentModuleId = flow.id;
     app.session = initSession(flow.id, flow.startNodeId);
     app.editorOriginalFlowId = flow.id;
     saveProtocolToStorage(app.protocol);
@@ -1394,7 +1461,12 @@ async function persistEditorModule(app, options = {}) {
       renderState(app);
     }
     return true;
+  })();
+
+  try {
+    return await app.editorSavePromise;
   } finally {
+    app.editorSavePromise = null;
     setEditorSavingState(app, false, {
       showOverlay: !options.autosave
     });
@@ -1806,28 +1878,45 @@ async function loadSupabaseModuleRows() {
 async function upsertSupabaseModule(app, flow, blueprint) {
   if (!app.currentUser?.id) return null;
   const payload = buildSupabaseModulePayload(app, flow, blueprint);
-  const { data, error } = await supabase
-    .from("modules")
-    .upsert(payload, { onConflict: "slug" })
-    .select("id, owner_id, slug, name, description, status, protocol_json, blueprint_json, cover_image_url")
-    .single();
+  let lastError = null;
 
-  if (error) {
-    console.error("Erro ao salvar modulo no Supabase", { error, payload });
-    throw new Error(getReadableRuntimeError(error, "Nao foi possivel salvar o modulo no banco de dados."));
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const { error } = await supabase
+      .from("modules")
+      .upsert(payload, { onConflict: "slug" });
+
+    if (!error) {
+      return buildLocalSupabaseModuleRow(app, flow, blueprint);
+    }
+
+    lastError = error;
+    if (!isSupabaseStatementTimeoutError(error) || attempt > 0) {
+      break;
+    }
+    await waitMs(500);
   }
-  return data;
+
+  console.error("Erro ao salvar modulo no Supabase", { error: lastError, payload });
+  throw new Error(getReadableRuntimeError(lastError, "Nao foi possivel salvar o modulo no banco de dados."));
 }
 
 async function deleteSupabaseModuleBySlug(app, slug) {
   if (!app.currentUser?.id || !slug) return;
-  const { error } = await supabase
-    .from("modules")
-    .delete()
-    .eq("slug", slug)
-    .eq("owner_id", app.currentUser.id);
+  let lastError = null;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const { error } = await supabase
+      .from("modules")
+      .delete()
+      .eq("slug", slug)
+      .eq("owner_id", app.currentUser.id);
 
-  if (error) throw error;
+    if (!error) return;
+    lastError = error;
+    if (!isSupabaseStatementTimeoutError(error) || attempt > 0) break;
+    await waitMs(350);
+  }
+
+  if (lastError) throw lastError;
 }
 
 async function refreshSupabaseModules(app, options = {}) {
@@ -6817,6 +6906,7 @@ async function mount() {
       isEditorDirty: false,
       hasPendingEditorAutoSave: false,
       editorAutoSaveTimer: 0,
+      editorSavePromise: null,
       forceProfileRefresh: false,
       lastProfileRefreshAt: 0,
       adminSecurityNotificationsTimer: 0,
