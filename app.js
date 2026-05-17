@@ -1300,18 +1300,14 @@ function resetEditorAutoSaveState(app) {
 function scheduleEditorAutoSave(app, options = {}) {
   if (!app || app.view !== "editor") return;
   app.isEditorDirty = true;
+  clearEditorAutoSaveTimer(app);
 
+  // Autosave desativado: qualquer edicao apenas marca o modulo como alterado.
+  // Se houver um save manual em andamento, preservamos o estado "dirty"
+  // para que o usuario decida quando salvar de novo.
   if (app.isSavingEditorModule) {
     app.hasPendingEditorAutoSave = true;
-    return;
   }
-
-  clearEditorAutoSaveTimer(app);
-  const delayMs = Number(options.immediate ? 220 : 900);
-  app.editorAutoSaveTimer = window.setTimeout(() => {
-    app.editorAutoSaveTimer = 0;
-    void autoSaveEditorModule(app);
-  }, delayMs);
 }
 
 function isSupabaseStatementTimeoutError(error) {
@@ -1368,10 +1364,6 @@ function mergeSavedModuleIntoLocalState(app, row, previousSlug = "") {
 
 async function persistEditorModule(app, options = {}) {
   if (app.isSavingEditorModule) {
-    if (options.autosave) {
-      app.hasPendingEditorAutoSave = true;
-      return app.editorSavePromise ?? false;
-    }
     if (app.editorSavePromise) {
       await app.editorSavePromise;
       if (app.isEditorDirty || app.hasPendingEditorAutoSave) {
@@ -1412,6 +1404,8 @@ async function persistEditorModule(app, options = {}) {
   });
 
   app.editorSavePromise = (async () => {
+    const hadPendingChangesBeforeSave = Boolean(app.hasPendingEditorAutoSave);
+    app.hasPendingEditorAutoSave = false;
     const flow = buildFlowFromBuilderDraft(app.builderDraft, { allowIncomplete: issues.length > 0 });
     const blueprintToSave = createModuleBlueprintForSave(app.visualDraft, app.builderDraft, issues);
     const flowsById = { ...(app.protocol?.flowsById ?? {}) };
@@ -1442,7 +1436,7 @@ async function persistEditorModule(app, options = {}) {
     app.session = initSession(flow.id, flow.startNodeId);
     app.editorOriginalFlowId = flow.id;
     saveProtocolToStorage(app.protocol);
-    app.isEditorDirty = false;
+    app.isEditorDirty = hadPendingChangesBeforeSave || Boolean(app.hasPendingEditorAutoSave);
     app.hasPendingEditorAutoSave = false;
 
     if (options.showSuccessToast !== false) {
@@ -1473,35 +1467,11 @@ async function persistEditorModule(app, options = {}) {
     setEditorSavingState(app, false, {
       showOverlay: !options.autosave
     });
-    if (app.hasPendingEditorAutoSave && app.view === "editor") {
-      app.hasPendingEditorAutoSave = false;
-      scheduleEditorAutoSave(app, { immediate: true });
-    }
   }
 }
 
 async function autoSaveEditorModule(app) {
-  if (!app || app.view !== "editor" || !app.isEditorDirty) return false;
-  try {
-    return await persistEditorModule(app, {
-      autosave: true,
-      navigateAfterSave: false,
-      showSuccessToast: false,
-      requireIssueConfirmation: false
-    });
-  } catch (error) {
-    console.error("Falha ao salvar modulo automaticamente", error);
-    showAppToast(
-      getReadableRuntimeError(error, "Nao foi possivel salvar automaticamente o modulo."),
-      "error",
-      {
-        title: "Erro ao salvar modulo",
-        eyebrow: "Editor de modulos",
-        durationMs: 4200
-      }
-    );
-    return false;
-  }
+  return false;
 }
 
 async function saveEditorModule(app) {
