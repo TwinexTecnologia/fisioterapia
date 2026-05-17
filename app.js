@@ -12,6 +12,9 @@ const SUPABASE_URL = "https://uoqeewalrlzrmrtbqxgi.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvcWVld2Fscmx6cm1ydGJxeGdpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY5OTU3ODgsImV4cCI6MjA5MjU3MTc4OH0.CHa8PVpph4mYf7RYN2tzESbNrbH92ITrNeWAYDGBok8";
 const CREFITO_LOCAL_API_URL = getCrefitoLocalApiUrl();
 const PROFILE_REFRESH_TTL_MS = 15000;
+const MODULES_REFRESH_TTL_MS = 20000;
+const MANAGED_PROFILES_REFRESH_TTL_MS = 20000;
+const SECURITY_NOTIFICATIONS_REFRESH_TTL_MS = 20000;
 const flowVisualGraphCache = new WeakMap();
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
@@ -1725,6 +1728,83 @@ async function refreshCurrentProfile(app) {
   return nextProfile;
 }
 
+function scheduleAuthenticatedHydration(app, options = {}) {
+  if (!app?.authSession) return Promise.resolve();
+  if (app.authHydrationPromise) return app.authHydrationPromise;
+  const delayMs = Math.max(0, Number(options.delayMs ?? 16));
+  app.authHydrationPromise = new Promise((resolve) => {
+    window.setTimeout(() => {
+      Promise.resolve()
+        .then(() => hydrateAuthenticatedApp(app, options))
+        .catch((error) => {
+          console.error("Erro ao hidratar app autenticado em segundo plano", error);
+        })
+        .finally(() => {
+          app.authHydrationPromise = null;
+          resolve();
+        });
+    }, delayMs);
+  });
+  return app.authHydrationPromise;
+}
+
+async function refreshViewDataInBackground(app, targetView, options = {}) {
+  if (!app?.authSession) return;
+  const view = String(targetView ?? "");
+  const force = Boolean(options.force);
+  const renderAfterRefresh = options.renderAfterRefresh !== false;
+
+  if (view === "dashboard") {
+    const results = await Promise.allSettled([
+      refreshSupabaseModules(app, { force }),
+      loadManagedProfiles(app, { force }),
+      loadAdminSecurityNotifications(app, { force })
+    ]);
+    const labels = [
+      "modulos do dashboard",
+      "perfis gerenciados do dashboard",
+      "notificacoes do dashboard"
+    ];
+    results.forEach((result, index) => {
+      if (result.status === "rejected") {
+        console.error(`Erro ao atualizar ${labels[index]}`, result.reason);
+      }
+    });
+  } else if (view === "fisios") {
+    try {
+      await loadManagedProfiles(app, { force });
+    } catch (error) {
+      console.error("Erro ao carregar perfis gerenciados", error);
+      if (force) {
+        alert("Nao foi possivel carregar a lista de perfis: " + (error instanceof Error ? error.message : String(error)));
+      }
+      return;
+    }
+  } else if (view === "modulos") {
+    try {
+      await refreshSupabaseModules(app, { force });
+    } catch (error) {
+      console.error("Erro ao atualizar módulos do Supabase", error);
+      return;
+    }
+  } else if (view === "viewer_profile") {
+    try {
+      await refreshCurrentProfile(app);
+    } catch (error) {
+      console.error("Erro ao atualizar perfil atual", error);
+      return;
+    }
+  } else {
+    return;
+  }
+
+  if (renderAfterRefresh && app.view === view) {
+    renderState(app);
+  } else if (view === "dashboard" || view === "fisios" || view === "viewer_profile") {
+    applyAuthUi(app);
+  }
+}
+
 async function ensureActiveAuthContext(authContext) {
   if (!authContext?.session || !authContext?.profile) return authContext;
   if (isManagedProfileActive(authContext.profile)) return authContext;
@@ -1780,26 +1860,35 @@ async function ensurePatientDeviceAccess(authContext) {
 async function hydrateAuthenticatedApp(app) {
   if (!app?.authSession) return;
 
-  try {
-    await refreshSupabaseModules(app, { seedStarterForAdmin: true });
-  } catch (error) {
-    console.error("Erro ao carregar modulos apos autenticar", error);
+  const results = await Promise.allSettled([
+    refreshSupabaseModules(app, { seedStarterForAdmin: true }),
+    loadManagedProfiles(app),
+    loadAdminSecurityNotifications(app)
+  ]);
+
+  if (results[0]?.status === "rejected") {
+    console.error("Erro ao carregar modulos apos autenticar", results[0].reason);
     app.supabaseModules = [];
     app.hasLoadedSupabaseModules = false;
+    app.lastModulesRefreshAt = 0;
   }
 
-  try {
-    await loadManagedProfiles(app);
-  } catch (error) {
-    console.error("Erro ao carregar perfis gerenciados apos autenticar", error);
+  if (results[1]?.status === "rejected") {
+    console.error("Erro ao carregar perfis gerenciados apos autenticar", results[1].reason);
     app.managedProfiles = [];
+    app.hasLoadedManagedProfiles = false;
+    app.lastManagedProfilesRefreshAt = 0;
   }
 
-  try {
-    await loadAdminSecurityNotifications(app);
-  } catch (error) {
-    console.error("Erro ao carregar notificacoes de seguranca", error);
+  if (results[2]?.status === "rejected") {
+    console.error("Erro ao carregar notificacoes de seguranca", results[2].reason);
     app.adminSecurityNotifications = [];
+    app.hasLoadedAdminSecurityNotifications = false;
+    app.lastAdminSecurityNotificationsRefreshAt = 0;
+  }
+
+  if (app.authSession && String(app.view ?? "") !== "login") {
+    renderState(app);
   }
 }
 
@@ -1921,31 +2010,53 @@ async function deleteSupabaseModuleBySlug(app, slug) {
 
 async function refreshSupabaseModules(app, options = {}) {
   if (!app.authSession || !app.currentUser?.id) return [];
+  if (app.modulesRefreshPromise) return app.modulesRefreshPromise;
 
-  if (options.forceProfileRefresh) app.forceProfileRefresh = true;
-  await refreshCurrentProfile(app);
+  const refreshJob = (async () => {
+    const force = Boolean(options.force);
+    const shouldUseCache = !force
+      && app.hasLoadedSupabaseModules
+      && (now() - Number(app.lastModulesRefreshAt ?? 0)) < MODULES_REFRESH_TTL_MS;
 
-  let rows = await loadSupabaseModuleRows();
-  const shouldSeedStarter = Boolean(options.seedStarterForAdmin) && isFisioAdminRole(app.currentProfile?.role);
-  const hasStarter = rows.some((row) => String(row?.slug ?? "") === "roteiro_thompsom");
+    if (shouldUseCache) {
+      return Array.isArray(app.supabaseModules) ? app.supabaseModules : [];
+    }
 
-  if (shouldSeedStarter && !hasStarter && app.protocol?.flowsById?.roteiro_thompsom) {
-    await upsertSupabaseModule(app, app.protocol.flowsById.roteiro_thompsom, getModuleBlueprint(app.protocol, "roteiro_thompsom"));
-    rows = await loadSupabaseModuleRows();
+    if (options.forceProfileRefresh) app.forceProfileRefresh = true;
+    await refreshCurrentProfile(app);
+
+    let rows = await loadSupabaseModuleRows();
+    const shouldSeedStarter = Boolean(options.seedStarterForAdmin) && isFisioAdminRole(app.currentProfile?.role);
+    const hasStarter = rows.some((row) => String(row?.slug ?? "") === "roteiro_thompsom");
+
+    if (shouldSeedStarter && !hasStarter && app.protocol?.flowsById?.roteiro_thompsom) {
+      await upsertSupabaseModule(app, app.protocol.flowsById.roteiro_thompsom, getModuleBlueprint(app.protocol, "roteiro_thompsom"));
+      rows = await loadSupabaseModuleRows();
+    }
+
+    app.supabaseModules = filterModulesForCurrentProfile(
+      app,
+      rows.map((row) => ({
+        ...row,
+        flowId: String(row?.protocol_json?.id ?? row?.slug ?? row?.id ?? ""),
+        startFlowId: String(row?.protocol_json?.id ?? row?.slug ?? row?.id ?? "")
+      }))
+    ).map(({ flowId, startFlowId, ...row }) => row);
+    app.hasLoadedSupabaseModules = true;
+    app.lastModulesRefreshAt = now();
+    app.protocol = mergeProtocolWithSupabaseModules(app.protocol, app.supabaseModules);
+    if (app.protocol) saveProtocolToStorage(app.protocol);
+    return app.supabaseModules;
+  })();
+
+  app.modulesRefreshPromise = refreshJob;
+  try {
+    return await refreshJob;
+  } finally {
+    if (app.modulesRefreshPromise === refreshJob) {
+      app.modulesRefreshPromise = null;
+    }
   }
-
-  app.supabaseModules = filterModulesForCurrentProfile(
-    app,
-    rows.map((row) => ({
-      ...row,
-      flowId: String(row?.protocol_json?.id ?? row?.slug ?? row?.id ?? ""),
-      startFlowId: String(row?.protocol_json?.id ?? row?.slug ?? row?.id ?? "")
-    }))
-  ).map(({ flowId, startFlowId, ...row }) => row);
-  app.hasLoadedSupabaseModules = true;
-  app.protocol = mergeProtocolWithSupabaseModules(app.protocol, app.supabaseModules);
-  if (app.protocol) saveProtocolToStorage(app.protocol);
-  return app.supabaseModules;
 }
 
 async function loadProtocolFromUrl(url) {
@@ -5207,50 +5318,77 @@ function renderModulesList(app) {
   }
 }
 
-async function loadManagedProfiles(app) {
+async function loadManagedProfiles(app, options = {}) {
   if (!app.authSession || !app.currentUser?.id || !canManageProfiles(app.currentProfile?.role)) {
     app.managedProfiles = [];
+    app.hasLoadedManagedProfiles = false;
+    app.lastManagedProfilesRefreshAt = 0;
     return [];
   }
+  if (app.managedProfilesRefreshPromise) return app.managedProfilesRefreshPromise;
 
   const childRole = getManagedChildRole(app.currentProfile?.role);
   if (!childRole) {
     app.managedProfiles = [];
+    app.hasLoadedManagedProfiles = false;
+    app.lastManagedProfilesRefreshAt = 0;
     return [];
   }
 
-  const extendedSelect = "id, full_name, role, parent_admin_id, login_email, crefito, is_active, allowed_modules, avatar_url, cep, street, address_number, address_complement, neighborhood, city, state, created_at";
-  const fallbackSelect = "id, full_name, role, parent_admin_id, login_email, crefito, is_active, allowed_modules, cep, street, address_number, address_complement, neighborhood, city, state, created_at";
+  const refreshJob = (async () => {
+    const force = Boolean(options.force);
+    const shouldUseCache = !force
+      && app.hasLoadedManagedProfiles
+      && (now() - Number(app.lastManagedProfilesRefreshAt ?? 0)) < MANAGED_PROFILES_REFRESH_TTL_MS;
 
-  let query = supabase
-    .from("profiles")
-    .select(extendedSelect)
-    .eq("role", childRole);
-
-  if (isFisioAdminRole(app.currentProfile?.role)) {
-    query = query.eq("parent_admin_id", app.currentUser.id);
-  }
-
-  let { data, error } = await query.order("created_at", { ascending: false });
-  if (error && getMissingManagedProfileColumnsMessage(error)) {
-    let fallbackQuery = supabase
-      .from("profiles")
-      .select(fallbackSelect)
-      .eq("role", childRole);
-    if (isFisioAdminRole(app.currentProfile?.role)) {
-      fallbackQuery = fallbackQuery.eq("parent_admin_id", app.currentUser.id);
+    if (shouldUseCache) {
+      return Array.isArray(app.managedProfiles) ? app.managedProfiles : [];
     }
-    const fallbackResult = await fallbackQuery.order("created_at", { ascending: false });
-    data = fallbackResult.data;
-    error = fallbackResult.error;
+
+    const extendedSelect = "id, full_name, role, parent_admin_id, login_email, crefito, is_active, allowed_modules, avatar_url, cep, street, address_number, address_complement, neighborhood, city, state, created_at";
+    const fallbackSelect = "id, full_name, role, parent_admin_id, login_email, crefito, is_active, allowed_modules, cep, street, address_number, address_complement, neighborhood, city, state, created_at";
+
+    let query = supabase
+      .from("profiles")
+      .select(extendedSelect)
+      .eq("role", childRole);
+
+    if (isFisioAdminRole(app.currentProfile?.role)) {
+      query = query.eq("parent_admin_id", app.currentUser.id);
+    }
+
+    let { data, error } = await query.order("created_at", { ascending: false });
+    if (error && getMissingManagedProfileColumnsMessage(error)) {
+      let fallbackQuery = supabase
+        .from("profiles")
+        .select(fallbackSelect)
+        .eq("role", childRole);
+      if (isFisioAdminRole(app.currentProfile?.role)) {
+        fallbackQuery = fallbackQuery.eq("parent_admin_id", app.currentUser.id);
+      }
+      const fallbackResult = await fallbackQuery.order("created_at", { ascending: false });
+      data = fallbackResult.data;
+      error = fallbackResult.error;
+    }
+    if (error) {
+      const missingColumnsMessage = getMissingManagedProfileColumnsMessage(error);
+      if (missingColumnsMessage) throw new Error(missingColumnsMessage);
+      throw error;
+    }
+    app.managedProfiles = Array.isArray(data) ? data : [];
+    app.hasLoadedManagedProfiles = true;
+    app.lastManagedProfilesRefreshAt = now();
+    return app.managedProfiles;
+  })();
+
+  app.managedProfilesRefreshPromise = refreshJob;
+  try {
+    return await refreshJob;
+  } finally {
+    if (app.managedProfilesRefreshPromise === refreshJob) {
+      app.managedProfilesRefreshPromise = null;
+    }
   }
-  if (error) {
-    const missingColumnsMessage = getMissingManagedProfileColumnsMessage(error);
-    if (missingColumnsMessage) throw new Error(missingColumnsMessage);
-    throw error;
-  }
-  app.managedProfiles = Array.isArray(data) ? data : [];
-  return app.managedProfiles;
 }
 
 function formatLoginHistoryDateTime(dateValue) {
@@ -5304,20 +5442,46 @@ function hasUnreadAdminSecurityNotifications(app) {
   }
 }
 
-async function loadAdminSecurityNotifications(app) {
+async function loadAdminSecurityNotifications(app, options = {}) {
   if (!app.authSession || !canManageProfiles(app.currentProfile?.role)) {
     app.adminSecurityNotifications = [];
+    app.hasLoadedAdminSecurityNotifications = false;
+    app.lastAdminSecurityNotificationsRefreshAt = 0;
     return [];
   }
-  const { data, error } = await supabase.rpc("list_admin_security_notifications");
-  if (error) {
-    const securityMessage = getAdminSecurityNotificationsErrorMessage(error);
-    if (securityMessage) throw new Error(securityMessage);
-    throw error;
+  if (app.adminSecurityNotificationsRefreshPromise) return app.adminSecurityNotificationsRefreshPromise;
+  const refreshJob = (async () => {
+    const force = Boolean(options.force);
+    const shouldUseCache = !force
+      && app.hasLoadedAdminSecurityNotifications
+      && (now() - Number(app.lastAdminSecurityNotificationsRefreshAt ?? 0)) < SECURITY_NOTIFICATIONS_REFRESH_TTL_MS
+      && Array.isArray(app.adminSecurityNotifications);
+
+    if (shouldUseCache) {
+      return app.adminSecurityNotifications;
+    }
+
+    const { data, error } = await supabase.rpc("list_admin_security_notifications");
+    if (error) {
+      const securityMessage = getAdminSecurityNotificationsErrorMessage(error);
+      if (securityMessage) throw new Error(securityMessage);
+      throw error;
+    }
+    app.adminSecurityNotificationsSilentDisabled = false;
+    app.adminSecurityNotifications = Array.isArray(data) ? data : [];
+    app.hasLoadedAdminSecurityNotifications = true;
+    app.lastAdminSecurityNotificationsRefreshAt = now();
+    return app.adminSecurityNotifications;
+  })();
+
+  app.adminSecurityNotificationsRefreshPromise = refreshJob;
+  try {
+    return await refreshJob;
+  } finally {
+    if (app.adminSecurityNotificationsRefreshPromise === refreshJob) {
+      app.adminSecurityNotificationsRefreshPromise = null;
+    }
   }
-  app.adminSecurityNotificationsSilentDisabled = false;
-  app.adminSecurityNotifications = Array.isArray(data) ? data : [];
-  return app.adminSecurityNotifications;
 }
 
 async function refreshAdminSecurityNotificationsSilently(app) {
@@ -6884,6 +7048,8 @@ async function mount() {
       currentProfile: null,
       supabaseModules: [],
       hasLoadedSupabaseModules: false,
+      lastModulesRefreshAt: 0,
+      modulesRefreshPromise: null,
       selectedFlowId: null,
       builderDraft: createEmptyBuilderDraft(),
       selectedBuilderNodeId: "pergunta_1",
@@ -6895,11 +7061,17 @@ async function mount() {
       currentModuleId: null,
       editorOriginalFlowId: null,
       managedProfiles: [],
+      hasLoadedManagedProfiles: false,
+      lastManagedProfilesRefreshAt: 0,
+      managedProfilesRefreshPromise: null,
       deviceHistoryEntries: [],
       deviceHistoryModalProfileId: null,
       deviceHistoryModalProfileName: "",
       isDeviceHistoryLoading: false,
       adminSecurityNotifications: [],
+      hasLoadedAdminSecurityNotifications: false,
+      lastAdminSecurityNotificationsRefreshAt: 0,
+      adminSecurityNotificationsRefreshPromise: null,
       editingManagedProfileId: null,
       editingManagedProfileAvatarUrl: "",
       isSavingEditorModule: false,
@@ -6907,6 +7079,7 @@ async function mount() {
       hasPendingEditorAutoSave: false,
       editorAutoSaveTimer: 0,
       editorSavePromise: null,
+      authHydrationPromise: null,
       forceProfileRefresh: false,
       lastProfileRefreshAt: 0,
       adminSecurityNotificationsTimer: 0,
@@ -6984,7 +7157,9 @@ async function mount() {
       app.currentUser = authContext.user;
       app.currentProfile = authContext.profile;
       if (authContext.session) {
-        await hydrateAuthenticatedApp(app);
+        app.view = getDefaultViewForRole(authContext.profile?.role);
+        renderState(app);
+        void scheduleAuthenticatedHydration(app, { renderAfterHydration: true });
       }
       app.view = authContext.session ? getDefaultViewForRole(authContext.profile?.role) : "login";
       setLoginRecoveryMode(false);
@@ -7020,9 +7195,9 @@ async function mount() {
         app.authSession = authContext.session;
         app.currentUser = authContext.user;
         app.currentProfile = authContext.profile;
-        await hydrateAuthenticatedApp(app);
         app.view = getDefaultViewForRole(authContext.profile?.role);
         renderState(app);
+        void scheduleAuthenticatedHydration(app, { renderAfterHydration: true });
       } catch (loginError) {
         console.error("Erro ao fazer login", loginError);
         setLoginError(getReadableAuthError(loginError));
@@ -7083,7 +7258,13 @@ async function mount() {
       app.currentProfile = null;
       app.supabaseModules = [];
       app.hasLoadedSupabaseModules = false;
+      app.lastModulesRefreshAt = 0;
       app.managedProfiles = [];
+      app.hasLoadedManagedProfiles = false;
+      app.lastManagedProfilesRefreshAt = 0;
+      app.adminSecurityNotifications = [];
+      app.hasLoadedAdminSecurityNotifications = false;
+      app.lastAdminSecurityNotificationsRefreshAt = 0;
       app.view = "login";
       setLoginRecoveryMode(false);
       setLoginError("");
@@ -7094,48 +7275,31 @@ async function mount() {
   // Navegação Global Sidebar
   const navDashboard = $("navDashboard");
   if (navDashboard) {
-    navDashboard.addEventListener("click", async (e) => {
+    navDashboard.addEventListener("click", (e) => {
       consumeUiClick(e);
-      console.log("Clicou em Dashboard");
-      try {
-        await refreshSupabaseModules(app);
-        await loadManagedProfiles(app);
-      } catch (error) {
-        console.error("Erro ao atualizar dados do dashboard", error);
-      }
       app.view = "dashboard";
       renderState(app);
+      void refreshViewDataInBackground(app, "dashboard");
     });
   }
 
   const navFisios = $("navFisios");
   if (navFisios) {
-    navFisios.addEventListener("click", async (e) => {
+    navFisios.addEventListener("click", (e) => {
       consumeUiClick(e);
-      console.log("Clicou em Fisioterapeutas");
-      try {
-        await loadManagedProfiles(app);
-      } catch (error) {
-        console.error("Erro ao carregar perfis gerenciados", error);
-        alert("Nao foi possivel carregar a lista de perfis: " + (error instanceof Error ? error.message : String(error)));
-      }
       app.view = "fisios";
       renderState(app);
+      void refreshViewDataInBackground(app, "fisios");
     });
   }
 
   const navModulos = $("navModulos");
   if (navModulos) {
-    navModulos.addEventListener("click", async (e) => {
+    navModulos.addEventListener("click", (e) => {
       consumeUiClick(e);
-      console.log("Clicou em Módulos");
-      try {
-        await refreshSupabaseModules(app);
-      } catch (error) {
-        console.error("Erro ao atualizar módulos do Supabase", error);
-      }
       app.view = "modulos";
       renderState(app);
+      void refreshViewDataInBackground(app, "modulos");
     });
   }
 
@@ -7145,6 +7309,7 @@ async function mount() {
       consumeUiClick(e);
       app.view = "viewer_profile";
       renderState(app);
+      void refreshViewDataInBackground(app, "viewer_profile");
     });
   }
 
@@ -7154,6 +7319,7 @@ async function mount() {
       consumeUiClick(e);
       app.view = "viewer_profile";
       renderState(app);
+      void refreshViewDataInBackground(app, "viewer_profile");
     });
   }
 
