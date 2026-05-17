@@ -11,6 +11,8 @@ const DEFAULT_PROTOCOL_URL = "./protocol.generated.json";
 const SUPABASE_URL = "https://uoqeewalrlzrmrtbqxgi.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvcWVld2Fscmx6cm1ydGJxeGdpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY5OTU3ODgsImV4cCI6MjA5MjU3MTc4OH0.CHa8PVpph4mYf7RYN2tzESbNrbH92ITrNeWAYDGBok8";
 const CREFITO_LOCAL_API_URL = getCrefitoLocalApiUrl();
+const PROFILE_REFRESH_TTL_MS = 15000;
+const flowVisualGraphCache = new WeakMap();
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
     persistSession: true,
@@ -65,6 +67,26 @@ function clearAuthUrlArtifacts() {
 
 function now() {
   return Date.now();
+}
+
+function prefersReducedMotion() {
+  try {
+    return Boolean(window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches);
+  } catch {
+    return false;
+  }
+}
+
+function isCompactViewport() {
+  return window.innerWidth <= 900 || window.matchMedia?.("(pointer: coarse)")?.matches;
+}
+
+function getPreferredMotionBehavior() {
+  return prefersReducedMotion() || isCompactViewport() ? "auto" : "smooth";
+}
+
+function shouldSkipHeavyVisualEffects() {
+  return prefersReducedMotion() || isCompactViewport();
 }
 
 function safeJsonParse(text) {
@@ -1606,6 +1628,9 @@ async function loadAuthContext() {
 
 async function refreshCurrentProfile(app) {
   if (!app?.authSession || !app?.currentUser?.id) return app?.currentProfile ?? null;
+  if (!app.forceProfileRefresh && app.currentProfile && (now() - Number(app.lastProfileRefreshAt ?? 0)) < PROFILE_REFRESH_TTL_MS) {
+    return app.currentProfile;
+  }
 
   const authContext = await loadAuthContext();
   const nextSession = authContext?.session ?? null;
@@ -1623,6 +1648,8 @@ async function refreshCurrentProfile(app) {
   app.authSession = nextSession;
   app.currentUser = nextUser;
   app.currentProfile = nextProfile;
+  app.lastProfileRefreshAt = now();
+  app.forceProfileRefresh = false;
   return nextProfile;
 }
 
@@ -1806,6 +1833,7 @@ async function deleteSupabaseModuleBySlug(app, slug) {
 async function refreshSupabaseModules(app, options = {}) {
   if (!app.authSession || !app.currentUser?.id) return [];
 
+  if (options.forceProfileRefresh) app.forceProfileRefresh = true;
   await refreshCurrentProfile(app);
 
   let rows = await loadSupabaseModuleRows();
@@ -2703,6 +2731,7 @@ function getBuilderDraftVisualGraph(draft) {
   const orderedNodes = [];
   const visited = new Set();
   const queue = [];
+  let queueIndex = 0;
   const levels = {};
   const edges = [];
   const startNodeId = cleanDraft.startNodeId;
@@ -2712,8 +2741,9 @@ function getBuilderDraftVisualGraph(draft) {
     levels[startNodeId] = 0;
   }
 
-  while (queue.length > 0) {
-    const nodeId = queue.shift();
+  while (queueIndex < queue.length) {
+    const nodeId = queue[queueIndex];
+    queueIndex += 1;
     if (!nodeId || visited.has(nodeId) || !nodesById[nodeId]) continue;
     visited.add(nodeId);
     orderedNodes.push(nodesById[nodeId]);
@@ -2897,12 +2927,15 @@ function renderBuilderFlowEditor(app) {
   }
 
   updateFlowBuilderStatus(app);
-  requestAnimationFrame(() => {
-    const selectedCard = host.querySelector(".timeline-step--selected");
-    if (selectedCard) {
-      selectedCard.scrollIntoView({ block: "nearest", behavior: "smooth" });
-    }
-  });
+  if (app.lastBuilderScrollNodeId !== app.selectedBuilderNodeId) {
+    app.lastBuilderScrollNodeId = app.selectedBuilderNodeId;
+    requestAnimationFrame(() => {
+      const selectedCard = host.querySelector(".timeline-step--selected");
+      if (selectedCard) {
+        selectedCard.scrollIntoView({ block: "nearest", behavior: getPreferredMotionBehavior() });
+      }
+    });
+  }
 }
 
 function renderBuilderWorkspace(app) {
@@ -3907,14 +3940,20 @@ function getFlowTargetLabel(flow, nextNodeId) {
 }
 
 function getFlowVisualGraph(flow, startNodeId = flow.startNodeId, includeUnvisited = true) {
+  const cacheKey = `${String(startNodeId ?? "")}|${includeUnvisited ? "1" : "0"}`;
+  const cachedGraph = flowVisualGraphCache.get(flow)?.[cacheKey];
+  if (cachedGraph) return cachedGraph;
+
   const order = [];
   const visited = new Set();
   const queue = [startNodeId];
+  let queueIndex = 0;
   const levels = { [startNodeId]: 0 };
   const edges = [];
 
-  while (queue.length > 0) {
-    const nodeId = queue.shift();
+  while (queueIndex < queue.length) {
+    const nodeId = queue[queueIndex];
+    queueIndex += 1;
     if (!nodeId || visited.has(nodeId) || !flow.nodesById[nodeId]) continue;
     visited.add(nodeId);
     order.push(nodeId);
@@ -3965,11 +4004,15 @@ function getFlowVisualGraph(flow, startNodeId = flow.startNodeId, includeUnvisit
     }
   }
 
-  return {
+  const result = {
     orderedNodes: order.map((nodeId) => flow.nodesById[nodeId]),
     levels,
     edges
   };
+  const existingCache = flowVisualGraphCache.get(flow) ?? {};
+  existingCache[cacheKey] = result;
+  flowVisualGraphCache.set(flow, existingCache);
+  return result;
 }
 
 function getThompsonStartBranches(module, protocol) {
@@ -4013,14 +4056,19 @@ function drawFlowboardConnections(host, edges) {
   svg.setAttribute("width", `${Math.max(1, boardRect.width)}`);
   svg.setAttribute("height", `${Math.max(1, boardRect.height)}`);
   svg.innerHTML = "";
+  const nodeElements = Array.from(board.querySelectorAll("[data-node-id]"));
+  const nodeRects = new Map(
+    nodeElements.map((element) => [
+      String(element.getAttribute("data-node-id") ?? ""),
+      element.getBoundingClientRect()
+    ])
+  );
+  const fragment = document.createDocumentFragment();
 
   for (const edge of edges) {
-    const fromEl = board.querySelector(`[data-node-id="${edge.from}"]`);
-    const toEl = board.querySelector(`[data-node-id="${edge.to}"]`);
-    if (!fromEl || !toEl) continue;
-
-    const fromRect = fromEl.getBoundingClientRect();
-    const toRect = toEl.getBoundingClientRect();
+    const fromRect = nodeRects.get(String(edge.from ?? ""));
+    const toRect = nodeRects.get(String(edge.to ?? ""));
+    if (!fromRect || !toRect) continue;
     const x1 = fromRect.right - boardRect.left;
     const y1 = fromRect.top - boardRect.top + (fromRect.height / 2);
     const x2 = toRect.left - boardRect.left;
@@ -4036,8 +4084,9 @@ function drawFlowboardConnections(host, edges) {
     path.setAttribute("stroke", color);
     path.setAttribute("stroke-width", "3");
     path.setAttribute("stroke-linecap", "round");
-    svg.appendChild(path);
+    fragment.appendChild(path);
   }
+  svg.appendChild(fragment);
 }
 
 function resolveModuleNodeRef(module, protocol, targetNodeId, preferredFlowId) {
@@ -4059,8 +4108,10 @@ function resolveModuleNodeRef(module, protocol, targetNodeId, preferredFlowId) {
 
 function getModuleVisualGraph(module, protocol) {
   const order = [];
+  const orderSet = new Set();
   const visited = new Set();
   const queue = [];
+  let queueIndex = 0;
   const levels = {};
   const edges = [];
   const nodesByKey = {};
@@ -4093,6 +4144,7 @@ function getModuleVisualGraph(module, protocol) {
   };
   levels[rootKey] = 0;
   order.push(rootKey);
+  orderSet.add(rootKey);
 
   const { mainBranches, supportFlows } = getThompsonStartBranches(module, protocol);
 
@@ -4114,6 +4166,7 @@ function getModuleVisualGraph(module, protocol) {
 
     levels[branchKey] = 1;
     order.push(branchKey);
+    orderSet.add(branchKey);
     edges.push({
       from: rootKey,
       to: branchKey,
@@ -4148,6 +4201,7 @@ function getModuleVisualGraph(module, protocol) {
     };
     levels[supportKey] = 1;
     order.push(supportKey);
+    orderSet.add(supportKey);
     edges.push({
       from: rootKey,
       to: supportKey,
@@ -4156,13 +4210,17 @@ function getModuleVisualGraph(module, protocol) {
     });
   }
 
-  while (queue.length > 0) {
-    const key = queue.shift();
+  while (queueIndex < queue.length) {
+    const key = queue[queueIndex];
+    queueIndex += 1;
     const node = nodesByKey[key];
     if (!node || visited.has(key)) continue;
 
     visited.add(key);
-    if (!order.includes(key)) order.push(key);
+    if (!orderSet.has(key)) {
+      order.push(key);
+      orderSet.add(key);
+    }
 
     const currentFlow = protocol.flowsById[node.__flowId];
     const nextRefs = [];
@@ -4184,7 +4242,10 @@ function getModuleVisualGraph(module, protocol) {
         __virtualType: "answer"
       };
 
-      if (!order.includes(answerKey)) order.push(answerKey);
+      if (!orderSet.has(answerKey)) {
+        order.push(answerKey);
+        orderSet.add(answerKey);
+      }
       if (levels[answerKey] == null || levels[answerKey] > (levels[key] ?? 0) + 1) {
         levels[answerKey] = (levels[key] ?? 0) + 1;
       }
@@ -5172,7 +5233,7 @@ async function loadAdminSecurityNotifications(app) {
 
 async function refreshAdminSecurityNotificationsSilently(app) {
   if (app?.adminSecurityNotificationsSilentDisabled) return;
-  if (!app?.authSession || !canManageProfiles(app?.currentProfile?.role)) return;
+  if (!app?.authSession || !canManageProfiles(app?.currentProfile?.role) || document.hidden) return;
   try {
     await loadAdminSecurityNotifications(app);
     applyAuthUi(app);
@@ -5941,8 +6002,6 @@ async function sendManagedProfilePasswordReset(profile) {
 
 function renderState(app) {
   try {
-    console.log("--> renderState disparado! app.view =", app.view);
-
     const { protocol, session, view } = app;
   
   // Elementos de tela
@@ -6758,6 +6817,10 @@ async function mount() {
       isEditorDirty: false,
       hasPendingEditorAutoSave: false,
       editorAutoSaveTimer: 0,
+      forceProfileRefresh: false,
+      lastProfileRefreshAt: 0,
+      adminSecurityNotificationsTimer: 0,
+      lastBuilderScrollNodeId: null,
       crefitoValidation: null,
       viewerModuleSearch: "",
       view: "login"
@@ -6778,9 +6841,16 @@ async function mount() {
     event.returnValue = "";
   });
 
-  window.setInterval(() => {
+  app.adminSecurityNotificationsTimer = window.setInterval(() => {
+    if (!app.authSession || !canManageProfiles(app.currentProfile?.role) || document.hidden) return;
     refreshAdminSecurityNotificationsSilently(app);
   }, 20000);
+
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) {
+      refreshAdminSecurityNotificationsSilently(app);
+    }
+  });
 
   const storedProtocol = loadProtocolFromStorage();
   if (storedProtocol) {
@@ -7051,7 +7121,7 @@ async function mount() {
       }
       app.view = "modulos";
       renderState(app);
-      window.scrollTo({ top: 0, behavior: "smooth" });
+      window.scrollTo({ top: 0, behavior: getPreferredMotionBehavior() });
     });
   }
 
@@ -7061,7 +7131,7 @@ async function mount() {
       consumeUiClick(e);
       app.view = "viewer_profile";
       renderState(app);
-      window.scrollTo({ top: 0, behavior: "smooth" });
+      window.scrollTo({ top: 0, behavior: getPreferredMotionBehavior() });
     });
   }
 

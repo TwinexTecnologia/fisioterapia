@@ -6301,6 +6301,52 @@ body {
   color: var(--text);
 }
 
+/* Performance tuning for long lists, diagrams and mobile navigation */
+#modulesList > *,
+.timeline-step,
+.flow-node,
+.admin-table tbody tr {
+  content-visibility: auto;
+  contain-intrinsic-size: 320px;
+}
+
+@media (max-width: 900px), (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  .dash-card,
+  .module-card,
+  .viewer-module-card,
+  .timeline-step,
+  .timeline-step__answer,
+  .flow-node,
+  .tab-btn,
+  .crumb__btn,
+  .btn {
+    transition: none !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+
+  .dash-card:hover,
+  .timeline-step:hover,
+  .timeline-step__answer:hover {
+    transform: none !important;
+  }
+
+  .login-card,
+  .viewer-hero-panel,
+  .viewer-mobile-nav,
+  .viewer-mobile-nav-backdrop,
+  .builder-modal__dialog,
+  #screenAdminModulos .dash-card,
+  #screenAdminDashboard .dash-stat-card,
+  .editor-saving-overlay {
+    backdrop-filter: none !important;
+  }
+}
+
 .crumb__sep {
   color: var(--muted);
   opacity: 0.5;
