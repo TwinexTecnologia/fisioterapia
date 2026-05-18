@@ -4,7 +4,8 @@ const STORAGE = {
   protocol: "thompson.protocol.v1",
   session: "thompson.session.v1",
   viewerNotificationsSeen: "thompson.viewer.notifications.seen.v1",
-  deviceId: "thompson.device.id.v1"
+  deviceId: "thompson.device.id.v1",
+  supabaseModulesCache: "thompson.supabase.modules.cache.v1"
 };
 
 const DEFAULT_PROTOCOL_URL = "./protocol.generated.json";
@@ -15,6 +16,8 @@ const PROFILE_REFRESH_TTL_MS = 15000;
 const MODULES_REFRESH_TTL_MS = 20000;
 const MANAGED_PROFILES_REFRESH_TTL_MS = 20000;
 const SECURITY_NOTIFICATIONS_REFRESH_TTL_MS = 20000;
+const MODULES_CACHE_MAX_AGE_MS = 5 * 60 * 1000;
+const EDITOR_DERIVED_REFRESH_DELAY_MS = 90;
 const flowVisualGraphCache = new WeakMap();
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
@@ -97,6 +100,45 @@ function safeJsonParse(text) {
     return { ok: true, value: JSON.parse(text) };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+function getSupabaseModulesCacheStorageKey(app) {
+  const userId = String(app?.currentUser?.id ?? "").trim();
+  const role = String(app?.currentProfile?.role ?? "").trim();
+  if (!userId || !role) return "";
+  return `${STORAGE.supabaseModulesCache}:${userId}:${role}`;
+}
+
+function persistSupabaseModulesCache(app, rows = app?.supabaseModules) {
+  const key = getSupabaseModulesCacheStorageKey(app);
+  if (!key) return;
+  const payload = {
+    cachedAt: now(),
+    rows: Array.isArray(rows) ? rows : []
+  };
+  try {
+    localStorage.setItem(key, JSON.stringify(payload));
+  } catch {}
+}
+
+function restoreSupabaseModulesCache(app, options = {}) {
+  const key = getSupabaseModulesCacheStorageKey(app);
+  if (!key) return [];
+  const maxAgeMs = Math.max(0, Number(options.maxAgeMs ?? MODULES_CACHE_MAX_AGE_MS));
+  try {
+    const parsed = safeJsonParse(localStorage.getItem(key) || "");
+    if (!parsed.ok || !parsed.value || typeof parsed.value !== "object") return [];
+    const cachedAt = Number(parsed.value.cachedAt ?? 0);
+    if (!cachedAt || (now() - cachedAt) > maxAgeMs) return [];
+    const rows = Array.isArray(parsed.value.rows) ? parsed.value.rows : [];
+    app.supabaseModules = filterModulesForCurrentProfile(app, rows);
+    app.hasLoadedSupabaseModules = true;
+    app.lastModulesRefreshAt = cachedAt;
+    app.protocol = mergeProtocolWithSupabaseModules(app.protocol, app.supabaseModules);
+    return app.supabaseModules;
+  } catch {
+    return [];
   }
 }
 
@@ -1297,6 +1339,51 @@ function resetEditorAutoSaveState(app) {
   app.hasPendingEditorAutoSave = false;
 }
 
+function clearEditorDerivedRefreshTimer(app) {
+  if (!app?.editorDerivedRefreshTimer) return;
+  window.clearTimeout(app.editorDerivedRefreshTimer);
+  app.editorDerivedRefreshTimer = 0;
+}
+
+function mergeEditorDerivedRefreshOptions(currentOptions = {}, nextOptions = {}) {
+  return {
+    syncJson: Boolean(currentOptions.syncJson || nextOptions.syncJson),
+    flow: Boolean(currentOptions.flow || nextOptions.flow),
+    preview: Boolean(currentOptions.preview || nextOptions.preview),
+    inspector: Boolean(currentOptions.inspector || nextOptions.inspector),
+    validation: Boolean(currentOptions.validation || nextOptions.validation)
+  };
+}
+
+function runEditorDerivedRefresh(app, options = {}) {
+  if (!app || app.view !== "editor") return;
+  if (options.syncJson) syncBuilderJsonPreview(app);
+  if (options.inspector) fillBuilderInspector(app);
+  if (options.flow) renderBuilderFlowEditor(app);
+  if (options.validation) renderBuilderValidation(app);
+  if (options.preview) renderVisualPreview(app);
+}
+
+function scheduleEditorDerivedRefresh(app, options = {}) {
+  if (!app || app.view !== "editor") return;
+  const normalizedOptions = {
+    syncJson: options.syncJson !== false,
+    flow: options.flow !== false,
+    preview: options.preview !== false,
+    inspector: Boolean(options.inspector),
+    validation: Boolean(options.validation)
+  };
+  app.pendingEditorDerivedRefresh = mergeEditorDerivedRefreshOptions(app.pendingEditorDerivedRefresh, normalizedOptions);
+  clearEditorDerivedRefreshTimer(app);
+  const delayMs = Math.max(0, Number(options.delayMs ?? EDITOR_DERIVED_REFRESH_DELAY_MS));
+  app.editorDerivedRefreshTimer = window.setTimeout(() => {
+    const pending = app.pendingEditorDerivedRefresh ?? normalizedOptions;
+    app.editorDerivedRefreshTimer = 0;
+    app.pendingEditorDerivedRefresh = null;
+    runEditorDerivedRefresh(app, pending);
+  }, delayMs);
+}
+
 function scheduleEditorAutoSave(app, options = {}) {
   if (!app || app.view !== "editor") return;
   app.isEditorDirty = true;
@@ -1360,6 +1447,7 @@ function mergeSavedModuleIntoLocalState(app, row, previousSlug = "") {
   app.supabaseModules = filterModulesForCurrentProfile(app, filtered);
   app.hasLoadedSupabaseModules = true;
   app.protocol = mergeProtocolWithSupabaseModules(app.protocol, app.supabaseModules);
+  persistSupabaseModulesCache(app);
 }
 
 async function persistEditorModule(app, options = {}) {
@@ -1380,6 +1468,12 @@ async function persistEditorModule(app, options = {}) {
   }
 
   clearEditorAutoSaveTimer(app);
+  if (app.pendingEditorDerivedRefresh) {
+    clearEditorDerivedRefreshTimer(app);
+    const pendingRefresh = app.pendingEditorDerivedRefresh;
+    app.pendingEditorDerivedRefresh = null;
+    runEditorDerivedRefresh(app, pendingRefresh);
+  }
   app.builderDraft = ensureBuilderDraftConsistency(app.builderDraft);
   syncVisualDraftFromDom(app);
   const issues = getEditorValidationIssues(app);
@@ -2016,6 +2110,7 @@ async function refreshSupabaseModules(app, options = {}) {
     app.lastModulesRefreshAt = now();
     app.protocol = mergeProtocolWithSupabaseModules(app.protocol, app.supabaseModules);
     if (app.protocol) saveProtocolToStorage(app.protocol);
+    persistSupabaseModulesCache(app);
     return app.supabaseModules;
   })();
 
@@ -2687,7 +2782,6 @@ function createModuleBlueprintForSave(visualDraft, builderDraft, issues = []) {
   return normalizeModuleBlueprint({
     ...visualDraft,
     editor: {
-      builderDraft: cloneBuilderDraftForStorage(builderDraft),
       pendingIssues: (Array.isArray(issues) ? issues : [])
         .map((issue) => normalizeEditorPendingIssue(issue))
         .filter((issue) => issue && issue.message),
@@ -4713,6 +4807,61 @@ function getSupabaseBackedModules(app) {
   });
 }
 
+function getAllowedModulePlaceholderModules(app, existingModules = []) {
+  if (!isFisioPacienteRole(app.currentProfile?.role)) return [];
+  if (!isManagedProfileActive(app.currentProfile)) return [];
+  const allowed = Array.isArray(app.currentProfile?.allowed_modules) ? app.currentProfile.allowed_modules : [];
+  if (allowed.length === 0) return [];
+
+  const knownKeys = new Set(
+    (Array.isArray(existingModules) ? existingModules : []).flatMap((module) => ([
+      String(module?.id ?? "").trim(),
+      String(module?.slug ?? "").trim(),
+      String(module?.flowId ?? "").trim(),
+      normalizeDashboardModuleName(module?.name ?? ""),
+      slugifyText(module?.name ?? ""),
+      slugifyText(module?.slug ?? ""),
+      slugifyText(module?.flowId ?? "")
+    ])).filter(Boolean)
+  );
+
+  return allowed
+    .map((entry, index) => {
+      const raw = String(entry ?? "").trim();
+      if (!raw) return null;
+      const fallbackName = normalizeDashboardModuleName(raw)
+        .replace(/[-_]+/g, " ")
+        .replace(/\s+/g, " ")
+        .trim() || `Modulo ${index + 1}`;
+      const slug = slugifyText(raw) || slugifyText(fallbackName) || `modulo-${index + 1}`;
+      const candidates = [
+        raw,
+        raw.toLowerCase(),
+        fallbackName,
+        fallbackName.toLowerCase(),
+        slug
+      ].filter(Boolean);
+      if (candidates.some((candidate) => knownKeys.has(candidate))) return null;
+      return {
+        id: `allowed-placeholder:${slug}`,
+        flowId: slug,
+        slug,
+        name: fallbackName,
+        description: "Protocolo liberado para o seu perfil. Estamos carregando os detalhes completos.",
+        status: "loading",
+        nodeCount: 0,
+        ownerId: "",
+        createdAt: null,
+        updatedAt: null,
+        startFlowId: slug,
+        coverImageUrl: "",
+        icon: "⏳",
+        source: "allowed-placeholder"
+      };
+    })
+    .filter(Boolean);
+}
+
 function canEditModules(role) {
   return isFisioAdminRole(role);
 }
@@ -4838,6 +4987,8 @@ function renderViewerModulesHome(app, modules) {
   const visibleLabel = visibleModules.length === 1 ? "1 resultado" : `${visibleModules.length} resultados`;
   const displayName = getUserDisplayName(app.currentProfile, app.currentUser);
 
+  const readyModules = visibleModules.filter((module) => module.source !== "allowed-placeholder");
+  const loadingModules = visibleModules.length - readyModules.length;
   list.classList.add("viewer-modules-grid");
   if (screen) screen.classList.add("viewer-screen-mode");
   if (header) header.classList.add("viewer-home-header");
@@ -4851,7 +5002,12 @@ function renderViewerModulesHome(app, modules) {
   if (heroSubtitle) heroSubtitle.textContent = "Acesse seus protocolos autorizados com busca rapida, identidade Ajuste Certo e uma experiencia clinica mais clara.";
   if (searchInput && searchInput.value !== String(app.viewerModuleSearch ?? "")) searchInput.value = String(app.viewerModuleSearch ?? "");
   if (searchClear) searchClear.classList.toggle("hidden", !String(app.viewerModuleSearch ?? "").trim());
-  if (summary) summary.textContent = searchTerm ? `${visibleLabel} para "${String(app.viewerModuleSearch ?? "").trim()}"` : totalLabel;
+  if (summary) {
+    const loadingLabel = loadingModules > 0 ? ` • ${loadingModules} carregando` : "";
+    summary.textContent = searchTerm
+      ? `${visibleLabel} para "${String(app.viewerModuleSearch ?? "").trim()}"${loadingLabel}`
+      : `${totalLabel}${loadingLabel}`;
+  }
   syncViewerNotificationBadge(app);
   if (statsGrid) statsGrid.classList.add("hidden");
   if (createWrap) createWrap.classList.add("hidden");
@@ -4884,7 +5040,7 @@ function renderViewerModulesHome(app, modules) {
           </div>
           <div class="viewer-module-card__footer">
             <span class="viewer-module-card__hint">Abra o protocolo e continue seu atendimento.</span>
-            <button class="btn viewer-module-card__button" type="button" data-module-action="test" data-module-id="${escapeHtml(module.id)}">Acessar</button>
+            <button class="btn viewer-module-card__button" type="button" data-module-action="test" data-module-id="${escapeHtml(module.id)}" ${module.source === "allowed-placeholder" ? "disabled" : ""}>${module.source === "allowed-placeholder" ? "Carregando..." : "Acessar"}</button>
           </div>
         </div>
       </div>
@@ -5184,7 +5340,9 @@ function getModulesForView(app) {
     slug: module.id,
     ownerId: String(app.currentUser?.id ?? "")
   }));
-  return filterModulesForCurrentProfile(app, localModules);
+  const filteredLocalModules = filterModulesForCurrentProfile(app, localModules);
+  const placeholderModules = getAllowedModulePlaceholderModules(app, filteredLocalModules);
+  return filteredLocalModules.concat(placeholderModules);
 }
 
 function formatModuleDate(dateValue) {
@@ -7049,6 +7207,8 @@ async function mount() {
       hasPendingEditorAutoSave: false,
       editorAutoSaveTimer: 0,
       editorSavePromise: null,
+      editorDerivedRefreshTimer: 0,
+      pendingEditorDerivedRefresh: null,
       authHydrationPromise: null,
       forceProfileRefresh: false,
       lastProfileRefreshAt: 0,
@@ -7127,6 +7287,7 @@ async function mount() {
       app.currentUser = authContext.user;
       app.currentProfile = authContext.profile;
       if (authContext.session) {
+        restoreSupabaseModulesCache(app);
         app.view = getDefaultViewForRole(authContext.profile?.role);
         renderState(app);
         void scheduleAuthenticatedHydration(app, { renderAfterHydration: true });
@@ -7165,6 +7326,7 @@ async function mount() {
         app.authSession = authContext.session;
         app.currentUser = authContext.user;
         app.currentProfile = authContext.profile;
+        restoreSupabaseModulesCache(app);
         app.view = getDefaultViewForRole(authContext.profile?.role);
         renderState(app);
         void scheduleAuthenticatedHydration(app, { renderAfterHydration: true });
@@ -7338,15 +7500,11 @@ async function mount() {
 
   const viewerMobileHomeBtn = $("viewerMobileHomeBtn");
   if (viewerMobileHomeBtn) {
-    viewerMobileHomeBtn.addEventListener("click", async (e) => {
+    viewerMobileHomeBtn.addEventListener("click", (e) => {
       consumeUiClick(e);
-      try {
-        await refreshSupabaseModules(app);
-      } catch (error) {
-        console.error("Erro ao atualizar módulos do visualizador", error);
-      }
       app.view = "modulos";
       renderState(app);
+      void refreshViewDataInBackground(app, "modulos");
       window.scrollTo({ top: 0, behavior: getPreferredMotionBehavior() });
     });
   }
@@ -8473,9 +8631,12 @@ async function mount() {
         const answer = node.answers.find((item) => item.id === answerId);
         if (answer) answer.label = value.trimStart();
       }
-      syncBuilderJsonPreview(app);
-      renderVisualPreview(app);
-      if (nodeId === app.selectedBuilderNodeId) fillBuilderInspector(app);
+      scheduleEditorDerivedRefresh(app, {
+        syncJson: true,
+        flow: true,
+        preview: true,
+        inspector: nodeId === app.selectedBuilderNodeId
+      });
       scheduleEditorAutoSave(app);
       return;
     }
@@ -8502,8 +8663,11 @@ async function mount() {
       } else {
         app.builderDraft.id = String(e.target.value ?? "");
       }
-      syncBuilderJsonPreview(app);
-      renderVisualPreview(app);
+      scheduleEditorDerivedRefresh(app, {
+        syncJson: true,
+        flow: false,
+        preview: true
+      });
       scheduleEditorAutoSave(app);
       return;
     }
@@ -8515,10 +8679,12 @@ async function mount() {
     if (e.target && (e.target.closest(".builder-node") || e.target.closest(".builder-answer"))) {
       syncBuilderDraftFromDom(app);
       app.builderDraft = ensureBuilderDraftConsistency(app.builderDraft);
-      syncBuilderJsonPreview(app);
-      fillBuilderInspector(app);
-      renderBuilderFlowEditor(app);
-      renderVisualPreview(app);
+      scheduleEditorDerivedRefresh(app, {
+        syncJson: true,
+        flow: true,
+        preview: true,
+        inspector: true
+      });
       scheduleEditorAutoSave(app);
       return;
     }
@@ -8535,9 +8701,11 @@ async function mount() {
       if (!node) return;
       if (e.target.id === "builderSelectedNodeTitle") node.title = String(e.target.value ?? "");
       if (e.target.id === "builderSelectedNodeBody") node.body = String(e.target.value ?? "");
-      syncBuilderJsonPreview(app);
-      renderBuilderFlowEditor(app);
-      renderVisualPreview(app);
+      scheduleEditorDerivedRefresh(app, {
+        syncJson: true,
+        flow: true,
+        preview: e.target.id === "builderSelectedNodeTitle"
+      });
       scheduleEditorAutoSave(app);
       return;
     }
@@ -8546,10 +8714,12 @@ async function mount() {
       const node = getBuilderDraftNode(app.builderDraft, app.selectedBuilderNodeId);
       if (!node) return;
       node.imageUrl = String(e.target.value ?? "").trim();
-      fillBuilderInspector(app);
-      syncBuilderJsonPreview(app);
-      renderBuilderFlowEditor(app);
-      renderVisualPreview(app);
+      scheduleEditorDerivedRefresh(app, {
+        syncJson: true,
+        flow: true,
+        preview: true,
+        inspector: true
+      });
       scheduleEditorAutoSave(app);
       return;
     }
@@ -8559,9 +8729,11 @@ async function mount() {
       const answer = node?.answers?.find((item) => item.id === String(e.target.getAttribute("data-answer-id") ?? ""));
       if (!answer) return;
       answer.label = String(e.target.value ?? "");
-      syncBuilderJsonPreview(app);
-      renderBuilderFlowEditor(app);
-      renderVisualPreview(app);
+      scheduleEditorDerivedRefresh(app, {
+        syncJson: true,
+        flow: true,
+        preview: true
+      });
       scheduleEditorAutoSave(app);
       return;
     }
@@ -8584,7 +8756,11 @@ async function mount() {
       "visualDiagnosisIconUrl"
     ].includes(e.target.id)) {
       syncVisualDraftFromDom(app);
-      renderVisualPreview(app);
+      scheduleEditorDerivedRefresh(app, {
+        syncJson: false,
+        flow: false,
+        preview: true
+      });
       scheduleEditorAutoSave(app);
     }
 
