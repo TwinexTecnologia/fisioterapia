@@ -1736,33 +1736,36 @@ function applyAuthUi(app) {
   }
 }
 
-async function loadAuthContext() {
-  const { data, error } = await supabase.auth.getSession();
-  if (error) throw error;
-  const session = data?.session ?? null;
+function getAuthProfileSelect() {
+  // Keep login/session hydration lightweight so a large avatar or profile text
+  // stored in managed fields does not block the patient from entering the app.
+  return "id, full_name, role, parent_admin_id, login_email, crefito, is_active, allowed_modules";
+}
 
+async function loadProfileForAuthUser(userId) {
+  const normalizedUserId = String(userId ?? "").trim();
+  if (!normalizedUserId) return null;
+  const profileResult = await supabase
+    .from("profiles")
+    .select(getAuthProfileSelect())
+    .eq("id", normalizedUserId)
+    .single();
+  if (profileResult.error) throw profileResult.error;
+  return profileResult.data ?? null;
+}
+
+async function loadAuthContextFromSession(session) {
   if (!session?.user) {
     return { session: null, user: null, profile: null };
   }
-
-  // Keep login/session hydration lightweight so a large avatar or profile text
-  // stored in managed fields does not block the patient from entering the app.
-  const profileSelect = "id, full_name, role, parent_admin_id, login_email, crefito, is_active, allowed_modules";
-
-  let profile = null;
-  let profileError = null;
-
-  const profileResult = await supabase
-    .from("profiles")
-    .select(profileSelect)
-    .eq("id", session.user.id)
-    .single();
-
-  profile = profileResult.data;
-  profileError = profileResult.error;
-
-  if (profileError) throw profileError;
+  const profile = await loadProfileForAuthUser(session.user.id);
   return { session, user: session.user, profile };
+}
+
+async function loadAuthContext() {
+  const { data, error } = await supabase.auth.getSession();
+  if (error) throw error;
+  return loadAuthContextFromSession(data?.session ?? null);
 }
 
 async function refreshCurrentProfile(app) {
@@ -1810,6 +1813,25 @@ function scheduleAuthenticatedHydration(app, options = {}) {
     }, delayMs);
   });
   return app.authHydrationPromise;
+}
+
+function applyAuthenticatedContext(app, authContext, options = {}) {
+  app.authSession = authContext?.session ?? null;
+  app.currentUser = authContext?.user ?? null;
+  app.currentProfile = authContext?.profile ?? null;
+  app.lastProfileRefreshAt = authContext?.profile ? now() : 0;
+  if (!authContext?.session || !authContext?.profile) {
+    app.view = "login";
+    return;
+  }
+  restoreSupabaseModulesCache(app);
+  app.view = getDefaultViewForRole(authContext.profile.role);
+  if (options.render !== false) {
+    renderState(app);
+  }
+  if (options.hydrate !== false) {
+    void scheduleAuthenticatedHydration(app, { renderAfterHydration: true });
+  }
 }
 
 async function refreshViewDataInBackground(app, targetView, options = {}) {
@@ -7283,16 +7305,7 @@ async function mount() {
       }
     } else {
       const authContext = await ensurePatientDeviceAccess(await ensureActiveAuthContext(await loadAuthContext()));
-      app.authSession = authContext.session;
-      app.currentUser = authContext.user;
-      app.currentProfile = authContext.profile;
-      if (authContext.session) {
-        restoreSupabaseModulesCache(app);
-        app.view = getDefaultViewForRole(authContext.profile?.role);
-        renderState(app);
-        void scheduleAuthenticatedHydration(app, { renderAfterHydration: true });
-      }
-      app.view = authContext.session ? getDefaultViewForRole(authContext.profile?.role) : "login";
+      applyAuthenticatedContext(app, authContext, { render: false });
       setLoginRecoveryMode(false);
     }
   } catch (authError) {
@@ -7319,19 +7332,22 @@ async function mount() {
         setLoginRecoveryMode(false);
         setLoginError("");
         if (submitButton) submitButton.disabled = true;
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
 
-        const authContext = await ensurePatientDeviceAccess(await ensureActiveAuthContext(await loadAuthContext()));
-        app.authSession = authContext.session;
-        app.currentUser = authContext.user;
-        app.currentProfile = authContext.profile;
-        restoreSupabaseModulesCache(app);
-        app.view = getDefaultViewForRole(authContext.profile?.role);
-        renderState(app);
-        void scheduleAuthenticatedHydration(app, { renderAfterHydration: true });
+        const authContext = await ensurePatientDeviceAccess(
+          await ensureActiveAuthContext(
+            await loadAuthContextFromSession(data?.session ?? null)
+          )
+        );
+        applyAuthenticatedContext(app, authContext);
       } catch (loginError) {
         console.error("Erro ao fazer login", loginError);
+        app.authSession = null;
+        app.currentUser = null;
+        app.currentProfile = null;
+        app.view = "login";
+        renderState(app);
         setLoginError(getReadableAuthError(loginError));
       } finally {
         if (submitButton) submitButton.disabled = false;
