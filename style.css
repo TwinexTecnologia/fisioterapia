@@ -2479,9 +2479,23 @@ body {
     margin-bottom: 18px;
   }
 
+  .app--viewer-runtime .card--pergunta .pill,
+  .app--viewer-runtime .card--orientacao .pill,
+  .app--viewer-runtime .card--interpretacao .pill,
+  .app--viewer-runtime .card--area .pill {
+    font-size: 12px;
+    padding: 4px 8px;
+    margin-bottom: 3px;
+  }
+
   .app--viewer-runtime .node-box .h1,
   .app--viewer-runtime .node-box .body {
     font-size: 17px;
+  }
+
+  .app--viewer-runtime .body {
+    font-size: 17px;
+    line-height: 1.3;
   }
 
   .app--viewer-runtime .node-box__image {
@@ -2491,10 +2505,36 @@ body {
     border-radius: 18px;
   }
 
+  .app--viewer-runtime .areas-container {
+    gap: 14px;
+    margin-top: 18px;
+  }
+
+  .app--viewer-runtime .btn--area {
+    width: 120px;
+    height: 120px;
+    border-radius: 18px;
+    font-size: 12px;
+    padding: 8px;
+    gap: 8px;
+  }
+
+  .app--viewer-runtime .options {
+    gap: 10px;
+    margin-top: 16px;
+  }
+
   .app--viewer-runtime .runtime-actions .btn,
-  .app--viewer-runtime .options .btn {
+  .app--viewer-runtime .options .btn,
+  .app--viewer-runtime .btn--resposta {
     font-size: 13px;
     padding: 11px 14px;
+  }
+
+  .app--viewer-runtime .btn--resposta {
+    min-width: 0;
+    width: 100%;
+    padding: 11px 18px;
   }
 }
 
