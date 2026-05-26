@@ -6770,9 +6770,9 @@ body {
   }
 
   .diagnosis__card {
-    width: min(88vw, 340px);
-    gap: 8px;
-    padding: 12px 10px 18px;
+    width: min(82vw, 316px);
+    gap: 7px;
+    padding: 10px 9px 16px;
     border-radius: 12px;
     box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.08);
   }
@@ -6783,13 +6783,13 @@ body {
 
   .diagnosis__icon-image,
   .diagnosis__svg {
-    width: 52px;
+    width: 46px;
   }
 
   .diagnosis__title {
-    font-size: 18px;
+    font-size: 16px;
     line-height: 1.02;
-    max-width: 260px;
+    max-width: 232px;
     margin: 0 auto;
     text-shadow:
       -1px -1px 0 #fff,
@@ -6800,37 +6800,73 @@ body {
   }
 
   .diagnosis__body {
-    max-width: 100%;
-    padding: 7px 9px;
+    width: min(100%, 250px);
+    padding: 6px 8px;
     border-radius: 10px;
-    font-size: 11px;
-    line-height: 1.25;
+    font-size: 10.5px;
+    line-height: 1.22;
   }
 
   .diagnosis__image {
-    max-height: 180px;
-    border-radius: 12px;
-    padding: 4px;
+    max-height: 156px;
+    border-radius: 10px;
+    padding: 3px;
   }
 
   .diagnosis__card--with-media .diagnosis__image {
-    max-height: 172px;
+    max-height: 148px;
     border-radius: 10px;
   }
 
   .diagnosis__actions {
-    width: min(88vw, 340px);
+    width: min(82vw, 316px);
     gap: 6px;
-    margin-top: 12px;
+    margin-top: 10px;
   }
 
   .btn--diagnosis-primary,
   .btn--diagnosis-secondary {
     width: 100%;
-    font-size: 13px;
-    padding: 9px 10px;
+    font-size: 12px;
+    padding: 8px 9px;
     border-radius: 10px;
     box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.08);
+  }
+}
+
+@media (max-width: 390px) {
+  .diagnosis__card {
+    width: min(78vw, 296px);
+    padding: 9px 8px 14px;
+  }
+
+  .diagnosis__title {
+    font-size: 15px;
+    max-width: 214px;
+  }
+
+  .diagnosis__body {
+    width: min(100%, 232px);
+    font-size: 10px;
+    line-height: 1.18;
+  }
+
+  .diagnosis__image {
+    max-height: 146px;
+  }
+
+  .diagnosis__card--with-media .diagnosis__image {
+    max-height: 140px;
+  }
+
+  .diagnosis__actions {
+    width: min(78vw, 296px);
+  }
+
+  .btn--diagnosis-primary,
+  .btn--diagnosis-secondary {
+    font-size: 11px;
+    padding: 7px 8px;
   }
 }
 
