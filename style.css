@@ -6493,7 +6493,54 @@ body {
     align-items: center;
   }
   .finalizer__path {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: 1fr;
+    gap: 10px;
+    margin: 8px 0 18px;
+    padding: 0 4px;
+  }
+  .finalizer {
+    padding: 10px 10px 14px;
+    border-radius: 18px;
+  }
+  .finalizer__topbar {
+    margin-bottom: 8px;
+  }
+  .btn-home {
+    width: 44px;
+    height: 44px;
+    border-width: 2px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.14);
+  }
+  .btn-home__icon {
+    font-size: 20px;
+  }
+  .finalizer-step__question,
+  .finalizer-step__answer {
+    border-radius: 10px;
+    box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.1);
+  }
+  .finalizer-step__question {
+    padding: 10px 8px 9px;
+  }
+  .finalizer-step__question strong {
+    font-size: 14px;
+    margin-bottom: 5px;
+  }
+  .finalizer-step__question span {
+    font-size: 11px;
+    line-height: 1.22;
+  }
+  .finalizer-step__answer {
+    margin-top: 6px;
+    padding: 7px 8px;
+  }
+  .finalizer-step__answer strong {
+    font-size: 11px;
+    margin-bottom: 2px;
+  }
+  .finalizer-step__answer span {
+    font-size: 11px;
+    line-height: 1.2;
   }
   .diagnosis__path {
     grid-template-columns: 1fr;
