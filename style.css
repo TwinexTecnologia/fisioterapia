@@ -2824,6 +2824,134 @@ body {
   }
 }
 
+@media (max-width: 540px) {
+  .app--viewer-runtime .main--admin,
+  .main--admin.main--viewer-runtime {
+    padding: 8px 8px 18px;
+  }
+
+  .app--viewer-runtime #screenProtocolIntro,
+  .app--viewer-runtime #screenNode,
+  .app--viewer-runtime .node-box,
+  .app--viewer-runtime .finalizer,
+  .app--viewer-runtime .options,
+  .app--viewer-runtime .areas-container,
+  .app--viewer-runtime .runtime-actions {
+    width: min(94vw, 420px);
+  }
+
+  .app--viewer-runtime .node-box {
+    padding: 12px 14px;
+    margin-bottom: 12px;
+    border-width: 1.5px;
+    border-radius: 24px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+  }
+
+  .app--viewer-runtime .card--pergunta .pill,
+  .app--viewer-runtime .card--orientacao .pill,
+  .app--viewer-runtime .card--interpretacao .pill,
+  .app--viewer-runtime .card--area .pill {
+    font-size: 10px;
+    padding: 2px 6px;
+    margin-bottom: 2px;
+  }
+
+  .app--viewer-runtime .node-box .h1,
+  .app--viewer-runtime .node-box .body,
+  .app--viewer-runtime .body {
+    font-size: 15px;
+    line-height: 1.2;
+  }
+
+  .app--viewer-runtime .node-box__image {
+    max-height: 240px;
+    margin-bottom: 8px;
+    padding: 6px;
+    border-radius: 14px;
+  }
+
+  .app--viewer-runtime .areas-container,
+  .app--viewer-runtime .options,
+  .app--viewer-runtime .runtime-actions {
+    gap: 8px;
+    margin-top: 12px;
+  }
+
+  .app--viewer-runtime .btn--area {
+    width: 98px;
+    height: 98px;
+    border-radius: 14px;
+    font-size: 11px;
+    padding: 6px;
+    gap: 6px;
+  }
+
+  .app--viewer-runtime .runtime-actions .btn,
+  .app--viewer-runtime .options .btn,
+  .app--viewer-runtime .btn--resposta {
+    min-height: 0;
+    font-size: 12px;
+    padding: 9px 10px;
+    border-width: 1.5px;
+  }
+
+  .app--viewer-runtime .btn--resposta {
+    width: 100%;
+    min-width: 0;
+    padding: 9px 12px;
+  }
+
+  .app--viewer-runtime .finalizer {
+    width: min(94vw, 420px);
+    padding: 8px 8px 12px;
+    border-radius: 14px;
+    margin-bottom: 16px;
+  }
+
+  .app--viewer-runtime .finalizer__topbar {
+    margin-bottom: 6px;
+  }
+
+  .app--viewer-runtime .finalizer__path {
+    gap: 8px;
+    margin: 6px 0 14px;
+    padding: 0 1px;
+  }
+
+  .app--viewer-runtime .finalizer-step__question,
+  .app--viewer-runtime .finalizer-step__answer {
+    border-width: 1.5px;
+    border-radius: 8px;
+    box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.08);
+  }
+
+  .app--viewer-runtime .finalizer-step__question {
+    padding: 8px 6px 7px;
+  }
+
+  .app--viewer-runtime .finalizer-step__question strong {
+    font-size: 12px;
+    margin-bottom: 4px;
+  }
+
+  .app--viewer-runtime .finalizer-step__question span {
+    font-size: 10px;
+    line-height: 1.15;
+  }
+
+  .app--viewer-runtime .finalizer-step__answer {
+    margin-top: 4px;
+    padding: 6px 7px;
+  }
+
+  .app--viewer-runtime .finalizer-step__answer strong,
+  .app--viewer-runtime .finalizer-step__answer span {
+    font-size: 10px;
+    line-height: 1.15;
+  }
+}
+
 .main--admin.main--editor {
   max-width: none;
   margin: 0;
