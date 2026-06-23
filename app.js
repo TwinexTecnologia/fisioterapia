@@ -3532,18 +3532,27 @@ function loadImageFromFile(file) {
   });
 }
 
-async function readAvatarFileAsOptimizedDataUrl(file) {
+function renderImageToOptimizedDataUrl(canvas, mimeType, quality) {
+  const safeMimeType = String(mimeType ?? "").trim() || "image/webp";
+  const rendered = canvas.toDataURL(safeMimeType, quality);
+  if (rendered.startsWith(`data:${safeMimeType}`)) return rendered;
+  return canvas.toDataURL("image/jpeg", quality);
+}
+
+async function readOptimizedImageDataUrl(file, options = {}) {
   if (!file || !String(file.type ?? "").startsWith("image/")) {
-    throw new Error("Selecione uma imagem valida para a foto de perfil.");
+    throw new Error("Selecione uma imagem valida.");
   }
 
   const image = await loadImageFromFile(file);
-  const maxDimension = 960;
-  const targetBytes = 360 * 1024;
-  const hardLimitBytes = 700 * 1024;
-  const minQuality = 0.5;
-  const qualityStep = 0.08;
-  const scaleStep = 0.85;
+  const maxDimension = Math.max(240, Number(options.maxDimension ?? 1280));
+  const minDimension = Math.max(180, Number(options.minDimension ?? 280));
+  const targetBytes = Math.max(80 * 1024, Number(options.targetBytes ?? 420 * 1024));
+  const hardLimitBytes = Math.max(targetBytes, Number(options.hardLimitBytes ?? 900 * 1024));
+  const minQuality = Math.min(0.92, Math.max(0.4, Number(options.minQuality ?? 0.5)));
+  const qualityStep = Math.min(0.2, Math.max(0.04, Number(options.qualityStep ?? 0.08)));
+  const scaleStep = Math.min(0.92, Math.max(0.7, Number(options.scaleStep ?? 0.85)));
+  const mimeType = String(options.mimeType ?? "image/webp").trim() || "image/webp";
 
   let width = image.naturalWidth || image.width || maxDimension;
   let height = image.naturalHeight || image.height || maxDimension;
@@ -3578,7 +3587,7 @@ async function readAvatarFileAsOptimizedDataUrl(file) {
   for (let pass = 0; pass < 6; pass += 1) {
     render(currentWidth, currentHeight);
     for (let quality = 0.92; quality >= minQuality; quality -= qualityStep) {
-      const dataUrl = canvas.toDataURL("image/jpeg", quality);
+      const dataUrl = renderImageToOptimizedDataUrl(canvas, mimeType, quality);
       const size = estimateDataUrlSize(dataUrl);
       if (size < bestSize) {
         bestSize = size;
@@ -3586,12 +3595,22 @@ async function readAvatarFileAsOptimizedDataUrl(file) {
       }
       if (size <= targetBytes) return dataUrl;
     }
-    currentWidth = Math.max(320, Math.round(currentWidth * scaleStep));
-    currentHeight = Math.max(320, Math.round(currentHeight * scaleStep));
+    currentWidth = Math.max(minDimension, Math.round(currentWidth * scaleStep));
+    currentHeight = Math.max(minDimension, Math.round(currentHeight * scaleStep));
   }
 
   if (bestDataUrl && bestSize <= hardLimitBytes) return bestDataUrl;
-  throw new Error("Essa foto ainda ficou pesada. Tente outra imagem ou corte um pouco antes de enviar.");
+  throw new Error("Essa imagem ainda ficou pesada. Tente outra imagem ou corte um pouco antes de enviar.");
+}
+
+async function readAvatarFileAsOptimizedDataUrl(file) {
+  return readOptimizedImageDataUrl(file, {
+    maxDimension: 960,
+    minDimension: 320,
+    targetBytes: 360 * 1024,
+    hardLimitBytes: 700 * 1024,
+    mimeType: "image/webp"
+  });
 }
 
 function setVisualEditorFullscreen(isOpen) {
@@ -8408,7 +8427,13 @@ async function mount() {
       const file = visualBackgroundFile.files?.[0];
       if (!file) return;
       try {
-        const dataUrl = await readFileAsDataUrl(file);
+        const dataUrl = await readOptimizedImageDataUrl(file, {
+          maxDimension: 1440,
+          minDimension: 720,
+          targetBytes: 520 * 1024,
+          hardLimitBytes: 900 * 1024,
+          mimeType: "image/webp"
+        });
         if ($("visualBackgroundImage")) $("visualBackgroundImage").value = dataUrl;
         syncVisualDraftFromDom(app);
         renderVisualPreview(app);
@@ -8429,7 +8454,13 @@ async function mount() {
       const file = visualIconFile.files?.[0];
       if (!file) return;
       try {
-        const dataUrl = await readFileAsDataUrl(file);
+        const dataUrl = await readOptimizedImageDataUrl(file, {
+          maxDimension: 720,
+          minDimension: 280,
+          targetBytes: 160 * 1024,
+          hardLimitBytes: 320 * 1024,
+          mimeType: "image/webp"
+        });
         if ($("visualIconUrl")) $("visualIconUrl").value = dataUrl;
         syncVisualDraftFromDom(app);
         renderVisualPreview(app);
@@ -8450,7 +8481,13 @@ async function mount() {
       const file = visualCoverFile.files?.[0];
       if (!file) return;
       try {
-        const dataUrl = await readFileAsDataUrl(file);
+        const dataUrl = await readOptimizedImageDataUrl(file, {
+          maxDimension: 960,
+          minDimension: 320,
+          targetBytes: 220 * 1024,
+          hardLimitBytes: 420 * 1024,
+          mimeType: "image/webp"
+        });
         if ($("visualCoverImageUrl")) $("visualCoverImageUrl").value = dataUrl;
         syncVisualDraftFromDom(app);
         renderVisualPreview(app);
@@ -8471,7 +8508,13 @@ async function mount() {
       const file = visualHomepageFile.files?.[0];
       if (!file) return;
       try {
-        const dataUrl = await readFileAsDataUrl(file);
+        const dataUrl = await readOptimizedImageDataUrl(file, {
+          maxDimension: 1280,
+          minDimension: 540,
+          targetBytes: 420 * 1024,
+          hardLimitBytes: 760 * 1024,
+          mimeType: "image/webp"
+        });
         if ($("visualHomepageImageUrl")) $("visualHomepageImageUrl").value = dataUrl;
         syncVisualDraftFromDom(app);
         renderVisualPreview(app);
@@ -8492,7 +8535,13 @@ async function mount() {
       const file = visualDiagnosisIconFile.files?.[0];
       if (!file) return;
       try {
-        const dataUrl = await readFileAsDataUrl(file);
+        const dataUrl = await readOptimizedImageDataUrl(file, {
+          maxDimension: 900,
+          minDimension: 280,
+          targetBytes: 220 * 1024,
+          hardLimitBytes: 420 * 1024,
+          mimeType: "image/webp"
+        });
         if ($("visualDiagnosisIconUrl")) $("visualDiagnosisIconUrl").value = dataUrl;
         syncVisualDraftFromDom(app);
         renderVisualPreview(app);
@@ -8515,7 +8564,13 @@ async function mount() {
       const node = getBuilderDraftNode(app.builderDraft, app.selectedBuilderNodeId);
       if (!node) return;
       try {
-        const dataUrl = await readFileAsDataUrl(file);
+        const dataUrl = await readOptimizedImageDataUrl(file, {
+          maxDimension: 1280,
+          minDimension: 480,
+          targetBytes: 420 * 1024,
+          hardLimitBytes: 760 * 1024,
+          mimeType: "image/webp"
+        });
         node.imageUrl = dataUrl;
         if (!["image", "mixed"].includes(String(node.contentType ?? ""))) node.contentType = "mixed";
         fillBuilderInspector(app);
