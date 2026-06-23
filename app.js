@@ -1486,18 +1486,6 @@ async function persistEditorModule(app, options = {}) {
 
   const flow = buildFlowFromBuilderDraft(app.builderDraft, { allowIncomplete: issues.length > 0 });
   const blueprintToSave = createModuleBlueprintForSave(app.visualDraft, app.builderDraft, issues);
-  if (app.authSession) {
-    const saveRisk = getModuleSaveRisk(flow, blueprintToSave);
-    if (saveRisk.shouldWarn) {
-      showAppToast("O modulo ficou pesado demais para salvar agora. Salve por etapas para evitar timeout.", "warning", {
-        title: normalizeDashboardModuleName(flow.name || "Modulo"),
-        eyebrow: "Editor de modulos",
-        durationMs: 5200
-      });
-      warnAboutHeavyModuleSave(saveRisk);
-      return false;
-    }
-  }
 
   setEditorSavingState(app, true, {
     buttonLabel: "Salvando...",
@@ -2017,6 +2005,89 @@ function buildSupabaseModulePayload(app, flow, blueprint) {
   };
 }
 
+function areSerializedJsonValuesEqual(left, right) {
+  try {
+    return JSON.stringify(left ?? null) === JSON.stringify(right ?? null);
+  } catch {
+    return false;
+  }
+}
+
+function getExistingSupabaseModuleRow(app, slug) {
+  const targetSlug = String(slug ?? "").trim();
+  if (!targetSlug) return null;
+  const rows = Array.isArray(app?.supabaseModules) ? app.supabaseModules : [];
+  return rows.find((row) => String(row?.slug ?? row?.protocol_json?.id ?? "").trim() === targetSlug) ?? null;
+}
+
+function buildSupabaseModuleSaveOperation(app, flow, blueprint) {
+  const fullPayload = buildSupabaseModulePayload(app, flow, blueprint);
+  const currentSlug = String(flow?.id ?? "").trim();
+  const originalSlug = String(app?.editorOriginalFlowId ?? currentSlug).trim();
+  const existingRow = getExistingSupabaseModuleRow(app, originalSlug) ?? getExistingSupabaseModuleRow(app, currentSlug);
+  const canPatchExisting = Boolean(existingRow && originalSlug && originalSlug === currentSlug);
+
+  if (!canPatchExisting) {
+    return {
+      payload: fullPayload,
+      mergedRow: buildLocalSupabaseModuleRow(app, flow, blueprint)
+    };
+  }
+
+  const protocolChanged = !areSerializedJsonValuesEqual(existingRow?.protocol_json, fullPayload.protocol_json);
+  const blueprintChanged = !areSerializedJsonValuesEqual(existingRow?.blueprint_json, fullPayload.blueprint_json);
+  const coverChanged = String(existingRow?.cover_image_url ?? "") !== String(fullPayload.cover_image_url ?? "");
+  const nameChanged = String(existingRow?.name ?? "") !== String(fullPayload.name ?? "");
+  const descriptionChanged = String(existingRow?.description ?? "") !== String(fullPayload.description ?? "");
+  const statusChanged = String(existingRow?.status ?? "") !== String(fullPayload.status ?? "");
+
+  const payload = {
+    owner_id: fullPayload.owner_id,
+    slug: fullPayload.slug
+  };
+
+  if (protocolChanged) payload.protocol_json = fullPayload.protocol_json;
+  if (blueprintChanged) payload.blueprint_json = fullPayload.blueprint_json;
+  if (coverChanged) payload.cover_image_url = fullPayload.cover_image_url;
+  if (nameChanged) payload.name = fullPayload.name;
+  if (descriptionChanged) payload.description = fullPayload.description;
+  if (statusChanged) payload.status = fullPayload.status;
+
+  if (Object.keys(payload).length <= 2) {
+    return {
+      payload: null,
+      mergedRow: buildLocalSupabaseModuleRow(app, flow, blueprint, {
+        id: existingRow?.id,
+        owner_id: existingRow?.owner_id ?? fullPayload.owner_id,
+        protocol_json: existingRow?.protocol_json ?? fullPayload.protocol_json,
+        blueprint_json: existingRow?.blueprint_json ?? fullPayload.blueprint_json,
+        cover_image_url: existingRow?.cover_image_url ?? fullPayload.cover_image_url,
+        name: existingRow?.name ?? fullPayload.name,
+        description: existingRow?.description ?? fullPayload.description,
+        status: existingRow?.status ?? fullPayload.status,
+        created_at: existingRow?.created_at ?? null,
+        updated_at: existingRow?.updated_at ?? new Date().toISOString()
+      })
+    };
+  }
+
+  return {
+    payload,
+    mergedRow: buildLocalSupabaseModuleRow(app, flow, blueprint, {
+      id: existingRow?.id,
+      owner_id: existingRow?.owner_id ?? fullPayload.owner_id,
+      protocol_json: payload.protocol_json ?? existingRow?.protocol_json ?? fullPayload.protocol_json,
+      blueprint_json: payload.blueprint_json ?? existingRow?.blueprint_json ?? fullPayload.blueprint_json,
+      cover_image_url: payload.cover_image_url ?? existingRow?.cover_image_url ?? fullPayload.cover_image_url,
+      name: payload.name ?? existingRow?.name ?? fullPayload.name,
+      description: payload.description ?? existingRow?.description ?? fullPayload.description,
+      status: payload.status ?? existingRow?.status ?? fullPayload.status,
+      created_at: existingRow?.created_at ?? null,
+      updated_at: new Date().toISOString()
+    })
+  };
+}
+
 function mergeProtocolWithSupabaseModules(baseProtocol, rows, options = {}) {
   const replaceAll = Boolean(options.replaceAll);
   const flowsById = replaceAll ? {} : { ...(baseProtocol?.flowsById ?? {}) };
@@ -2065,7 +2136,11 @@ async function loadSupabaseModuleRows() {
 
 async function upsertSupabaseModule(app, flow, blueprint) {
   if (!app.currentUser?.id) return null;
-  const payload = buildSupabaseModulePayload(app, flow, blueprint);
+  const operation = buildSupabaseModuleSaveOperation(app, flow, blueprint);
+  const payload = operation.payload;
+  if (!payload) {
+    return operation.mergedRow;
+  }
   let lastError = null;
 
   for (let attempt = 0; attempt < 2; attempt += 1) {
@@ -2074,7 +2149,7 @@ async function upsertSupabaseModule(app, flow, blueprint) {
       .upsert(payload, { onConflict: "slug" });
 
     if (!error) {
-      return buildLocalSupabaseModuleRow(app, flow, blueprint);
+      return operation.mergedRow;
     }
 
     lastError = error;
@@ -3526,79 +3601,6 @@ function estimateDataUrlSize(dataUrl) {
   const base64 = commaIndex >= 0 ? value.slice(commaIndex + 1) : value;
   const padding = (base64.match(/=+$/) || [""])[0].length;
   return Math.max(0, Math.floor((base64.length * 3) / 4) - padding);
-}
-
-function estimateSerializedJsonBytes(value) {
-  try {
-    return new TextEncoder().encode(JSON.stringify(value ?? null)).length;
-  } catch {
-    return 0;
-  }
-}
-
-function collectImageDataUrls(value, results = []) {
-  if (typeof value === "string") {
-    if (/^data:image\//i.test(value.trim())) results.push(value.trim());
-    return results;
-  }
-  if (Array.isArray(value)) {
-    value.forEach((item) => collectImageDataUrls(item, results));
-    return results;
-  }
-  if (value && typeof value === "object") {
-    Object.values(value).forEach((item) => collectImageDataUrls(item, results));
-  }
-  return results;
-}
-
-function getModuleSaveRisk(flow, blueprint) {
-  const payload = {
-    protocol_json: {
-      id: flow?.id ?? "",
-      name: flow?.name ?? "",
-      startNodeId: flow?.startNodeId ?? "",
-      nodesById: flow?.nodesById ?? {}
-    },
-    blueprint_json: blueprint ?? null
-  };
-  const payloadBytes = estimateSerializedJsonBytes(payload);
-  const imageDataUrls = collectImageDataUrls(payload);
-  const totalImageBytes = imageDataUrls.reduce((sum, dataUrl) => sum + estimateDataUrlSize(dataUrl), 0);
-  const largestImageBytes = imageDataUrls.reduce((max, dataUrl) => Math.max(max, estimateDataUrlSize(dataUrl)), 0);
-
-  const shouldWarn = payloadBytes >= (1700 * 1024)
-    || totalImageBytes >= (1300 * 1024)
-    || largestImageBytes >= (700 * 1024)
-    || imageDataUrls.length >= 7;
-
-  return {
-    shouldWarn,
-    payloadBytes,
-    totalImageBytes,
-    largestImageBytes,
-    imageCount: imageDataUrls.length
-  };
-}
-
-function formatBytesLabel(bytes) {
-  const value = Math.max(0, Number(bytes ?? 0));
-  if (value >= 1024 * 1024) return `${(value / (1024 * 1024)).toFixed(1)} MB`;
-  if (value >= 1024) return `${Math.round(value / 1024)} KB`;
-  return `${Math.round(value)} B`;
-}
-
-function warnAboutHeavyModuleSave(risk) {
-  const details = [
-    `Payload estimado: ${formatBytesLabel(risk?.payloadBytes)}`,
-    `Imagens no modulo: ${risk?.imageCount ?? 0}`,
-    `Total de imagens: ${formatBytesLabel(risk?.totalImageBytes)}`,
-    `Maior imagem: ${formatBytesLabel(risk?.largestImageBytes)}`
-  ].join("\n");
-  alert(
-    "Esse modulo esta pesado para salvar de uma vez e pode dar timeout.\n\n"
-    + "Salve por etapas: reduza a quantidade de imagens grandes, suba uma parte do fluxo por vez ou reenvie as imagens para deixalas mais leves.\n\n"
-    + details
-  );
 }
 
 function loadImageFromFile(file) {
