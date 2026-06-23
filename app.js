@@ -1484,6 +1484,21 @@ async function persistEditorModule(app, options = {}) {
     if (!shouldSaveWithIssues) return false;
   }
 
+  const flow = buildFlowFromBuilderDraft(app.builderDraft, { allowIncomplete: issues.length > 0 });
+  const blueprintToSave = createModuleBlueprintForSave(app.visualDraft, app.builderDraft, issues);
+  if (app.authSession) {
+    const saveRisk = getModuleSaveRisk(flow, blueprintToSave);
+    if (saveRisk.shouldWarn) {
+      showAppToast("O modulo ficou pesado demais para salvar agora. Salve por etapas para evitar timeout.", "warning", {
+        title: normalizeDashboardModuleName(flow.name || "Modulo"),
+        eyebrow: "Editor de modulos",
+        durationMs: 5200
+      });
+      warnAboutHeavyModuleSave(saveRisk);
+      return false;
+    }
+  }
+
   setEditorSavingState(app, true, {
     buttonLabel: "Salvando...",
     statusMessage: options.autosave
@@ -1500,8 +1515,6 @@ async function persistEditorModule(app, options = {}) {
   app.editorSavePromise = (async () => {
     const hadPendingChangesBeforeSave = Boolean(app.hasPendingEditorAutoSave);
     app.hasPendingEditorAutoSave = false;
-    const flow = buildFlowFromBuilderDraft(app.builderDraft, { allowIncomplete: issues.length > 0 });
-    const blueprintToSave = createModuleBlueprintForSave(app.visualDraft, app.builderDraft, issues);
     const flowsById = { ...(app.protocol?.flowsById ?? {}) };
     const moduleBlueprints = { ...(app.protocol?.moduleBlueprints ?? {}) };
     if (app.editorOriginalFlowId && app.editorOriginalFlowId !== flow.id) {
@@ -3515,6 +3528,79 @@ function estimateDataUrlSize(dataUrl) {
   return Math.max(0, Math.floor((base64.length * 3) / 4) - padding);
 }
 
+function estimateSerializedJsonBytes(value) {
+  try {
+    return new TextEncoder().encode(JSON.stringify(value ?? null)).length;
+  } catch {
+    return 0;
+  }
+}
+
+function collectImageDataUrls(value, results = []) {
+  if (typeof value === "string") {
+    if (/^data:image\//i.test(value.trim())) results.push(value.trim());
+    return results;
+  }
+  if (Array.isArray(value)) {
+    value.forEach((item) => collectImageDataUrls(item, results));
+    return results;
+  }
+  if (value && typeof value === "object") {
+    Object.values(value).forEach((item) => collectImageDataUrls(item, results));
+  }
+  return results;
+}
+
+function getModuleSaveRisk(flow, blueprint) {
+  const payload = {
+    protocol_json: {
+      id: flow?.id ?? "",
+      name: flow?.name ?? "",
+      startNodeId: flow?.startNodeId ?? "",
+      nodesById: flow?.nodesById ?? {}
+    },
+    blueprint_json: blueprint ?? null
+  };
+  const payloadBytes = estimateSerializedJsonBytes(payload);
+  const imageDataUrls = collectImageDataUrls(payload);
+  const totalImageBytes = imageDataUrls.reduce((sum, dataUrl) => sum + estimateDataUrlSize(dataUrl), 0);
+  const largestImageBytes = imageDataUrls.reduce((max, dataUrl) => Math.max(max, estimateDataUrlSize(dataUrl)), 0);
+
+  const shouldWarn = payloadBytes >= (1700 * 1024)
+    || totalImageBytes >= (1300 * 1024)
+    || largestImageBytes >= (700 * 1024)
+    || imageDataUrls.length >= 7;
+
+  return {
+    shouldWarn,
+    payloadBytes,
+    totalImageBytes,
+    largestImageBytes,
+    imageCount: imageDataUrls.length
+  };
+}
+
+function formatBytesLabel(bytes) {
+  const value = Math.max(0, Number(bytes ?? 0));
+  if (value >= 1024 * 1024) return `${(value / (1024 * 1024)).toFixed(1)} MB`;
+  if (value >= 1024) return `${Math.round(value / 1024)} KB`;
+  return `${Math.round(value)} B`;
+}
+
+function warnAboutHeavyModuleSave(risk) {
+  const details = [
+    `Payload estimado: ${formatBytesLabel(risk?.payloadBytes)}`,
+    `Imagens no modulo: ${risk?.imageCount ?? 0}`,
+    `Total de imagens: ${formatBytesLabel(risk?.totalImageBytes)}`,
+    `Maior imagem: ${formatBytesLabel(risk?.largestImageBytes)}`
+  ].join("\n");
+  alert(
+    "Esse modulo esta pesado para salvar de uma vez e pode dar timeout.\n\n"
+    + "Salve por etapas: reduza a quantidade de imagens grandes, suba uma parte do fluxo por vez ou reenvie as imagens para deixalas mais leves.\n\n"
+    + details
+  );
+}
+
 function loadImageFromFile(file) {
   return new Promise((resolve, reject) => {
     const objectUrl = URL.createObjectURL(file);
@@ -3532,18 +3618,27 @@ function loadImageFromFile(file) {
   });
 }
 
-async function readAvatarFileAsOptimizedDataUrl(file) {
+function renderImageToOptimizedDataUrl(canvas, mimeType, quality) {
+  const safeMimeType = String(mimeType ?? "").trim() || "image/webp";
+  const rendered = canvas.toDataURL(safeMimeType, quality);
+  if (rendered.startsWith(`data:${safeMimeType}`)) return rendered;
+  return canvas.toDataURL("image/jpeg", quality);
+}
+
+async function readOptimizedImageDataUrl(file, options = {}) {
   if (!file || !String(file.type ?? "").startsWith("image/")) {
-    throw new Error("Selecione uma imagem valida para a foto de perfil.");
+    throw new Error("Selecione uma imagem valida.");
   }
 
   const image = await loadImageFromFile(file);
-  const maxDimension = 960;
-  const targetBytes = 360 * 1024;
-  const hardLimitBytes = 700 * 1024;
-  const minQuality = 0.5;
-  const qualityStep = 0.08;
-  const scaleStep = 0.85;
+  const maxDimension = Math.max(240, Number(options.maxDimension ?? 1280));
+  const minDimension = Math.max(180, Number(options.minDimension ?? 280));
+  const targetBytes = Math.max(80 * 1024, Number(options.targetBytes ?? 420 * 1024));
+  const hardLimitBytes = Math.max(targetBytes, Number(options.hardLimitBytes ?? 900 * 1024));
+  const minQuality = Math.min(0.92, Math.max(0.4, Number(options.minQuality ?? 0.5)));
+  const qualityStep = Math.min(0.2, Math.max(0.04, Number(options.qualityStep ?? 0.08)));
+  const scaleStep = Math.min(0.92, Math.max(0.7, Number(options.scaleStep ?? 0.85)));
+  const mimeType = String(options.mimeType ?? "image/webp").trim() || "image/webp";
 
   let width = image.naturalWidth || image.width || maxDimension;
   let height = image.naturalHeight || image.height || maxDimension;
@@ -3578,7 +3673,7 @@ async function readAvatarFileAsOptimizedDataUrl(file) {
   for (let pass = 0; pass < 6; pass += 1) {
     render(currentWidth, currentHeight);
     for (let quality = 0.92; quality >= minQuality; quality -= qualityStep) {
-      const dataUrl = canvas.toDataURL("image/jpeg", quality);
+      const dataUrl = renderImageToOptimizedDataUrl(canvas, mimeType, quality);
       const size = estimateDataUrlSize(dataUrl);
       if (size < bestSize) {
         bestSize = size;
@@ -3586,12 +3681,22 @@ async function readAvatarFileAsOptimizedDataUrl(file) {
       }
       if (size <= targetBytes) return dataUrl;
     }
-    currentWidth = Math.max(320, Math.round(currentWidth * scaleStep));
-    currentHeight = Math.max(320, Math.round(currentHeight * scaleStep));
+    currentWidth = Math.max(minDimension, Math.round(currentWidth * scaleStep));
+    currentHeight = Math.max(minDimension, Math.round(currentHeight * scaleStep));
   }
 
   if (bestDataUrl && bestSize <= hardLimitBytes) return bestDataUrl;
-  throw new Error("Essa foto ainda ficou pesada. Tente outra imagem ou corte um pouco antes de enviar.");
+  throw new Error("Essa imagem ainda ficou pesada. Tente outra imagem ou corte um pouco antes de enviar.");
+}
+
+async function readAvatarFileAsOptimizedDataUrl(file) {
+  return readOptimizedImageDataUrl(file, {
+    maxDimension: 960,
+    minDimension: 320,
+    targetBytes: 360 * 1024,
+    hardLimitBytes: 700 * 1024,
+    mimeType: "image/webp"
+  });
 }
 
 function setVisualEditorFullscreen(isOpen) {
@@ -8408,7 +8513,13 @@ async function mount() {
       const file = visualBackgroundFile.files?.[0];
       if (!file) return;
       try {
-        const dataUrl = await readFileAsDataUrl(file);
+        const dataUrl = await readOptimizedImageDataUrl(file, {
+          maxDimension: 1440,
+          minDimension: 720,
+          targetBytes: 520 * 1024,
+          hardLimitBytes: 900 * 1024,
+          mimeType: "image/webp"
+        });
         if ($("visualBackgroundImage")) $("visualBackgroundImage").value = dataUrl;
         syncVisualDraftFromDom(app);
         renderVisualPreview(app);
@@ -8429,7 +8540,13 @@ async function mount() {
       const file = visualIconFile.files?.[0];
       if (!file) return;
       try {
-        const dataUrl = await readFileAsDataUrl(file);
+        const dataUrl = await readOptimizedImageDataUrl(file, {
+          maxDimension: 720,
+          minDimension: 280,
+          targetBytes: 160 * 1024,
+          hardLimitBytes: 320 * 1024,
+          mimeType: "image/webp"
+        });
         if ($("visualIconUrl")) $("visualIconUrl").value = dataUrl;
         syncVisualDraftFromDom(app);
         renderVisualPreview(app);
@@ -8450,7 +8567,13 @@ async function mount() {
       const file = visualCoverFile.files?.[0];
       if (!file) return;
       try {
-        const dataUrl = await readFileAsDataUrl(file);
+        const dataUrl = await readOptimizedImageDataUrl(file, {
+          maxDimension: 960,
+          minDimension: 320,
+          targetBytes: 220 * 1024,
+          hardLimitBytes: 420 * 1024,
+          mimeType: "image/webp"
+        });
         if ($("visualCoverImageUrl")) $("visualCoverImageUrl").value = dataUrl;
         syncVisualDraftFromDom(app);
         renderVisualPreview(app);
@@ -8471,7 +8594,13 @@ async function mount() {
       const file = visualHomepageFile.files?.[0];
       if (!file) return;
       try {
-        const dataUrl = await readFileAsDataUrl(file);
+        const dataUrl = await readOptimizedImageDataUrl(file, {
+          maxDimension: 1280,
+          minDimension: 540,
+          targetBytes: 420 * 1024,
+          hardLimitBytes: 760 * 1024,
+          mimeType: "image/webp"
+        });
         if ($("visualHomepageImageUrl")) $("visualHomepageImageUrl").value = dataUrl;
         syncVisualDraftFromDom(app);
         renderVisualPreview(app);
@@ -8492,7 +8621,13 @@ async function mount() {
       const file = visualDiagnosisIconFile.files?.[0];
       if (!file) return;
       try {
-        const dataUrl = await readFileAsDataUrl(file);
+        const dataUrl = await readOptimizedImageDataUrl(file, {
+          maxDimension: 900,
+          minDimension: 280,
+          targetBytes: 220 * 1024,
+          hardLimitBytes: 420 * 1024,
+          mimeType: "image/webp"
+        });
         if ($("visualDiagnosisIconUrl")) $("visualDiagnosisIconUrl").value = dataUrl;
         syncVisualDraftFromDom(app);
         renderVisualPreview(app);
@@ -8515,7 +8650,13 @@ async function mount() {
       const node = getBuilderDraftNode(app.builderDraft, app.selectedBuilderNodeId);
       if (!node) return;
       try {
-        const dataUrl = await readFileAsDataUrl(file);
+        const dataUrl = await readOptimizedImageDataUrl(file, {
+          maxDimension: 1280,
+          minDimension: 480,
+          targetBytes: 420 * 1024,
+          hardLimitBytes: 760 * 1024,
+          mimeType: "image/webp"
+        });
         node.imageUrl = dataUrl;
         if (!["image", "mixed"].includes(String(node.contentType ?? ""))) node.contentType = "mixed";
         fillBuilderInspector(app);
