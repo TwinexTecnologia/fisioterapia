@@ -1484,6 +1484,21 @@ async function persistEditorModule(app, options = {}) {
     if (!shouldSaveWithIssues) return false;
   }
 
+  const flow = buildFlowFromBuilderDraft(app.builderDraft, { allowIncomplete: issues.length > 0 });
+  const blueprintToSave = createModuleBlueprintForSave(app.visualDraft, app.builderDraft, issues);
+  if (app.authSession) {
+    const saveRisk = getModuleSaveRisk(flow, blueprintToSave);
+    if (saveRisk.shouldWarn) {
+      showAppToast("O modulo ficou pesado demais para salvar agora. Salve por etapas para evitar timeout.", "warning", {
+        title: normalizeDashboardModuleName(flow.name || "Modulo"),
+        eyebrow: "Editor de modulos",
+        durationMs: 5200
+      });
+      warnAboutHeavyModuleSave(saveRisk);
+      return false;
+    }
+  }
+
   setEditorSavingState(app, true, {
     buttonLabel: "Salvando...",
     statusMessage: options.autosave
@@ -1500,8 +1515,6 @@ async function persistEditorModule(app, options = {}) {
   app.editorSavePromise = (async () => {
     const hadPendingChangesBeforeSave = Boolean(app.hasPendingEditorAutoSave);
     app.hasPendingEditorAutoSave = false;
-    const flow = buildFlowFromBuilderDraft(app.builderDraft, { allowIncomplete: issues.length > 0 });
-    const blueprintToSave = createModuleBlueprintForSave(app.visualDraft, app.builderDraft, issues);
     const flowsById = { ...(app.protocol?.flowsById ?? {}) };
     const moduleBlueprints = { ...(app.protocol?.moduleBlueprints ?? {}) };
     if (app.editorOriginalFlowId && app.editorOriginalFlowId !== flow.id) {
@@ -3513,6 +3526,79 @@ function estimateDataUrlSize(dataUrl) {
   const base64 = commaIndex >= 0 ? value.slice(commaIndex + 1) : value;
   const padding = (base64.match(/=+$/) || [""])[0].length;
   return Math.max(0, Math.floor((base64.length * 3) / 4) - padding);
+}
+
+function estimateSerializedJsonBytes(value) {
+  try {
+    return new TextEncoder().encode(JSON.stringify(value ?? null)).length;
+  } catch {
+    return 0;
+  }
+}
+
+function collectImageDataUrls(value, results = []) {
+  if (typeof value === "string") {
+    if (/^data:image\//i.test(value.trim())) results.push(value.trim());
+    return results;
+  }
+  if (Array.isArray(value)) {
+    value.forEach((item) => collectImageDataUrls(item, results));
+    return results;
+  }
+  if (value && typeof value === "object") {
+    Object.values(value).forEach((item) => collectImageDataUrls(item, results));
+  }
+  return results;
+}
+
+function getModuleSaveRisk(flow, blueprint) {
+  const payload = {
+    protocol_json: {
+      id: flow?.id ?? "",
+      name: flow?.name ?? "",
+      startNodeId: flow?.startNodeId ?? "",
+      nodesById: flow?.nodesById ?? {}
+    },
+    blueprint_json: blueprint ?? null
+  };
+  const payloadBytes = estimateSerializedJsonBytes(payload);
+  const imageDataUrls = collectImageDataUrls(payload);
+  const totalImageBytes = imageDataUrls.reduce((sum, dataUrl) => sum + estimateDataUrlSize(dataUrl), 0);
+  const largestImageBytes = imageDataUrls.reduce((max, dataUrl) => Math.max(max, estimateDataUrlSize(dataUrl)), 0);
+
+  const shouldWarn = payloadBytes >= (1700 * 1024)
+    || totalImageBytes >= (1300 * 1024)
+    || largestImageBytes >= (700 * 1024)
+    || imageDataUrls.length >= 7;
+
+  return {
+    shouldWarn,
+    payloadBytes,
+    totalImageBytes,
+    largestImageBytes,
+    imageCount: imageDataUrls.length
+  };
+}
+
+function formatBytesLabel(bytes) {
+  const value = Math.max(0, Number(bytes ?? 0));
+  if (value >= 1024 * 1024) return `${(value / (1024 * 1024)).toFixed(1)} MB`;
+  if (value >= 1024) return `${Math.round(value / 1024)} KB`;
+  return `${Math.round(value)} B`;
+}
+
+function warnAboutHeavyModuleSave(risk) {
+  const details = [
+    `Payload estimado: ${formatBytesLabel(risk?.payloadBytes)}`,
+    `Imagens no modulo: ${risk?.imageCount ?? 0}`,
+    `Total de imagens: ${formatBytesLabel(risk?.totalImageBytes)}`,
+    `Maior imagem: ${formatBytesLabel(risk?.largestImageBytes)}`
+  ].join("\n");
+  alert(
+    "Esse modulo esta pesado para salvar de uma vez e pode dar timeout.\n\n"
+    + "Salve por etapas: reduza a quantidade de imagens grandes, suba uma parte do fluxo por vez ou reenvie as imagens para deixalas mais leves.\n\n"
+    + details
+  );
 }
 
 function loadImageFromFile(file) {
