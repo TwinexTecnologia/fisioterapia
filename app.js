@@ -4970,6 +4970,14 @@ function getViewerModuleIdentity(module) {
 }
 
 function buildViewerModuleCoverMarkup(module) {
+  const coverImageUrl = String(module?.coverImageUrl ?? "").trim();
+  if (coverImageUrl) {
+    return `
+      <div class="viewer-module-card__cover viewer-module-card__cover--image">
+        <img class="viewer-module-card__cover-img" src="${escapeHtml(coverImageUrl)}" alt="${escapeHtml(String(module?.name ?? "Capa do modulo"))}" loading="lazy" />
+      </div>
+    `;
+  }
   const identity = getViewerModuleIdentity(module);
   return `
     <div class="viewer-module-card__cover viewer-module-card__cover--fallback viewer-module-card__cover--${identity.accent}">
