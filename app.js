@@ -1337,6 +1337,8 @@ function resetEditorAutoSaveState(app) {
   clearEditorAutoSaveTimer(app);
   app.isEditorDirty = false;
   app.hasPendingEditorAutoSave = false;
+  app.editorBuilderDirty = false;
+  app.editorVisualDirty = false;
 }
 
 function clearEditorDerivedRefreshTimer(app) {
@@ -1386,6 +1388,10 @@ function scheduleEditorDerivedRefresh(app, options = {}) {
 
 function scheduleEditorAutoSave(app, options = {}) {
   if (!app || app.view !== "editor") return;
+  const affectsBuilder = options.affectsBuilder !== false;
+  const affectsVisual = options.affectsVisual === true;
+  if (affectsBuilder) app.editorBuilderDirty = true;
+  if (affectsVisual) app.editorVisualDirty = true;
   app.isEditorDirty = true;
   clearEditorAutoSaveTimer(app);
 
@@ -1450,6 +1456,43 @@ function mergeSavedModuleIntoLocalState(app, row, previousSlug = "") {
   persistSupabaseModulesCache(app);
 }
 
+function getExistingEditorFlowForSave(app) {
+  const originalSlug = String(app?.editorOriginalFlowId ?? "").trim();
+  const protocolFlow = originalSlug ? app?.protocol?.flowsById?.[originalSlug] : null;
+  if (protocolFlow) {
+    try {
+      return normalizeFlow(protocolFlow);
+    } catch {
+      // Se o cache local estiver desatualizado, caimos para o row salvo.
+    }
+  }
+
+  const existingRow = getExistingSupabaseModuleRow(app, originalSlug);
+  const rawFlow = existingRow?.protocol_json;
+  if (!rawFlow || typeof rawFlow !== "object") return null;
+
+  try {
+    return normalizeFlow({
+      ...rawFlow,
+      id: String(rawFlow.id ?? existingRow.slug ?? originalSlug),
+      name: String(rawFlow.name ?? existingRow.name ?? existingRow.slug ?? rawFlow.id ?? originalSlug)
+    });
+  } catch {
+    return null;
+  }
+}
+
+function resolveEditorFlowForSave(app, issues = []) {
+  const mustRebuildFlow = !String(app?.editorOriginalFlowId ?? "").trim() || Boolean(app?.editorBuilderDirty);
+  if (!mustRebuildFlow) {
+    const existingFlow = getExistingEditorFlowForSave(app);
+    if (existingFlow) return existingFlow;
+  }
+  return buildFlowFromBuilderDraft(app.builderDraft, {
+    allowIncomplete: Array.isArray(issues) && issues.length > 0
+  });
+}
+
 async function persistEditorModule(app, options = {}) {
   if (app.isSavingEditorModule) {
     if (app.editorSavePromise) {
@@ -1484,7 +1527,7 @@ async function persistEditorModule(app, options = {}) {
     if (!shouldSaveWithIssues) return false;
   }
 
-  const flow = buildFlowFromBuilderDraft(app.builderDraft, { allowIncomplete: issues.length > 0 });
+  const flow = resolveEditorFlowForSave(app, issues);
   const blueprintToSave = createModuleBlueprintForSave(app.visualDraft, app.builderDraft, issues);
 
   setEditorSavingState(app, true, {
@@ -1531,6 +1574,8 @@ async function persistEditorModule(app, options = {}) {
     app.session = initSession(flow.id, flow.startNodeId);
     app.editorOriginalFlowId = flow.id;
     saveProtocolToStorage(app.protocol);
+    app.editorBuilderDirty = false;
+    app.editorVisualDirty = false;
     app.isEditorDirty = hadPendingChangesBeforeSave || Boolean(app.hasPendingEditorAutoSave);
     app.hasPendingEditorAutoSave = false;
 
@@ -7341,6 +7386,8 @@ async function mount() {
       editingManagedProfileAvatarUrl: "",
       isSavingEditorModule: false,
       isEditorDirty: false,
+      editorBuilderDirty: false,
+      editorVisualDirty: false,
       hasPendingEditorAutoSave: false,
       editorAutoSaveTimer: 0,
       editorSavePromise: null,
@@ -8525,7 +8572,7 @@ async function mount() {
         if ($("visualBackgroundImage")) $("visualBackgroundImage").value = dataUrl;
         syncVisualDraftFromDom(app);
         renderVisualPreview(app);
-        scheduleEditorAutoSave(app, { immediate: true });
+        scheduleEditorAutoSave(app, { immediate: true, affectsBuilder: false, affectsVisual: true });
       } catch (err) {
         alert(err instanceof Error ? err.message : "Falha ao carregar a imagem de fundo.");
       } finally {
@@ -8552,7 +8599,7 @@ async function mount() {
         if ($("visualIconUrl")) $("visualIconUrl").value = dataUrl;
         syncVisualDraftFromDom(app);
         renderVisualPreview(app);
-        scheduleEditorAutoSave(app, { immediate: true });
+        scheduleEditorAutoSave(app, { immediate: true, affectsBuilder: false, affectsVisual: true });
       } catch (err) {
         alert(err instanceof Error ? err.message : "Falha ao carregar o icone.");
       } finally {
@@ -8579,7 +8626,7 @@ async function mount() {
         if ($("visualCoverImageUrl")) $("visualCoverImageUrl").value = dataUrl;
         syncVisualDraftFromDom(app);
         renderVisualPreview(app);
-        scheduleEditorAutoSave(app, { immediate: true });
+        scheduleEditorAutoSave(app, { immediate: true, affectsBuilder: false, affectsVisual: true });
       } catch (err) {
         alert(err instanceof Error ? err.message : "Falha ao carregar a capa do modulo.");
       } finally {
@@ -8606,7 +8653,7 @@ async function mount() {
         if ($("visualHomepageImageUrl")) $("visualHomepageImageUrl").value = dataUrl;
         syncVisualDraftFromDom(app);
         renderVisualPreview(app);
-        scheduleEditorAutoSave(app, { immediate: true });
+        scheduleEditorAutoSave(app, { immediate: true, affectsBuilder: false, affectsVisual: true });
       } catch (err) {
         alert(err instanceof Error ? err.message : "Falha ao carregar a imagem da homepage do modulo.");
       } finally {
@@ -8633,7 +8680,7 @@ async function mount() {
         if ($("visualDiagnosisIconUrl")) $("visualDiagnosisIconUrl").value = dataUrl;
         syncVisualDraftFromDom(app);
         renderVisualPreview(app);
-        scheduleEditorAutoSave(app, { immediate: true });
+        scheduleEditorAutoSave(app, { immediate: true, affectsBuilder: false, affectsVisual: true });
       } catch (err) {
         alert(err instanceof Error ? err.message : "Falha ao carregar a imagem do diagnostico.");
       } finally {
@@ -8714,7 +8761,7 @@ async function mount() {
       if ($("visualBackgroundImage")) $("visualBackgroundImage").value = "";
       syncVisualDraftFromDom(app);
       renderVisualPreview(app);
-      scheduleEditorAutoSave(app, { immediate: true });
+      scheduleEditorAutoSave(app, { immediate: true, affectsBuilder: false, affectsVisual: true });
     });
   }
 
@@ -8724,7 +8771,7 @@ async function mount() {
       if ($("visualIconUrl")) $("visualIconUrl").value = "";
       syncVisualDraftFromDom(app);
       renderVisualPreview(app);
-      scheduleEditorAutoSave(app, { immediate: true });
+      scheduleEditorAutoSave(app, { immediate: true, affectsBuilder: false, affectsVisual: true });
     });
   }
 
@@ -8734,7 +8781,7 @@ async function mount() {
       if ($("visualCoverImageUrl")) $("visualCoverImageUrl").value = "";
       syncVisualDraftFromDom(app);
       renderVisualPreview(app);
-      scheduleEditorAutoSave(app, { immediate: true });
+      scheduleEditorAutoSave(app, { immediate: true, affectsBuilder: false, affectsVisual: true });
     });
   }
 
@@ -8744,7 +8791,7 @@ async function mount() {
       if ($("visualHomepageImageUrl")) $("visualHomepageImageUrl").value = "";
       syncVisualDraftFromDom(app);
       renderVisualPreview(app);
-      scheduleEditorAutoSave(app, { immediate: true });
+      scheduleEditorAutoSave(app, { immediate: true, affectsBuilder: false, affectsVisual: true });
     });
   }
 
@@ -8754,7 +8801,7 @@ async function mount() {
       if ($("visualDiagnosisIconUrl")) $("visualDiagnosisIconUrl").value = "";
       syncVisualDraftFromDom(app);
       renderVisualPreview(app);
-      scheduleEditorAutoSave(app, { immediate: true });
+      scheduleEditorAutoSave(app, { immediate: true, affectsBuilder: false, affectsVisual: true });
     });
   }
 
