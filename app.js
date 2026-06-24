@@ -2133,6 +2133,28 @@ function buildSupabaseModuleSaveOperation(app, flow, blueprint) {
   };
 }
 
+function getSessionPartialResults(protocol, session) {
+  const flow = protocol?.flowsById?.[session?.flowId];
+  if (!flow || !Array.isArray(session?.path)) return [];
+
+  return session.path.reduce((results, step) => {
+    const partialNodeId = String(step?.nextNodeId ?? "").trim();
+    if (!partialNodeId) return results;
+    const partialNode = flow.nodesById?.[partialNodeId];
+    if (!partialNode || !isPartialResultNodeType(partialNode.type)) return results;
+
+    results.push({
+      nodeId: partialNodeId,
+      title: String(partialNode.title ?? partialNodeId).trim() || "Resultado parcial",
+      body: String(partialNode.body ?? "").trim(),
+      imageUrl: String(partialNode.imageUrl ?? "").trim(),
+      sourceQuestionTitle: String(step?.nodeTitle ?? "").trim(),
+      chosenLabel: String(step?.chosenLabel ?? "").trim()
+    });
+    return results;
+  }, []);
+}
+
 function mergeProtocolWithSupabaseModules(baseProtocol, rows, options = {}) {
   const replaceAll = Boolean(options.replaceAll);
   const flowsById = replaceAll ? {} : { ...(baseProtocol?.flowsById ?? {}) };
@@ -2356,7 +2378,7 @@ function normalizeNodesById(nodesLike) {
     if (!id) throw new Error("Node sem id.");
 
     // Suporte ao schema em português
-    const type = rawNode.type || rawNode.tipo || "orientacao";
+    const type = normalizeFlowNodeType(rawNode.type || rawNode.tipo || "orientacao");
     const title = rawNode.title || rawNode.texto || "";
     const body = rawNode.body || rawNode.descricao || "";
     const contentType = rawNode.contentType || rawNode.tipoConteudo || "text";
@@ -2446,8 +2468,7 @@ function applyDefaultsToProtocol(protocol) {
     const nodesById = {};
     for (const [nodeId, node] of Object.entries(flow.nodesById)) {
       if (!node || typeof node !== "object") continue;
-      const type = String(node.type ?? "").toLowerCase();
-      if (type === "interpretation" || type === "interpretacao") {
+      if (isFinalResultNodeType(node.type)) {
         nodesById[nodeId] = {
           ...node,
           primaryActions: buildInterpretationActions(node.primaryActions, flow.startNodeId)
@@ -2470,6 +2491,44 @@ function buildInterpretationActions(existing, startNodeId) {
   if (!hasAction("restart_flow")) actions.push({ label: "Reavaliar", action: "restart_flow", targetNodeId: startNodeId });
 
   return actions;
+}
+
+function normalizeFlowNodeType(value) {
+  const type = String(value ?? "").trim().toLowerCase();
+  if (type === "question") return "pergunta";
+  if (type === "interpretation") return "interpretacao";
+  if (["resultado_parcial", "resultado-parcial", "partial_result", "partial-result"].includes(type)) {
+    return "resultado_parcial";
+  }
+  if (type === "areas") return "area";
+  return type;
+}
+
+function isQuestionNodeType(type) {
+  return normalizeFlowNodeType(type) === "pergunta";
+}
+
+function isFinalResultNodeType(type) {
+  return normalizeFlowNodeType(type) === "interpretacao";
+}
+
+function isPartialResultNodeType(type) {
+  return normalizeFlowNodeType(type) === "resultado_parcial";
+}
+
+function isDiagnosisLikeNodeType(type) {
+  return isFinalResultNodeType(type) || isPartialResultNodeType(type);
+}
+
+function nodeSupportsAnswers(type) {
+  return isQuestionNodeType(type) || isPartialResultNodeType(type);
+}
+
+function getBuilderNodeTypeLabel(type) {
+  if (isPartialResultNodeType(type)) return "Resultado Parcial";
+  if (isFinalResultNodeType(type)) return "Resultado";
+  if (isQuestionNodeType(type)) return "Pergunta";
+  return "Etapa";
 }
 
 function validateFlowGraph(flow) {
@@ -2564,11 +2623,14 @@ function chooseOption(protocol, session, option) {
 
   const currentId = session.currentNodeId;
   const currentNode = flow.nodesById[currentId];
+  const nextNode = flow.nodesById[nextId];
   const entry = {
     nodeId: currentId,
     nodeTitle: String(currentNode?.title ?? currentId),
     chosenLabel: String(option.label ?? ""),
     chosenValue: option.value != null ? String(option.value) : undefined,
+    nextNodeId: nextId,
+    nextNodeTitle: String(nextNode?.title ?? nextId),
     at: now()
   };
 
@@ -2585,11 +2647,14 @@ function goTo(protocol, session, nodeId, meta) {
 
   const currentId = session.currentNodeId;
   const currentNode = flow.nodesById[currentId];
+  const nextNode = flow.nodesById[nodeId];
   const entry = {
     nodeId: currentId,
     nodeTitle: String(currentNode?.title ?? currentId),
     chosenLabel: meta?.label ? String(meta.label) : undefined,
     chosenValue: meta?.value != null ? String(meta.value) : undefined,
+    nextNodeId: nodeId,
+    nextNodeTitle: String(nextNode?.title ?? nodeId),
     at: now()
   };
 
@@ -2662,15 +2727,21 @@ function createBuilderAnswer(label = "", nextNodeId = "") {
 }
 
 function createBuilderNode(type, partial = {}) {
-  const defaultTitle = type === "interpretacao" ? "Novo diagnóstico" : "Nova pergunta";
+  const normalizedType = normalizeFlowNodeType(type);
+  const defaultTitle = isPartialResultNodeType(normalizedType)
+    ? "Novo resultado parcial"
+    : (isFinalResultNodeType(normalizedType) ? "Novo diagnóstico" : "Nova pergunta");
+  const idPrefix = isPartialResultNodeType(normalizedType)
+    ? "resultado_parcial"
+    : (isFinalResultNodeType(normalizedType) ? "diagnostico" : "pergunta");
   return {
-    id: partial.id ?? `${type === "interpretacao" ? "diagnostico" : "pergunta"}_${Math.random().toString(36).slice(2, 8)}`,
-    type,
+    id: partial.id ?? `${idPrefix}_${Math.random().toString(36).slice(2, 8)}`,
+    type: normalizedType,
     title: partial.title ?? defaultTitle,
     body: partial.body ?? "",
     contentType: ["image", "mixed"].includes(String(partial.contentType ?? "")) ? String(partial.contentType) : "text",
     imageUrl: String(partial.imageUrl ?? ""),
-    answers: Array.isArray(partial.answers) ? partial.answers : []
+    answers: nodeSupportsAnswers(normalizedType) && Array.isArray(partial.answers) ? partial.answers : []
   };
 }
 
@@ -2679,14 +2750,15 @@ function ensureBuilderDraftConsistency(draft) {
 
   const nodes = Array.isArray(draft.nodes) ? draft.nodes : [];
   const normalizedNodes = nodes.map((node, idx) => {
-    const type = node?.type === "interpretacao" ? "interpretacao" : "pergunta";
+    const rawType = normalizeFlowNodeType(node?.type ?? "");
+    const type = isFinalResultNodeType(rawType) || isPartialResultNodeType(rawType) ? rawType : "pergunta";
     const normalizedNode = createBuilderNode(type, {
       id: String(node?.id ?? `${type}_${idx + 1}`),
       title: String(node?.title ?? ""),
       body: String(node?.body ?? ""),
       contentType: String(node?.contentType ?? "text"),
       imageUrl: String(node?.imageUrl ?? ""),
-      answers: type === "pergunta"
+      answers: nodeSupportsAnswers(type)
         ? (Array.isArray(node?.answers) ? node.answers.map((answer, answerIdx) => ({
           id: String(answer?.id ?? `${node?.id ?? `pergunta_${idx + 1}`}__answer_${answerIdx + 1}`),
           label: String(answer?.label ?? ""),
@@ -2816,7 +2888,9 @@ function refreshBuilderRouteModal(app) {
   const createType = String($("builderRouteCreateType")?.value ?? "pergunta");
   if (titleInput && !titleInput.dataset.userEdited) {
     const count = draft.nodes.filter((node) => node.type === createType).length + 1;
-    titleInput.value = createType === "interpretacao" ? `Resultado ${count}` : `Pergunta ${count}`;
+    titleInput.value = createType === "interpretacao"
+      ? `Resultado ${count}`
+      : (createType === "resultado_parcial" ? `Resultado parcial ${count}` : `Pergunta ${count}`);
   }
 
   const existingTarget = $("builderRouteExistingTarget");
@@ -2824,7 +2898,7 @@ function refreshBuilderRouteModal(app) {
     const currentNext = String(answer?.nextNodeId ?? "");
     const options = draft.nodes
       .filter((node) => node.id !== app.answerRoutingDraft.nodeId)
-      .map((node) => `<option value="${escapeHtml(node.id)}" ${node.id === currentNext ? "selected" : ""}>${escapeHtml(node.title || node.id)} • ${node.type === "interpretacao" ? "Resultado" : "Pergunta"}</option>`)
+      .map((node) => `<option value="${escapeHtml(node.id)}" ${node.id === currentNext ? "selected" : ""}>${escapeHtml(node.title || node.id)} • ${getBuilderNodeTypeLabel(node.type)}</option>`)
       .join("");
     existingTarget.innerHTML = `<option value="">Selecione uma etapa</option>${options}`;
   }
@@ -2855,7 +2929,7 @@ function getBuilderReachability(draft) {
     if (!nodeId || visited.has(nodeId) || !nodesById[nodeId]) continue;
     visited.add(nodeId);
     const node = nodesById[nodeId];
-    if (node.type === "pergunta") {
+    if (nodeSupportsAnswers(node.type)) {
       for (const answer of node.answers) {
         if (answer.nextNodeId) stack.push(answer.nextNodeId);
       }
@@ -2868,7 +2942,9 @@ function getBuilderNodeDisplayName(draft, nodeId) {
   const cleanDraft = ensureBuilderDraftConsistency(draft);
   const node = cleanDraft.nodes.find((item) => item.id === nodeId);
   if (!node) return "essa etapa";
-  const typeLabel = node.type === "interpretacao" ? "resultado" : "pergunta";
+  const typeLabel = isPartialResultNodeType(node.type)
+    ? "resultado parcial"
+    : (isFinalResultNodeType(node.type) ? "resultado" : "pergunta");
   const title = String(node.title ?? "").trim();
   if (title) return `${typeLabel} "${title}"`;
 
@@ -2999,17 +3075,19 @@ function getBuilderValidationIssues(draft) {
         message: `A ${nodeLabel} esta sem titulo. Dê um nome para essa etapa para o fisio entender o fluxo antes de salvar.`
       });
     }
-    if (node.type !== "pergunta") continue;
+    if (!nodeSupportsAnswers(node.type)) continue;
     if (!Array.isArray(node.answers) || node.answers.length === 0) {
       issues.push({
         nodeId: node.id,
         where: "Painel lateral da etapa > Proximos Passos > Adicionar Resposta",
-        message: `A ${nodeLabel} precisa ter pelo menos uma resposta. Sem resposta o fisio nao consegue seguir para a proxima etapa.`
+        message: isPartialResultNodeType(node.type)
+          ? `O ${nodeLabel} precisa apontar para pelo menos um proximo passo. Sem isso a avaliacao para no meio do caminho.`
+          : `A ${nodeLabel} precisa ter pelo menos uma resposta. Sem resposta o fisio nao consegue seguir para a proxima etapa.`
       });
     }
     node.answers.forEach((answer, answerIndex) => {
       const answerLabel = getBuilderAnswerDisplayName(answer, answerIndex);
-      if (!String(answer.label ?? "").trim()) {
+      if (isQuestionNodeType(node.type) && !String(answer.label ?? "").trim()) {
         issues.push({
           nodeId: node.id,
           answerId: answer.id,
@@ -3044,7 +3122,7 @@ function getBuilderValidationIssues(draft) {
     if (visiting.has(nodeId)) return false;
     const node = nodesById[nodeId];
     if (!node) return false;
-    if (node.type === "interpretacao") {
+    if (isFinalResultNodeType(node.type)) {
       memo.set(nodeId, true);
       return true;
     }
@@ -3082,10 +3160,11 @@ function getBuilderPathSummaries(draft, maxPaths = 6) {
     if (summaries.length >= maxPaths || visited.has(nodeId)) return;
     const node = nodesById[nodeId];
     if (!node) return;
-    if (node.type === "interpretacao") {
+    if (isFinalResultNodeType(node.type)) {
       summaries.push([...segments, node.title].filter(Boolean).join(" -> "));
       return;
     }
+    if (!nodeSupportsAnswers(node.type)) return;
     const nextVisited = new Set(visited);
     nextVisited.add(nodeId);
     for (const answer of node.answers) {
@@ -3233,19 +3312,23 @@ function fillBuilderInspector(app) {
   if (setStartBtn) {
     const isStart = node.id === app.builderDraft.startNodeId;
     setStartBtn.textContent = isStart ? "Bloco Inicial" : "Definir como Início";
-    setStartBtn.disabled = isStart || node.type !== "pergunta";
+    setStartBtn.disabled = isStart || !isQuestionNodeType(node.type);
   }
 
-  if (answersSection) answersSection.classList.toggle("hidden", node.type !== "pergunta");
+  if (answersSection) answersSection.classList.toggle("hidden", !nodeSupportsAnswers(node.type));
+  const sidebarAddAnswer = $("btnSidebarAddAnswer");
+  if (sidebarAddAnswer) {
+    sidebarAddAnswer.textContent = isPartialResultNodeType(node.type) ? "Adicionar Próximo Passo" : "Adicionar Resposta";
+  }
 
   const answersList = $("builderSelectedAnswersList");
   if (!answersList) return;
   answersList.innerHTML = "";
 
-  if (node.type !== "pergunta") return;
+  if (!nodeSupportsAnswers(node.type)) return;
 
   const targetOptions = app.builderDraft.nodes
-    .map((targetNode) => `<option value="${escapeHtml(targetNode.id)}">${escapeHtml(targetNode.title || targetNode.id)} • ${targetNode.type === "interpretacao" ? "Resultado" : "Pergunta"}</option>`)
+    .map((targetNode) => `<option value="${escapeHtml(targetNode.id)}">${escapeHtml(targetNode.title || targetNode.id)} • ${getBuilderNodeTypeLabel(targetNode.type)}</option>`)
     .join("");
 
   node.answers.forEach((answer, idx) => {
@@ -3257,8 +3340,8 @@ function fillBuilderInspector(app) {
         <button class="btn btn--ghost btn--sm" type="button" data-action="remove-builder-answer" data-node-id="${escapeHtml(node.id)}" data-answer-id="${escapeHtml(answer.id)}" style="flex: 0;">Remover</button>
       </div>
       <div class="input-group" style="margin-bottom: 0;">
-        <label class="label">Texto da resposta</label>
-        <input type="text" class="input-text" data-inspector-field="answerLabel" data-node-id="${escapeHtml(node.id)}" data-answer-id="${escapeHtml(answer.id)}" value="${escapeHtml(answer.label)}" />
+        <label class="label">${isPartialResultNodeType(node.type) ? "Texto do botão" : "Texto da resposta"}</label>
+        <input type="text" class="input-text" data-inspector-field="answerLabel" data-node-id="${escapeHtml(node.id)}" data-answer-id="${escapeHtml(answer.id)}" value="${escapeHtml(answer.label)}" placeholder="${isPartialResultNodeType(node.type) ? "Ex: Continuar avaliação" : ""}" />
       </div>
       <div class="input-group" style="margin-bottom: 0;">
         <label class="label">Próximo passo</label>
@@ -3294,7 +3377,8 @@ function renderBuilderFlowEditor(app) {
   let questionCount = 0;
   let resultCount = 0;
   for (const node of orderedNodes) {
-    const isQuestion = node.type === "pergunta";
+    const isQuestion = isQuestionNodeType(node.type);
+    const isPartialResult = isPartialResultNodeType(node.type);
     if (isQuestion) questionCount += 1;
     else resultCount += 1;
     const isStart = node.id === draft.startNodeId;
@@ -3304,7 +3388,7 @@ function renderBuilderFlowEditor(app) {
     const imageUrl = String(node.imageUrl ?? "").trim();
     const shouldShowImage = imageUrl && (contentType === "image" || contentType === "mixed");
     const shouldShowText = contentType !== "image";
-    const answersHtml = isQuestion
+    const answersHtml = nodeSupportsAnswers(node.type)
       ? (Array.isArray(node.answers) ? node.answers : []).map((answer) => {
           const targetLabel = answer.nextNodeId
             ? `Proximo passo: ${escapeHtml(getBuilderTargetLabel(draft, answer.nextNodeId))}`
@@ -3312,7 +3396,7 @@ function renderBuilderFlowEditor(app) {
           return `
             <button class="timeline-step__answer" type="button" data-action="open-answer-routing" data-node-id="${escapeHtml(node.id)}" data-answer-id="${escapeHtml(answer.id)}">
               <span class="timeline-step__answer-copy">
-                <span class="timeline-step__answer-label">${escapeHtml(answer.label || "Opcao sem texto")}</span>
+                <span class="timeline-step__answer-label">${escapeHtml(answer.label || (isPartialResult ? "Continuar avaliação" : "Opcao sem texto"))}</span>
                 <span class="timeline-step__answer-target">${targetLabel}</span>
               </span>
             </button>
@@ -3330,16 +3414,16 @@ function renderBuilderFlowEditor(app) {
     card.setAttribute("data-node-id", node.id);
     card.innerHTML = `
       <div class="timeline-step__head">
-        <span class="timeline-step__badge">${isQuestion ? "Pergunta" : "Resultado"}</span>
-        <span class="timeline-step__subtitle">${isStart ? "Etapa inicial" : (isQuestion ? `Pergunta ${questionCount}` : `Resultado ${resultCount}`)}</span>
+        <span class="timeline-step__badge">${getBuilderNodeTypeLabel(node.type)}</span>
+        <span class="timeline-step__subtitle">${isStart ? "Etapa inicial" : (isQuestion ? `Pergunta ${questionCount}` : `${getBuilderNodeTypeLabel(node.type)} ${resultCount}`)}</span>
       </div>
       ${shouldShowImage ? `<img class="timeline-step__media" src="${escapeHtml(imageUrl)}" alt="${escapeHtml(node.title || "Imagem da etapa")}" />` : ""}
-      <h3 class="timeline-step__title">${escapeHtml(node.title || (isQuestion ? "Nova pergunta" : "Novo resultado")).replace(/\n/g, "<br>")}</h3>
+      <h3 class="timeline-step__title">${escapeHtml(node.title || (isQuestion ? "Nova pergunta" : (isPartialResult ? "Novo resultado parcial" : "Novo resultado"))).replace(/\n/g, "<br>")}</h3>
       ${shouldShowText && bodyText ? `<div class="timeline-step__body">${escapeHtml(bodyText).replace(/\n/g, "<br>")}</div>` : ""}
       <div class="timeline-step__answers">${answersHtml}</div>
       <div class="timeline-step__footer">
-        ${app.builderViewMode === "advanced" ? `<span class="timeline-step__meta">ID: ${escapeHtml(node.id)}</span>` : `<span class="timeline-step__meta">${isQuestion ? "Clique no card para editar a etapa" : "Resultado final do caminho"}</span>`}
-        ${isQuestion ? `<button class="timeline-step__action" type="button" data-action="add-builder-answer" data-node-id="${escapeHtml(node.id)}">Adicionar Resposta</button>` : ""}
+        ${app.builderViewMode === "advanced" ? `<span class="timeline-step__meta">ID: ${escapeHtml(node.id)}</span>` : `<span class="timeline-step__meta">${isQuestion ? "Clique no card para editar a etapa" : (isPartialResult ? "Resultado parcial que segue para a próxima etapa" : "Resultado final do caminho")}</span>`}
+        ${nodeSupportsAnswers(node.type) ? `<button class="timeline-step__action" type="button" data-action="add-builder-answer" data-node-id="${escapeHtml(node.id)}">${isPartialResult ? "Adicionar Próximo Passo" : "Adicionar Resposta"}</button>` : ""}
       </div>
     `;
     timeline.appendChild(card);
@@ -3487,7 +3571,8 @@ function renderVisualPreview(app) {
   if (!preview) return;
 
   const questionNode = draft.nodes.find((node) => node.type === "pergunta");
-  const diagnosisNode = draft.nodes.find((node) => node.type === "interpretacao");
+  const diagnosisNode = draft.nodes.find((node) => isFinalResultNodeType(node.type))
+    ?? draft.nodes.find((node) => isPartialResultNodeType(node.type));
   const answers = Array.isArray(questionNode?.answers) ? questionNode.answers : [];
 
   preview.style.backgroundColor = blueprint.page.backgroundColor;
@@ -3762,7 +3847,9 @@ function createBuilderDraftFromFlow(flow) {
     startNodeId: String(flow?.startNodeId ?? ""),
     nodes: orderedNodes.map((node) => ({
       id: String(node?.id ?? ""),
-      type: String(node?.type ?? "") === "interpretacao" ? "interpretacao" : "pergunta",
+      type: isFinalResultNodeType(node?.type) || isPartialResultNodeType(node?.type)
+        ? normalizeFlowNodeType(node?.type)
+        : "pergunta",
       title: String(node?.title ?? ""),
       body: String(node?.body ?? ""),
       contentType: String(node?.contentType ?? "text"),
@@ -3838,9 +3925,11 @@ function buildFlowFromBuilderDraft(draft, options = {}) {
     if (!title && !allowIncomplete) {
       throw new Error("Toda etapa precisa ter um título.");
     }
-    const safeTitle = title || (node.type === "interpretacao" ? `Diagnostico ${nodeIndex + 1} pendente` : `Pergunta ${nodeIndex + 1} pendente`);
+    const safeTitle = title || (isFinalResultNodeType(node.type)
+      ? `Diagnostico ${nodeIndex + 1} pendente`
+      : (isPartialResultNodeType(node.type) ? `Resultado parcial ${nodeIndex + 1} pendente` : `Pergunta ${nodeIndex + 1} pendente`));
 
-    if (node.type === "pergunta") {
+    if (nodeSupportsAnswers(node.type)) {
       let answers = (Array.isArray(node.answers) ? node.answers : [])
         .map((answer) => ({
           label: String(answer.label ?? "").trim(),
@@ -3849,25 +3938,33 @@ function buildFlowFromBuilderDraft(draft, options = {}) {
 
       if (answers.length === 0) {
         if (!allowIncomplete) {
-          throw new Error(`A pergunta "${safeTitle}" precisa de pelo menos uma resposta.`);
+          throw new Error(
+            isPartialResultNodeType(node.type)
+              ? `O resultado parcial "${safeTitle}" precisa apontar para um próximo passo.`
+              : `A pergunta "${safeTitle}" precisa de pelo menos uma resposta.`
+          );
         }
         answers = [{
-          label: "Resposta pendente",
+          label: isPartialResultNodeType(node.type) ? "Continuar avaliação" : "Resposta pendente",
           nextNodeId: ensureDraftFallbackResultId()
         }];
       }
 
       answers = answers.map((answer, answerIndex) => {
         if (!allowIncomplete) {
-          if (!answer.label) {
+          if (isQuestionNodeType(node.type) && !answer.label) {
             throw new Error(`A pergunta "${safeTitle}" possui resposta sem texto. Escreva a opcao antes de salvar.`);
           }
           if (!answer.nextNodeId || !nodeIds.has(answer.nextNodeId)) {
-            throw new Error(`A resposta "${answer.label}" da pergunta "${safeTitle}" precisa apontar para outra etapa ou diagnóstico.`);
+            throw new Error(
+              isPartialResultNodeType(node.type)
+                ? `O resultado parcial "${safeTitle}" precisa apontar para outra etapa antes do relatório final.`
+                : `A resposta "${answer.label}" da pergunta "${safeTitle}" precisa apontar para outra etapa ou diagnóstico.`
+            );
           }
         }
         return {
-          label: answer.label || `Resposta ${answerIndex + 1} pendente`,
+          label: answer.label || (isPartialResultNodeType(node.type) ? "Continuar avaliação" : `Resposta ${answerIndex + 1} pendente`),
           nextNodeId: answer.nextNodeId && nodeIds.has(answer.nextNodeId)
             ? answer.nextNodeId
             : ensureDraftFallbackResultId()
@@ -3876,7 +3973,7 @@ function buildFlowFromBuilderDraft(draft, options = {}) {
 
       return {
         id: node.id,
-        type: "pergunta",
+        type: isPartialResultNodeType(node.type) ? "resultado_parcial" : "pergunta",
         title: safeTitle,
         body: String(node.body ?? "").trim(),
         contentType: ["image", "mixed"].includes(String(node.contentType ?? "")) ? String(node.contentType) : "text",
@@ -4187,7 +4284,9 @@ function syncBuilderDraftFromDom(app) {
 
       return {
         id: String(card.getAttribute("data-builder-node-id") ?? ""),
-        type: nodeType === "interpretacao" ? "interpretacao" : "pergunta",
+        type: normalizeFlowNodeType(nodeType) === "resultado_parcial"
+          ? "resultado_parcial"
+          : (normalizeFlowNodeType(nodeType) === "interpretacao" ? "interpretacao" : "pergunta"),
         title: String(card.querySelector('[data-field="nodeTitle"]')?.value ?? "").trim(),
         body: String(card.querySelector('[data-field="nodeBody"]')?.value ?? "").trim(),
         contentType: String(card.querySelector('[data-field="nodeContentType"]')?.value ?? "text"),
@@ -4223,7 +4322,7 @@ function renderBuilderNodes(app) {
   app.builderDraft = ensureBuilderDraftConsistency(app.builderDraft);
   const draft = app.builderDraft;
   const questionNodes = draft.nodes.filter((node) => node.type === "pergunta");
-  const targetOptions = draft.nodes.map((node) => `<option value="${escapeHtml(node.id)}">${escapeHtml(node.title || node.id)} • ${node.type === "interpretacao" ? "Resultado" : "Pergunta"}</option>`).join("");
+  const targetOptions = draft.nodes.map((node) => `<option value="${escapeHtml(node.id)}">${escapeHtml(node.title || node.id)} • ${getBuilderNodeTypeLabel(node.type)}</option>`).join("");
 
   startSelect.innerHTML = questionNodes.map((node) => `
     <option value="${escapeHtml(node.id)}" ${node.id === draft.startNodeId ? "selected" : ""}>${escapeHtml(node.title || node.id)}</option>
@@ -4233,10 +4332,10 @@ function renderBuilderNodes(app) {
 
   draft.nodes.forEach((node, idx) => {
     const wrap = document.createElement("div");
-    wrap.className = `builder-node ${node.type === "interpretacao" ? "builder-node--result" : "builder-node--question"}`;
+    wrap.className = `builder-node ${isDiagnosisLikeNodeType(node.type) ? "builder-node--result" : "builder-node--question"}`;
     wrap.setAttribute("data-builder-node-id", node.id);
 
-    const answersHtml = node.type === "pergunta"
+    const answersHtml = nodeSupportsAnswers(node.type)
       ? `
         <div class="builder-answer-list">
           ${(Array.isArray(node.answers) ? node.answers : []).map((answer, answerIdx) => `
@@ -4247,8 +4346,8 @@ function renderBuilderNodes(app) {
               </div>
               <div class="row-inputs">
                 <div class="input-group">
-                  <label class="label">Texto da resposta</label>
-                  <input type="text" class="input-text" data-field="answerLabel" value="${escapeHtml(answer.label)}" placeholder="Ex: Perna curta ipsilateral" />
+                  <label class="label">${isPartialResultNodeType(node.type) ? "Texto do botão" : "Texto da resposta"}</label>
+                  <input type="text" class="input-text" data-field="answerLabel" value="${escapeHtml(answer.label)}" placeholder="${isPartialResultNodeType(node.type) ? "Ex: Continuar avaliação" : "Ex: Perna curta ipsilateral"}" />
                 </div>
                 <div class="input-group">
                   <label class="label">Próximo passo</label>
@@ -4261,7 +4360,7 @@ function renderBuilderNodes(app) {
             </div>
           `).join("")}
         </div>
-        <button class="btn btn--ghost btn--sm" type="button" data-action="add-builder-answer" data-node-id="${escapeHtml(node.id)}" style="flex: 0;">Adicionar Resposta</button>
+        <button class="btn btn--ghost btn--sm" type="button" data-action="add-builder-answer" data-node-id="${escapeHtml(node.id)}" style="flex: 0;">${isPartialResultNodeType(node.type) ? "Adicionar Próximo Passo" : "Adicionar Resposta"}</button>
       `
       : "";
 
@@ -4276,6 +4375,7 @@ function renderBuilderNodes(app) {
           <select class="input-text" data-field="nodeType">
             <option value="pergunta" ${node.type === "pergunta" ? "selected" : ""}>Pergunta</option>
             <option value="interpretacao" ${node.type === "interpretacao" ? "selected" : ""}>Resultado</option>
+            <option value="resultado_parcial" ${node.type === "resultado_parcial" ? "selected" : ""}>Resultado Parcial</option>
           </select>
         </div>
         <div class="input-group">
@@ -4350,9 +4450,10 @@ function setEditorMode(app, mode) {
 }
 
 function getFlowStepTypeLabel(node) {
-  const type = String(node?.type ?? "").toLowerCase();
-  if (type === "pergunta" || type === "question") return "Pergunta";
-  if (type === "interpretacao" || type === "interpretation") return "Interpretação";
+  const type = normalizeFlowNodeType(node?.type);
+  if (type === "pergunta") return "Pergunta";
+  if (type === "resultado_parcial") return "Resultado Parcial";
+  if (type === "interpretacao") return "Interpretação";
   if (type === "checkpoint") return "Checkpoint";
   if (type === "area" || type === "areas") return "Área";
   return "Orientação";
@@ -4365,9 +4466,9 @@ function getFlowNodeVariant(node) {
   if (node?.__virtualType === "answer") return "answer";
   if (node?.__virtualType === "action") return "action";
 
-  const type = String(node?.type ?? "").toLowerCase();
-  if (type === "pergunta" || type === "question") return "question";
-  if (type === "interpretacao" || type === "interpretation") return "result";
+  const type = normalizeFlowNodeType(node?.type);
+  if (type === "pergunta") return "question";
+  if (type === "interpretacao" || type === "resultado_parcial") return "result";
   if (type === "checkpoint") return "checkpoint";
   return "neutral";
 }
@@ -6716,14 +6817,17 @@ function renderState(app) {
     const flow = protocol.flowsById[session.flowId];
     const node = flow.nodesById[session.currentNodeId];
     const runtimeBlueprint = applyRuntimeModuleBlueprint(protocol, flow.id);
+    const partialResults = getSessionPartialResults(protocol, session);
 
     renderBreadcrumb(app, flow, node);
-    const nodeType = String(node.type ?? "");
+    const nodeType = normalizeFlowNodeType(node.type);
     const typeLower = nodeType.toLowerCase();
     const isFinalizerNode = session.currentNodeId === "alta_fim_sessao"
       || /alta/i.test(String(node.title ?? ""));
     const isTriggerQuestionNode = session.currentNodeId === "pontos_gatilhos_perna_curta_curta";
-    const isDiagnosisNode = ["interpretacao", "interpretation"].includes(typeLower) && !isFinalizerNode;
+    const isDiagnosisNode = isDiagnosisLikeNodeType(typeLower) && !isFinalizerNode;
+    const isFinalDiagnosisNode = isFinalResultNodeType(typeLower) && !isFinalizerNode;
+    const isPartialDiagnosisNode = isPartialResultNodeType(typeLower) && !isFinalizerNode;
     const breadcrumbWrap = document.querySelector(".breadcrumbWrap");
     if (breadcrumbWrap) breadcrumbWrap.classList.toggle("hidden", isFinalizerNode || isDiagnosisNode);
 
@@ -6734,20 +6838,20 @@ function renderState(app) {
 
   // Aplicar nova classe de cor e traduzir o label
   let typeLabel = "Orientação";
-  if (["pergunta", "question"].includes(typeLower)) {
+  if (isQuestionNodeType(typeLower)) {
     if (nodeCard) nodeCard.classList.add("card--pergunta");
     if (nodeCard) {
       nodeCard.style.background = runtimeBlueprint.blocks.questionBg;
       nodeCard.style.color = runtimeBlueprint.blocks.questionText;
     }
     typeLabel = "PERGUNTA:";
-  } else if (["interpretacao", "interpretation"].includes(typeLower)) {
+  } else if (isDiagnosisLikeNodeType(typeLower)) {
     if (nodeCard) nodeCard.classList.add(isFinalizerNode ? "card--finalizer" : "card--interpretacao");
     if (nodeCard) {
       nodeCard.style.background = runtimeBlueprint.blocks.diagnosisBg;
       nodeCard.style.color = runtimeBlueprint.blocks.diagnosisText;
     }
-    typeLabel = "INTERPRETAÇÃO:";
+    typeLabel = isPartialDiagnosisNode ? "RESULTADO PARCIAL:" : "INTERPRETAÇÃO:";
   } else if (["area", "areas"].includes(typeLower)) {
     if (nodeCard) nodeCard.classList.add("card--area");
     typeLabel = "ÁREA:";
@@ -6772,7 +6876,7 @@ function renderState(app) {
 
   const normalizedRawBody = rawBody.toLowerCase().replace(/\s+/g, " ").trim();
   const normalizedRawTitle = rawTitle.toLowerCase().replace(/\s+/g, " ").trim();
-  const isQuestionNode = ["pergunta", "question"].includes(typeLower);
+  const isQuestionNode = isQuestionNodeType(typeLower);
   const isInitialQuestion = isQuestionNode
     && session.currentNodeId === flow.startNodeId
     && (
@@ -6966,23 +7070,44 @@ function renderState(app) {
   if (diagnosisPath) {
     diagnosisPath.innerHTML = "";
     if (isDiagnosisNode) {
-      session.path.forEach((step, index) => {
-        const card = document.createElement("div");
-        card.className = "finalizer-step";
-        const questionTitle = escapeHtml(String(step.nodeTitle ?? "")).replace(/\n/g, "<br>");
-        const answerLabel = String(step.chosenLabel ?? "");
-        card.innerHTML = `
-          <div class="finalizer-step__question">
-            <strong>${index + 1}. Pergunta</strong>
-            <span>${questionTitle}</span>
-          </div>
-          <div class="finalizer-step__answer">
-            <strong>Resposta</strong>
-            <span>${escapeHtml(answerLabel)}</span>
-          </div>
-        `;
-        diagnosisPath.appendChild(card);
-      });
+      if (isFinalDiagnosisNode && partialResults.length > 0) {
+        partialResults.forEach((result, index) => {
+          const card = document.createElement("div");
+          card.className = "finalizer-step";
+          const questionTitle = escapeHtml(result.sourceQuestionTitle).replace(/\n/g, "<br>");
+          const answerLabel = escapeHtml(result.chosenLabel).replace(/\n/g, "<br>");
+          const resultTitle = escapeHtml(result.title).replace(/\n/g, "<br>");
+          const resultBody = escapeHtml(result.body).replace(/\n/g, "<br>");
+          card.innerHTML = `
+            <div class="finalizer-step__question">
+              <strong>${index + 1}. Resultado parcial</strong>
+              <span>${resultTitle}</span>
+            </div>
+            ${resultBody ? `<div class="finalizer-step__answer"><strong>Achado</strong><span>${resultBody}</span></div>` : ""}
+            ${questionTitle ? `<div class="finalizer-step__answer"><strong>Teste</strong><span>${questionTitle}</span></div>` : ""}
+            ${answerLabel ? `<div class="finalizer-step__answer"><strong>Resposta</strong><span>${answerLabel}</span></div>` : ""}
+          `;
+          diagnosisPath.appendChild(card);
+        });
+      } else {
+        session.path.forEach((step, index) => {
+          const card = document.createElement("div");
+          card.className = "finalizer-step";
+          const questionTitle = escapeHtml(String(step.nodeTitle ?? "")).replace(/\n/g, "<br>");
+          const answerLabel = String(step.chosenLabel ?? "");
+          card.innerHTML = `
+            <div class="finalizer-step__question">
+              <strong>${index + 1}. Pergunta</strong>
+              <span>${questionTitle}</span>
+            </div>
+            <div class="finalizer-step__answer">
+              <strong>Resposta</strong>
+              <span>${escapeHtml(answerLabel)}</span>
+            </div>
+          `;
+          diagnosisPath.appendChild(card);
+        });
+      }
     }
   }
   if (diagnosisActions) diagnosisActions.innerHTML = "";
@@ -7056,7 +7181,12 @@ function renderState(app) {
       const labelLower = optLabel.toLowerCase();
       const isAreaNav = opt.action === "change_flow" || labelLower.includes("área") || labelLower.includes("area") || labelLower.includes("limpeza");
       
-      if (isAreaNav) {
+      if (isDiagnosisNode) {
+        btn.className = "btn btn--diagnosis-primary";
+        btn.textContent = optLabel;
+        btn.style.background = runtimeBlueprint.blocks.answerBg;
+        btn.style.color = runtimeBlueprint.blocks.answerText;
+      } else if (isAreaNav) {
         btn.className = "btn btn--area";
         
         // Adicionar ícone via emoji dependendo do nome
@@ -7079,7 +7209,9 @@ function renderState(app) {
         renderState(app);
       });
       
-      if (isAreaNav) {
+      if (isDiagnosisNode) {
+        if (diagnosisActions) diagnosisActions.appendChild(btn);
+      } else if (isAreaNav) {
         areaOptionsWrap.appendChild(btn);
       } else {
         optionsWrap.appendChild(btn);
@@ -7123,7 +7255,7 @@ function renderState(app) {
   const hasHistory = session.path.length > 0;
   if ($("btnBack")) {
     $("btnBack").disabled = !hasHistory;
-    $("btnBack").classList.toggle("hidden", isFinalizerNode || isDiagnosisNode);
+    $("btnBack").classList.toggle("hidden", isFinalizerNode || isFinalDiagnosisNode);
   }
   if ($("btnExitFlow")) {
     $("btnExitFlow").classList.remove("hidden");
@@ -8372,6 +8504,23 @@ async function mount() {
     });
   }
 
+  const btnAddBuilderPartialResult = $("btnAddBuilderPartialResult");
+  if (btnAddBuilderPartialResult) {
+    btnAddBuilderPartialResult.addEventListener("click", () => {
+      app.builderDraft = ensureBuilderDraftConsistency(app.builderDraft);
+      const newNode = createBuilderNode("resultado_parcial", {
+        title: `Resultado parcial ${app.builderDraft.nodes.filter((node) => node.type === "resultado_parcial").length + 1}`,
+        answers: [createBuilderAnswer("Continuar avaliação")]
+      });
+      app.builderDraft.nodes.push(newNode);
+      app.selectedBuilderNodeId = newNode.id;
+      app.isBuilderSidebarOpen = true;
+      app.answerRoutingDraft = null;
+      renderBuilderWorkspace(app);
+      scheduleEditorAutoSave(app, { immediate: true });
+    });
+  }
+
   const btnTestBuilderFlow = $("btnTestBuilderFlow");
   if (btnTestBuilderFlow) {
     btnTestBuilderFlow.addEventListener("click", () => {
@@ -8429,8 +8578,8 @@ async function mount() {
   if (btnSidebarAddAnswer) {
     btnSidebarAddAnswer.addEventListener("click", () => {
       const node = getBuilderDraftNode(app.builderDraft, app.selectedBuilderNodeId);
-      if (!node || node.type !== "pergunta") return;
-      node.answers.push(createBuilderAnswer(""));
+      if (!node || !nodeSupportsAnswers(node.type)) return;
+      node.answers.push(createBuilderAnswer(isPartialResultNodeType(node.type) ? "Continuar avaliação" : ""));
       renderBuilderWorkspace(app);
       scheduleEditorAutoSave(app, { immediate: true });
     });
@@ -8448,7 +8597,7 @@ async function mount() {
       }
       app.builderDraft.nodes = app.builderDraft.nodes.filter((node) => node.id !== nodeId);
       app.builderDraft.nodes.forEach((node) => {
-        if (node.type === "pergunta") {
+        if (nodeSupportsAnswers(node.type)) {
           node.answers = node.answers.map((answer) => ({
             ...answer,
             nextNodeId: answer.nextNodeId === nodeId ? "" : answer.nextNodeId
@@ -8536,11 +8685,13 @@ async function mount() {
         }
         answer.nextNodeId = targetId;
       } else {
-        const newType = String($("builderRouteCreateType")?.value ?? "pergunta") === "interpretacao" ? "interpretacao" : "pergunta";
+        const newType = normalizeFlowNodeType(String($("builderRouteCreateType")?.value ?? "pergunta"));
         const suggestedTitle = String($("builderRouteCreateTitle")?.value ?? "").trim();
         const newNode = createBuilderNode(newType, {
-          title: suggestedTitle || (newType === "interpretacao" ? "Novo resultado" : "Nova pergunta"),
-          answers: []
+          title: suggestedTitle || (newType === "interpretacao"
+            ? "Novo resultado"
+            : (newType === "resultado_parcial" ? "Novo resultado parcial" : "Nova pergunta")),
+          answers: isPartialResultNodeType(newType) ? [createBuilderAnswer("Continuar avaliação")] : []
         });
         app.builderDraft.nodes.push(newNode);
         answer.nextNodeId = newNode.id;
@@ -8839,7 +8990,11 @@ async function mount() {
       const value = String(editableEl.innerText ?? "").replace(/\r/g, "").replace(/\n{3,}/g, "\n\n");
       const node = getBuilderDraftNode(app.builderDraft, nodeId);
       if (!node) return;
-      if (editType === "node-title") node.title = value.trimStart() || (node.type === "pergunta" ? "Nova pergunta" : "Novo diagnóstico");
+      if (editType === "node-title") {
+        node.title = value.trimStart() || (isQuestionNodeType(node.type)
+          ? "Nova pergunta"
+          : (isPartialResultNodeType(node.type) ? "Novo resultado parcial" : "Novo diagnóstico"));
+      }
       if (editType === "node-body") node.body = value.trim();
       if (editType === "answer-label") {
         const answer = node.answers.find((item) => item.id === answerId);
@@ -8992,9 +9147,11 @@ async function mount() {
     if (e.target?.id === "builderSelectedNodeType") {
       const node = getBuilderDraftNode(app.builderDraft, app.selectedBuilderNodeId);
       if (!node) return;
-      node.type = String(e.target.value ?? "pergunta") === "interpretacao" ? "interpretacao" : "pergunta";
-      if (node.type === "interpretacao") node.answers = [];
-      if (node.type === "pergunta" && !Array.isArray(node.answers)) node.answers = [];
+      node.type = normalizeFlowNodeType(String(e.target.value ?? "pergunta"));
+      if (!nodeSupportsAnswers(node.type)) node.answers = [];
+      if (nodeSupportsAnswers(node.type) && !Array.isArray(node.answers)) {
+        node.answers = isPartialResultNodeType(node.type) ? [createBuilderAnswer("Continuar avaliação")] : [];
+      }
       app.builderDraft = ensureBuilderDraftConsistency(app.builderDraft);
       renderBuilderWorkspace(app);
       scheduleEditorAutoSave(app, { immediate: true });
@@ -9104,8 +9261,8 @@ async function mount() {
     if (addAnswerEl) {
       const nodeId = String(addAnswerEl.getAttribute("data-node-id") ?? "");
       const node = app.builderDraft.nodes.find((item) => item.id === nodeId);
-      if (node && node.type === "pergunta") {
-        node.answers.push(createBuilderAnswer(""));
+      if (node && nodeSupportsAnswers(node.type)) {
+        node.answers.push(createBuilderAnswer(isPartialResultNodeType(node.type) ? "Continuar avaliação" : ""));
         app.selectedBuilderNodeId = nodeId;
         app.isBuilderSidebarOpen = true;
         renderBuilderWorkspace(app);
@@ -9119,7 +9276,7 @@ async function mount() {
       const nodeId = String(removeAnswerEl.getAttribute("data-node-id") ?? "");
       const answerId = String(removeAnswerEl.getAttribute("data-answer-id") ?? "");
       const node = app.builderDraft.nodes.find((item) => item.id === nodeId);
-      if (node && node.type === "pergunta") {
+      if (node && nodeSupportsAnswers(node.type)) {
         node.answers = node.answers.filter((answer) => answer.id !== answerId);
         if (app.answerRoutingDraft?.nodeId === nodeId && app.answerRoutingDraft?.answerId === answerId) {
           closeBuilderRouteModal(app);
@@ -9142,7 +9299,7 @@ async function mount() {
       }
       app.builderDraft.nodes = app.builderDraft.nodes.filter((node) => node.id !== nodeId);
       app.builderDraft.nodes.forEach((node) => {
-        if (node.type === "pergunta") {
+        if (nodeSupportsAnswers(node.type)) {
           node.answers = node.answers.map((answer) => ({
             ...answer,
             nextNodeId: answer.nextNodeId === nodeId ? "" : answer.nextNodeId
