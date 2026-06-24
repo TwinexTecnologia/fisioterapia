@@ -6964,12 +6964,26 @@ function renderState(app) {
       cleanTitle = titleLines.join("\n");
     }
 
-    cleanBody = "";
+    const titleLineSet = new Set(titleLines.map((line) => line.toLowerCase()));
+    cleanBody = bodyLines
+      .filter((line) => {
+        const normalizedLine = line.toLowerCase();
+        if (isNoiseLine(line)) return false;
+        if (optionLabels.has(normalizedLine)) return false;
+        if (titleLineSet.has(normalizedLine)) return false;
+        return true;
+      })
+      .join("\n")
+      .trim();
   }
   const nodeTitleEl = $("nodeTitle");
   if (nodeTitleEl) {
     nodeTitleEl.innerHTML = escapeHtml(cleanTitle).replace(/\n/g, "<br>");
     nodeTitleEl.classList.toggle("hidden", contentType === "image");
+    nodeTitleEl.style.maxWidth = "100%";
+    nodeTitleEl.style.whiteSpace = "pre-wrap";
+    nodeTitleEl.style.overflowWrap = "anywhere";
+    nodeTitleEl.style.wordBreak = "break-word";
   }
 
   const normalizedTitle = cleanTitle.toLowerCase();
@@ -6995,12 +7009,38 @@ function renderState(app) {
   const nodeBodyEl = $("nodeBody");
   if (nodeBodyEl) {
     nodeBodyEl.textContent = cleanBody;
-    nodeBodyEl.classList.toggle("hidden", isQuestionNode || !cleanBody || contentType === "image");
+    nodeBodyEl.classList.toggle("hidden", !cleanBody || contentType === "image");
+    nodeBodyEl.style.maxWidth = "100%";
+    nodeBodyEl.style.whiteSpace = "pre-wrap";
+    nodeBodyEl.style.overflowWrap = "anywhere";
+    nodeBodyEl.style.wordBreak = "break-word";
+    nodeBodyEl.style.textAlign = "center";
   }
   const nodeImageEl = $("nodeImage");
   if (nodeImageEl) {
     nodeImageEl.src = imageUrl;
     nodeImageEl.classList.toggle("hidden", !showNodeImage);
+    nodeImageEl.style.display = showNodeImage ? "block" : "";
+    nodeImageEl.style.width = isQuestionNode && showNodeImage ? "100%" : "";
+    nodeImageEl.style.maxWidth = isQuestionNode && showNodeImage ? "780px" : "";
+    nodeImageEl.style.maxHeight = isQuestionNode && showNodeImage ? "460px" : "";
+    nodeImageEl.style.objectFit = isQuestionNode && showNodeImage ? "contain" : "";
+    nodeImageEl.style.padding = isQuestionNode && showNodeImage ? "0" : "";
+    nodeImageEl.style.border = isQuestionNode && showNodeImage ? "none" : "";
+    nodeImageEl.style.background = isQuestionNode && showNodeImage ? "transparent" : "";
+    nodeImageEl.style.borderRadius = isQuestionNode && showNodeImage ? "28px" : "";
+    nodeImageEl.style.margin = isQuestionNode && showNodeImage ? "10px 0 18px" : "";
+  }
+  if (nodeCard) {
+    nodeCard.style.borderRadius = isQuestionNode && showNodeImage ? "56px" : "";
+    nodeCard.style.padding = isQuestionNode && showNodeImage ? "18px 22px 24px" : "";
+    nodeCard.style.minWidth = "0";
+  }
+  if (nodeTitleEl) {
+    nodeTitleEl.style.textAlign = "center";
+  }
+  if (nodeBodyEl) {
+    nodeBodyEl.style.marginTop = cleanBody ? "10px" : "";
   }
 
   const finalizerView = $("finalizerView");
