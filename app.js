@@ -1805,6 +1805,9 @@ async function loadAuthContextFromSession(session) {
     return { session: null, user: null, profile: null };
   }
   const profile = await loadProfileForAuthUser(session.user.id);
+  // #region debug-point A:auth-context-loaded
+  fetch("http://127.0.0.1:7777/event",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:"dashboard-load-delay",runId:"pre-fix",hypothesisId:"A",location:"app.js:1807",msg:"[DEBUG] auth context loaded",data:{traceId:String(window.__dbgDashboardLoad?.traceId??""),userId:String(session?.user?.id??""),role:String(profile?.role??""),elapsedMs:Date.now()-Number(window.__dbgDashboardLoad?.loginStartedAt??Date.now())},ts:Date.now()})}).catch(()=>{});
+  // #endregion
   return { session, user: session.user, profile };
 }
 
@@ -1872,6 +1875,9 @@ function applyAuthenticatedContext(app, authContext, options = {}) {
   }
   restoreSupabaseModulesCache(app);
   app.view = getDefaultViewForRole(authContext.profile.role);
+  // #region debug-point B:apply-authenticated-context
+  fetch("http://127.0.0.1:7777/event",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:"dashboard-load-delay",runId:"pre-fix",hypothesisId:"B",location:"app.js:1876",msg:"[DEBUG] authenticated context applied",data:{traceId:String(window.__dbgDashboardLoad?.traceId??""),role:String(authContext?.profile?.role??""),view:String(app.view??""),cachedModules:Array.isArray(app.supabaseModules)?app.supabaseModules.length:0,elapsedMs:Date.now()-Number(window.__dbgDashboardLoad?.loginStartedAt??Date.now())},ts:Date.now()})}).catch(()=>{});
+  // #endregion
   if (options.render !== false) {
     renderState(app);
   }
@@ -2001,6 +2007,11 @@ async function ensurePatientDeviceAccess(authContext) {
 async function hydrateAuthenticatedApp(app) {
   if (!app?.authSession) return;
 
+  // #region debug-point C:hydrate-start
+  window.__dbgDashboardLoad = { ...(window.__dbgDashboardLoad ?? {}), hydrateStartedAt: Date.now() };
+  fetch("http://127.0.0.1:7777/event",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:"dashboard-load-delay",runId:"pre-fix",hypothesisId:"C",location:"app.js:2004",msg:"[DEBUG] dashboard hydration started",data:{traceId:String(window.__dbgDashboardLoad?.traceId??""),view:String(app.view??""),role:String(app.currentProfile?.role??"")},ts:Date.now()})}).catch(()=>{});
+  // #endregion
+
   const criticalResults = await Promise.allSettled([
     refreshSupabaseModules(app, { seedStarterForAdmin: true }),
     loadManagedProfiles(app)
@@ -2023,6 +2034,10 @@ async function hydrateAuthenticatedApp(app) {
   if (app.authSession && String(app.view ?? "") !== "login") {
     renderState(app);
   }
+
+  // #region debug-point C:hydrate-finished
+  fetch("http://127.0.0.1:7777/event",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:"dashboard-load-delay",runId:"pre-fix",hypothesisId:"C",location:"app.js:2027",msg:"[DEBUG] dashboard hydration finished",data:{traceId:String(window.__dbgDashboardLoad?.traceId??""),modulesStatus:String(criticalResults?.[0]?.status??""),profilesStatus:String(criticalResults?.[1]?.status??""),moduleCount:Array.isArray(app.supabaseModules)?app.supabaseModules.length:0,profileCount:Array.isArray(app.managedProfiles)?app.managedProfiles.length:0,elapsedMs:Date.now()-Number(window.__dbgDashboardLoad?.hydrateStartedAt??Date.now()),totalElapsedMs:Date.now()-Number(window.__dbgDashboardLoad?.loginStartedAt??Date.now())},ts:Date.now()})}).catch(()=>{});
+  // #endregion
 
   void loadAdminSecurityNotifications(app).catch((error) => {
     console.error("Erro ao carregar notificacoes de seguranca", error);
@@ -2201,12 +2216,19 @@ function mergeProtocolWithSupabaseModules(baseProtocol, rows, options = {}) {
 }
 
 async function loadSupabaseModuleRows() {
+  // #region debug-point D:modules-query-start
+  window.__dbgDashboardLoad = { ...(window.__dbgDashboardLoad ?? {}), modulesQueryStartedAt: Date.now() };
+  fetch("http://127.0.0.1:7777/event",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:"dashboard-load-delay",runId:"pre-fix",hypothesisId:"D",location:"app.js:2204",msg:"[DEBUG] modules query started",data:{traceId:String(window.__dbgDashboardLoad?.traceId??"")},ts:Date.now()})}).catch(()=>{});
+  // #endregion
   const { data, error } = await supabase
     .from("modules")
     .select("id, owner_id, slug, name, description, status, protocol_json, blueprint_json, cover_image_url, created_at, updated_at")
     .order("created_at", { ascending: true });
 
   if (error) throw error;
+  // #region debug-point D:modules-query-finished
+  fetch("http://127.0.0.1:7777/event",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:"dashboard-load-delay",runId:"pre-fix",hypothesisId:"D",location:"app.js:2211",msg:"[DEBUG] modules query finished",data:{traceId:String(window.__dbgDashboardLoad?.traceId??""),rows:Array.isArray(data)?data.length:0,elapsedMs:Date.now()-Number(window.__dbgDashboardLoad?.modulesQueryStartedAt??Date.now())},ts:Date.now()})}).catch(()=>{});
+  // #endregion
   return Array.isArray(data) ? data : [];
 }
 
@@ -5761,6 +5783,11 @@ async function loadManagedProfiles(app, options = {}) {
       && app.hasLoadedManagedProfiles
       && (now() - Number(app.lastManagedProfilesRefreshAt ?? 0)) < MANAGED_PROFILES_REFRESH_TTL_MS;
 
+    // #region debug-point E:profiles-load-start
+    window.__dbgDashboardLoad = { ...(window.__dbgDashboardLoad ?? {}), managedProfilesStartedAt: Date.now() };
+    fetch("http://127.0.0.1:7777/event",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:"dashboard-load-delay",runId:"pre-fix",hypothesisId:"E",location:"app.js:5764",msg:"[DEBUG] managed profiles load started",data:{traceId:String(window.__dbgDashboardLoad?.traceId??""),force:Boolean(force),shouldUseCache:Boolean(shouldUseCache),role:String(app.currentProfile?.role??"")},ts:Date.now()})}).catch(()=>{});
+    // #endregion
+
     if (shouldUseCache) {
       return Array.isArray(app.managedProfiles) ? app.managedProfiles : [];
     }
@@ -5798,6 +5825,9 @@ async function loadManagedProfiles(app, options = {}) {
     app.managedProfiles = Array.isArray(data) ? data : [];
     app.hasLoadedManagedProfiles = true;
     app.lastManagedProfilesRefreshAt = now();
+    // #region debug-point E:profiles-load-finished
+    fetch("http://127.0.0.1:7777/event",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:"dashboard-load-delay",runId:"pre-fix",hypothesisId:"E",location:"app.js:5804",msg:"[DEBUG] managed profiles load finished",data:{traceId:String(window.__dbgDashboardLoad?.traceId??""),rows:Array.isArray(app.managedProfiles)?app.managedProfiles.length:0,elapsedMs:Date.now()-Number(window.__dbgDashboardLoad?.managedProfilesStartedAt??Date.now())},ts:Date.now()})}).catch(()=>{});
+    // #endregion
     return app.managedProfiles;
   })();
 
@@ -6225,6 +6255,10 @@ function renderDashboard(app) {
   const totalProfiles = profiles.length;
   const activePercentage = totalProfiles > 0 ? Math.round((activeProfiles.length / totalProfiles) * 100) : 0;
   const uniqueModules = moduleUsage.size;
+
+  // #region debug-point F:dashboard-render
+  fetch("http://127.0.0.1:7777/event",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:"dashboard-load-delay",runId:"pre-fix",hypothesisId:"F",location:"app.js:6229",msg:"[DEBUG] dashboard rendered",data:{traceId:String(window.__dbgDashboardLoad?.traceId??""),role:String(role??""),profileCount:Number(totalProfiles),moduleCount:Number(moduleRows.length),assignments:Number(totalAssignments),totalElapsedMs:Date.now()-Number(window.__dbgDashboardLoad?.loginStartedAt??Date.now())},ts:Date.now()})}).catch(()=>{});
+  // #endregion
 
   if (isOwnerRole(role)) {
     subtitle.textContent = "Acompanhe a base de clientes administradores, a distribuição de módulos e o ritmo operacional da plataforma.";
@@ -7675,8 +7709,15 @@ async function mount() {
         setLoginRecoveryMode(false);
         setLoginError("");
         if (submitButton) submitButton.disabled = true;
+        // #region debug-point A:login-submit-start
+        window.__dbgDashboardLoad = { traceId: `login-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, loginStartedAt: Date.now(), emailDomain: String(email.split("@")[1] ?? "").trim().toLowerCase() };
+        fetch("http://127.0.0.1:7777/event",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:"dashboard-load-delay",runId:"pre-fix",hypothesisId:"A",location:"app.js:7678",msg:"[DEBUG] login submit started",data:{traceId:String(window.__dbgDashboardLoad?.traceId??""),emailDomain:String(window.__dbgDashboardLoad?.emailDomain??"")},ts:Date.now()})}).catch(()=>{});
+        // #endregion
         const { data, error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
+        // #region debug-point A:login-submit-finished
+        fetch("http://127.0.0.1:7777/event",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:"dashboard-load-delay",runId:"pre-fix",hypothesisId:"A",location:"app.js:7682",msg:"[DEBUG] login submit finished",data:{traceId:String(window.__dbgDashboardLoad?.traceId??""),userId:String(data?.session?.user?.id??""),elapsedMs:Date.now()-Number(window.__dbgDashboardLoad?.loginStartedAt??Date.now())},ts:Date.now()})}).catch(()=>{});
+        // #endregion
 
         const authContext = await ensurePatientDeviceAccess(
           await ensureActiveAuthContext(
