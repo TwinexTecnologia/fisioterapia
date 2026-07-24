@@ -16,3 +16,11 @@
 2. Reproduzir no celular e coletar logs do primeiro paint ate o fim do loading.
 3. Confirmar ou refutar as hipoteses com base nos tempos e estados reais.
 4. Aplicar o menor fix possivel e comparar logs antes/depois.
+
+## Evidencias
+- Reproducao do usuario: os 4 modulos aparecem rapido, mas o estado `Carregando...` demora cerca de 15 segundos para virar `Acessar`.
+- Analise do fluxo: a tela `modulos` do visualizador ainda disparava `refreshSupabaseModules(... summaryOnly: false)` tanto na hidratacao inicial quanto ao entrar na tela, puxando `protocol_json` cedo demais.
+
+## Fix Em Teste
+- Lista do visualizador passa a carregar apenas resumo leve do modulo.
+- O fluxo completo do modulo e carregado sob demanda no clique em `Acessar`.

@@ -1997,7 +1997,10 @@ async function refreshViewDataInBackground(app, targetView, options = {}) {
     }
   } else if (view === "modulos") {
     try {
-      await refreshSupabaseModules(app, { force, summaryOnly: false });
+      await refreshSupabaseModules(app, {
+        force,
+        summaryOnly: isFisioPacienteRole(app.currentProfile?.role)
+      });
     } catch (error) {
       console.error("Erro ao atualizar módulos do Supabase", error);
       return;
@@ -2080,7 +2083,8 @@ async function hydrateAuthenticatedApp(app) {
   fetch("http://127.0.0.1:7777/event",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:"dashboard-instant-load",runId:"baseline",hypothesisId:"C",location:"app.js:2004",msg:"[DEBUG] dashboard hydration started",data:{traceId:String(window.__dbgDashboardLoad?.traceId??""),view:String(app.view??""),role:String(app.currentProfile?.role??"")},ts:Date.now()})}).catch(()=>{});
   // #endregion
 
-  const shouldLoadSummaryModules = String(app.view ?? "") === "dashboard";
+  const shouldLoadSummaryModules = String(app.view ?? "") === "dashboard"
+    || (String(app.view ?? "") === "modulos" && isFisioPacienteRole(app.currentProfile?.role));
   const criticalResults = await Promise.allSettled([
     refreshSupabaseModules(app, { seedStarterForAdmin: true, summaryOnly: shouldLoadSummaryModules }),
     loadManagedProfiles(app)
@@ -2330,8 +2334,9 @@ async function loadSupabaseModuleRows(app, options = {}) {
   fetch("http://127.0.0.1:7777/event",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:"dashboard-instant-load",runId:"baseline",hypothesisId:"D",location:"app.js:2204",msg:"[DEBUG] modules query started",data:{traceId:String(window.__dbgDashboardLoad?.traceId??""),summaryOnly:Boolean(summaryOnly),role:String(role??""),hasOwnerFilter:Boolean(isFisioAdminRole(role)&&ownerId),allowedModuleCount:Number(allowedModuleSlugs.length)},ts:Date.now()})}).catch(()=>{});
   // #endregion
   const selectFields = summaryOnly
-    ? "id, owner_id, slug, name, status"
+    ? "id, owner_id, slug, name, description, status, cover_image_url, created_at, updated_at"
     : "id, owner_id, slug, name, description, status, protocol_json, blueprint_json, cover_image_url, created_at, updated_at";
+  const legacySummarySelectFields = "id, owner_id, slug, name, description, status, created_at, updated_at";
   const legacyFullSelectFields = "id, owner_id, slug, name, description, status, protocol_json, created_at, updated_at";
   const query = buildSupabaseModulesQuery(selectFields, role, ownerId, allowedModuleSlugs);
   if (!query) return [];
@@ -2339,10 +2344,15 @@ async function loadSupabaseModuleRows(app, options = {}) {
 
   let { data, error } = await orderedQuery;
 
-  if (error && !summaryOnly && isLegacySupabaseModulesSelectError(error)) {
-    const legacyQuery = buildSupabaseModulesQuery(legacyFullSelectFields, role, ownerId, allowedModuleSlugs);
+  if (error && isLegacySupabaseModulesSelectError(error)) {
+    const legacyQuery = buildSupabaseModulesQuery(
+      summaryOnly ? legacySummarySelectFields : legacyFullSelectFields,
+      role,
+      ownerId,
+      allowedModuleSlugs
+    );
     if (!legacyQuery) return [];
-    const legacyOrderedQuery = legacyQuery.order("created_at", { ascending: true });
+    const legacyOrderedQuery = summaryOnly ? legacyQuery : legacyQuery.order("created_at", { ascending: true });
     const legacyResult = await legacyOrderedQuery;
     data = legacyResult.data;
     error = legacyResult.error;
@@ -2372,6 +2382,63 @@ async function loadSupabaseModuleRows(app, options = {}) {
   fetch("http://127.0.0.1:7777/event",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:"dashboard-instant-load",runId:"baseline",hypothesisId:"D",location:"app.js:2211",msg:"[DEBUG] modules query finished",data:{traceId:String(window.__dbgDashboardLoad?.traceId??""),summaryOnly:Boolean(summaryOnly),role:String(role??""),hasOwnerFilter:Boolean(isFisioAdminRole(role)&&ownerId),allowedModuleCount:Number(allowedModuleSlugs.length),rows:Array.isArray(data)?data.length:0,elapsedMs:Date.now()-Number(window.__dbgDashboardLoad?.modulesQueryStartedAt??Date.now())},ts:Date.now()})}).catch(()=>{});
   // #endregion
   return Array.isArray(data) ? data : [];
+}
+
+async function loadSupabaseModuleRowBySlug(app, slug) {
+  const targetSlug = String(slug ?? "").trim();
+  if (!targetSlug) return null;
+  const role = String(app?.currentProfile?.role ?? "").trim().toLowerCase();
+  const ownerId = isFisioPacienteRole(role)
+    ? String(app?.currentProfile?.parent_admin_id ?? "").trim()
+    : String(app?.currentUser?.id ?? "").trim();
+  const allowedModuleSlugs = isFisioPacienteRole(role) ? getAllowedModuleQuerySlugs(app?.currentProfile) : [];
+  const selectFields = "id, owner_id, slug, name, description, status, protocol_json, blueprint_json, cover_image_url, created_at, updated_at";
+  const legacySelectFields = "id, owner_id, slug, name, description, status, protocol_json, created_at, updated_at";
+
+  let query = buildSupabaseModulesQuery(selectFields, role, ownerId, allowedModuleSlugs, { skipAllowedSlugFilter: true });
+  if (!query) return null;
+  query = query.eq("slug", targetSlug);
+  let { data, error } = await query.limit(1);
+
+  if (error && isLegacySupabaseModulesSelectError(error)) {
+    let legacyQuery = buildSupabaseModulesQuery(legacySelectFields, role, ownerId, allowedModuleSlugs, { skipAllowedSlugFilter: true });
+    if (!legacyQuery) return null;
+    legacyQuery = legacyQuery.eq("slug", targetSlug);
+    const legacyResult = await legacyQuery.limit(1);
+    data = legacyResult.data;
+    error = legacyResult.error;
+  }
+
+  if (error) throw error;
+  return Array.isArray(data) ? (data[0] ?? null) : null;
+}
+
+async function ensureModuleFlowLoaded(app, module) {
+  const targetSlug = String(module?.slug ?? module?.startFlowId ?? module?.flowId ?? "").trim();
+  const targetFlowId = String(module?.startFlowId ?? module?.flowId ?? targetSlug).trim();
+  const existingFlow = app?.protocol?.flowsById?.[targetFlowId];
+  if (existingFlow) return existingFlow;
+
+  const row = await loadSupabaseModuleRowBySlug(app, targetSlug);
+  if (!row?.protocol_json || typeof row.protocol_json !== "object") {
+    throw new Error("Nao foi possivel carregar o conteudo completo desse protocolo.");
+  }
+
+  const currentRows = Array.isArray(app.supabaseModules) ? app.supabaseModules : [];
+  const nextRows = currentRows.filter((item) => {
+    const itemSlug = String(item?.slug ?? item?.protocol_json?.id ?? item?.id ?? "").trim();
+    return itemSlug !== targetSlug;
+  });
+  nextRows.push(row);
+  app.supabaseModules = filterModulesForCurrentProfile(app, nextRows);
+  app.supabaseModulesDataLevel = inferSupabaseModulesDataLevel(app.supabaseModules, app.supabaseModulesDataLevel);
+  app.hasLoadedSupabaseModules = true;
+  app.lastModulesRefreshAt = now();
+  app.protocol = mergeProtocolWithSupabaseModules(app.protocol, [row]);
+  persistSupabaseModulesCache(app);
+
+  const loadedFlowId = String(row?.protocol_json?.id ?? targetFlowId).trim();
+  return app?.protocol?.flowsById?.[loadedFlowId] ?? null;
 }
 
 async function upsertSupabaseModule(app, flow, blueprint) {
@@ -9559,7 +9626,7 @@ async function mount() {
     }
   });
 
-  document.body.addEventListener("click", (e) => {
+  document.body.addEventListener("click", async (e) => {
     const actionEl = e.target?.closest?.("[data-module-action]");
     if (actionEl) {
       const moduleId = actionEl.getAttribute("data-module-id");
@@ -9568,13 +9635,27 @@ async function mount() {
       if (!module) return;
 
       if (action === "test") {
-        app.currentModuleId = module.id;
-        app.selectedFlowId = module.startFlowId;
-        const flow = app.protocol.flowsById[module.startFlowId];
-        app.session = initSession(flow.id, flow.startNodeId);
-        saveSessionToStorage(app.session);
-        app.view = "intro";
-        renderState(app);
+        try {
+          actionEl.setAttribute("disabled", "disabled");
+          actionEl.textContent = "Abrindo...";
+          app.currentModuleId = module.id;
+          app.selectedFlowId = module.startFlowId;
+          const flow = await ensureModuleFlowLoaded(app, module);
+          if (!flow) {
+            throw new Error("Nao foi possivel carregar esse protocolo agora.");
+          }
+          app.session = initSession(flow.id, flow.startNodeId);
+          saveSessionToStorage(app.session);
+          app.view = "intro";
+          renderState(app);
+        } catch (error) {
+          showAppToast(
+            getReadableRuntimeError(error, "Nao foi possivel abrir esse protocolo agora."),
+            "error",
+            { title: "Modulos", eyebrow: "Visualizador", durationMs: 4200 }
+          );
+          renderModulesList(app);
+        }
       }
 
       if (action === "edit") {
