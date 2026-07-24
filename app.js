@@ -5,7 +5,8 @@ const STORAGE = {
   session: "thompson.session.v1",
   viewerNotificationsSeen: "thompson.viewer.notifications.seen.v1",
   deviceId: "thompson.device.id.v1",
-  supabaseModulesCache: "thompson.supabase.modules.cache.v1"
+  supabaseModulesCache: "thompson.supabase.modules.cache.v1",
+  managedProfilesCache: "thompson.managed.profiles.cache.v1"
 };
 
 const DEFAULT_PROTOCOL_URL = "./protocol.generated.json";
@@ -17,6 +18,7 @@ const MODULES_REFRESH_TTL_MS = 20000;
 const MANAGED_PROFILES_REFRESH_TTL_MS = 20000;
 const SECURITY_NOTIFICATIONS_REFRESH_TTL_MS = 20000;
 const MODULES_CACHE_MAX_AGE_MS = 5 * 60 * 1000;
+const MANAGED_PROFILES_CACHE_MAX_AGE_MS = 5 * 60 * 1000;
 const EDITOR_DERIVED_REFRESH_DELAY_MS = 90;
 const flowVisualGraphCache = new WeakMap();
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
@@ -159,6 +161,44 @@ function restoreSupabaseModulesCache(app, options = {}) {
       app.protocol = mergeProtocolWithSupabaseModules(app.protocol, app.supabaseModules);
     }
     return app.supabaseModules;
+  } catch {
+    return [];
+  }
+}
+
+function getManagedProfilesCacheStorageKey(app) {
+  const userId = String(app?.currentUser?.id ?? "").trim();
+  const role = String(app?.currentProfile?.role ?? "").trim();
+  if (!userId || !role || !canManageProfiles(role)) return "";
+  return `${STORAGE.managedProfilesCache}:${userId}:${role}`;
+}
+
+function persistManagedProfilesCache(app, profiles = app?.managedProfiles) {
+  const key = getManagedProfilesCacheStorageKey(app);
+  if (!key) return;
+  const payload = {
+    cachedAt: now(),
+    profiles: Array.isArray(profiles) ? profiles : []
+  };
+  try {
+    localStorage.setItem(key, JSON.stringify(payload));
+  } catch {}
+}
+
+function restoreManagedProfilesCache(app, options = {}) {
+  const key = getManagedProfilesCacheStorageKey(app);
+  if (!key) return [];
+  const maxAgeMs = Math.max(0, Number(options.maxAgeMs ?? MANAGED_PROFILES_CACHE_MAX_AGE_MS));
+  try {
+    const parsed = safeJsonParse(localStorage.getItem(key) || "");
+    if (!parsed.ok || !parsed.value || typeof parsed.value !== "object") return [];
+    const cachedAt = Number(parsed.value.cachedAt ?? 0);
+    if (!cachedAt || (now() - cachedAt) > maxAgeMs) return [];
+    const profiles = Array.isArray(parsed.value.profiles) ? parsed.value.profiles : [];
+    app.managedProfiles = profiles;
+    app.hasLoadedManagedProfiles = true;
+    app.lastManagedProfilesRefreshAt = cachedAt;
+    return app.managedProfiles;
   } catch {
     return [];
   }
@@ -1898,6 +1938,7 @@ function applyAuthenticatedContext(app, authContext, options = {}) {
     return;
   }
   restoreSupabaseModulesCache(app);
+  restoreManagedProfilesCache(app);
   app.view = getDefaultViewForRole(authContext.profile.role);
   // #region debug-point B:apply-authenticated-context
   fetch("http://127.0.0.1:7777/event",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:"dashboard-load-delay",runId:"pre-fix",hypothesisId:"B",location:"app.js:1876",msg:"[DEBUG] authenticated context applied",data:{traceId:String(window.__dbgDashboardLoad?.traceId??""),role:String(authContext?.profile?.role??""),view:String(app.view??""),cachedModules:Array.isArray(app.supabaseModules)?app.supabaseModules.length:0,elapsedMs:Date.now()-Number(window.__dbgDashboardLoad?.loginStartedAt??Date.now())},ts:Date.now()})}).catch(()=>{});
@@ -5860,6 +5901,7 @@ async function loadManagedProfiles(app, options = {}) {
     app.managedProfiles = Array.isArray(data) ? data : [];
     app.hasLoadedManagedProfiles = true;
     app.lastManagedProfilesRefreshAt = now();
+    persistManagedProfilesCache(app);
     // #region debug-point E:profiles-load-finished
     fetch("http://127.0.0.1:7777/event",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:"dashboard-load-delay",runId:"pre-fix",hypothesisId:"E",location:"app.js:5804",msg:"[DEBUG] managed profiles load finished",data:{traceId:String(window.__dbgDashboardLoad?.traceId??""),rows:Array.isArray(app.managedProfiles)?app.managedProfiles.length:0,elapsedMs:Date.now()-Number(window.__dbgDashboardLoad?.managedProfilesStartedAt??Date.now())},ts:Date.now()})}).catch(()=>{});
     // #endregion
