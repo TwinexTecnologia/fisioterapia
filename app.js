@@ -2294,7 +2294,8 @@ function isLegacySupabaseModulesSelectError(error) {
     && /(blueprint_json|cover_image_url)/i.test(rawMessage);
 }
 
-function buildSupabaseModulesQuery(selectFields, role, ownerId, allowedModuleSlugs) {
+function buildSupabaseModulesQuery(selectFields, role, ownerId, allowedModuleSlugs, options = {}) {
+  const skipAllowedSlugFilter = options.skipAllowedSlugFilter === true;
   let query = supabase
     .from("modules")
     .select(selectFields);
@@ -2303,8 +2304,12 @@ function buildSupabaseModulesQuery(selectFields, role, ownerId, allowedModuleSlu
     query = query.eq("owner_id", ownerId);
   }
   if (isFisioPacienteRole(role)) {
-    if (allowedModuleSlugs.length === 0) return null;
-    query = query.in("slug", allowedModuleSlugs);
+    if (!ownerId) return null;
+    query = query.eq("owner_id", ownerId);
+    if (!skipAllowedSlugFilter) {
+      if (allowedModuleSlugs.length === 0) return null;
+      query = query.in("slug", allowedModuleSlugs);
+    }
   }
 
   return query;
@@ -2313,7 +2318,9 @@ function buildSupabaseModulesQuery(selectFields, role, ownerId, allowedModuleSlu
 async function loadSupabaseModuleRows(app, options = {}) {
   const summaryOnly = options.summaryOnly === true;
   const role = String(app?.currentProfile?.role ?? "").trim().toLowerCase();
-  const ownerId = String(app?.currentUser?.id ?? "").trim();
+  const ownerId = isFisioPacienteRole(role)
+    ? String(app?.currentProfile?.parent_admin_id ?? "").trim()
+    : String(app?.currentUser?.id ?? "").trim();
   const allowedModuleSlugs = isFisioPacienteRole(role) ? getAllowedModuleQuerySlugs(app?.currentProfile) : [];
   // #region debug-point D:modules-query-start
   window.__dbgDashboardLoad = { ...(window.__dbgDashboardLoad ?? {}), modulesQueryStartedAt: Date.now() };
@@ -2336,6 +2343,25 @@ async function loadSupabaseModuleRows(app, options = {}) {
     const legacyResult = await legacyOrderedQuery;
     data = legacyResult.data;
     error = legacyResult.error;
+  }
+
+  if (!error && isFisioPacienteRole(role) && Array.isArray(data) && data.length === 0 && allowedModuleSlugs.length > 0) {
+    const ownerScopedFallbackQuery = buildSupabaseModulesQuery(
+      summaryOnly ? selectFields : legacyFullSelectFields,
+      role,
+      ownerId,
+      allowedModuleSlugs,
+      { skipAllowedSlugFilter: true }
+    );
+    if (ownerScopedFallbackQuery) {
+      const fallbackOrderedQuery = summaryOnly
+        ? ownerScopedFallbackQuery
+        : ownerScopedFallbackQuery.order("created_at", { ascending: true });
+      const fallbackResult = await fallbackOrderedQuery;
+      if (!fallbackResult.error && Array.isArray(fallbackResult.data)) {
+        data = fallbackResult.data;
+      }
+    }
   }
 
   if (error) throw error;
@@ -5426,7 +5452,7 @@ function getViewerModuleIdentity(module) {
 function buildViewerModuleCoverMarkup(module) {
   const isCompactCoverViewport = isCompactViewport();
   const compactCoverStyle = isCompactCoverViewport
-    ? ' style="width:120px;min-width:120px;height:120px;border-radius:24px;padding:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;overflow:hidden;"'
+    ? ' style="width:min(100%,220px);min-width:min(100%,220px);height:132px;border-radius:24px;padding:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;overflow:hidden;align-self:center;margin:0 auto 6px;"'
     : "";
   const compactImageStyle = isCompactCoverViewport
     ? ' style="width:100%;height:100%;object-fit:cover;object-position:center;"'
@@ -5484,6 +5510,9 @@ function renderViewerModulesHome(app, modules) {
   const readyModules = visibleModules.filter((module) => module.source !== "allowed-placeholder");
   const loadingModules = visibleModules.length - readyModules.length;
   const isCompactViewerViewport = isCompactViewport();
+  const compactLayoutStyle = isCompactViewerViewport
+    ? ' style="display:flex;flex-direction:column;align-items:stretch;gap:12px;"'
+    : "";
   const compactContentStyle = isCompactViewerViewport
     ? ' style="min-width:0;width:100%;"'
     : "";
@@ -5532,7 +5561,7 @@ function renderViewerModulesHome(app, modules) {
   list.innerHTML = visibleModules.map((module) => `
     <article class="dash-card viewer-module-card">
       <span class="viewer-module-card__status viewer-module-card__status--ready">Autorizado</span>
-      <div class="viewer-module-card__layout">
+      <div class="viewer-module-card__layout"${compactLayoutStyle}>
         ${buildViewerModuleCoverMarkup(module)}
         <div class="viewer-module-card__content"${compactContentStyle}>
           <div class="viewer-module-card__eyebrow">Protocolo clinico</div>
