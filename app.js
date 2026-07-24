@@ -1940,9 +1940,6 @@ function applyAuthenticatedContext(app, authContext, options = {}) {
   restoreSupabaseModulesCache(app);
   restoreManagedProfilesCache(app);
   app.view = getDefaultViewForRole(authContext.profile.role);
-  // #region debug-point A:viewer-auth-context
-  fetch("http://192.168.15.123:7777/event",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:"viewer-loading-delay",runId:"pre-fix",hypothesisId:"A",location:"app.js:1942",msg:"[DEBUG] viewer auth context applied",data:{role:String(authContext?.profile?.role??""),view:String(app.view??""),userId:String(authContext?.user?.id??""),parentAdminId:String(authContext?.profile?.parent_admin_id??""),allowedModules:Array.isArray(authContext?.profile?.allowed_modules)?authContext.profile.allowed_modules.length:0,cachedModules:Array.isArray(app.supabaseModules)?app.supabaseModules.length:0,cachedDataLevel:String(app.supabaseModulesDataLevel??""),hasLoadedSupabaseModules:Boolean(app.hasLoadedSupabaseModules)},ts:Date.now()})}).catch(()=>{});
-  // #endregion
   // #region debug-point B:apply-authenticated-context
   fetch("http://127.0.0.1:7777/event",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:"dashboard-instant-load",runId:"baseline",hypothesisId:"B",location:"app.js:1876",msg:"[DEBUG] authenticated context applied",data:{traceId:String(window.__dbgDashboardLoad?.traceId??""),role:String(authContext?.profile?.role??""),view:String(app.view??""),cachedModules:Array.isArray(app.supabaseModules)?app.supabaseModules.length:0,cachedProfiles:Array.isArray(app.managedProfiles)?app.managedProfiles.length:0,modulesDataLevel:String(app.supabaseModulesDataLevel??""),elapsedMs:Date.now()-Number(window.__dbgDashboardLoad?.loginStartedAt??Date.now())},ts:Date.now()})}).catch(()=>{});
   // #endregion
@@ -2496,18 +2493,12 @@ async function refreshSupabaseModules(app, options = {}) {
   const refreshJob = (async () => {
     const force = Boolean(options.force);
     const requestedDataLevel = options.summaryOnly === true ? "summary" : "full";
-    // #region debug-point B:viewer-refresh-start
-    fetch("http://192.168.15.123:7777/event",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:"viewer-loading-delay",runId:"pre-fix",hypothesisId:"B",location:"app.js:2428",msg:"[DEBUG] refresh supabase modules started",data:{view:String(app.view??""),role:String(app.currentProfile?.role??""),force,requestedDataLevel,hasLoadedSupabaseModules:Boolean(app.hasLoadedSupabaseModules),cachedRows:Array.isArray(app.supabaseModules)?app.supabaseModules.length:0,parentAdminId:String(app.currentProfile?.parent_admin_id??"")},ts:Date.now()})}).catch(()=>{});
-    // #endregion
     const shouldUseCache = !force
       && app.hasLoadedSupabaseModules
       && doesSupabaseModulesDataLevelSatisfy(app.supabaseModulesDataLevel, requestedDataLevel)
       && (now() - Number(app.lastModulesRefreshAt ?? 0)) < MODULES_REFRESH_TTL_MS;
 
     if (shouldUseCache) {
-      // #region debug-point B:viewer-refresh-cache-hit
-      fetch("http://192.168.15.123:7777/event",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:"viewer-loading-delay",runId:"pre-fix",hypothesisId:"B",location:"app.js:2435",msg:"[DEBUG] refresh supabase modules cache hit",data:{requestedDataLevel,cachedRows:Array.isArray(app.supabaseModules)?app.supabaseModules.length:0,cachedDataLevel:String(app.supabaseModulesDataLevel??"")},ts:Date.now()})}).catch(()=>{});
-      // #endregion
       return Array.isArray(app.supabaseModules) ? app.supabaseModules : [];
     }
 
@@ -2539,9 +2530,6 @@ async function refreshSupabaseModules(app, options = {}) {
       if (app.protocol) saveProtocolToStorage(app.protocol);
     }
     persistSupabaseModulesCache(app);
-    // #region debug-point B:viewer-refresh-finished
-    fetch("http://192.168.15.123:7777/event",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:"viewer-loading-delay",runId:"pre-fix",hypothesisId:"B",location:"app.js:2465",msg:"[DEBUG] refresh supabase modules finished",data:{requestedDataLevel,rows:Array.isArray(app.supabaseModules)?app.supabaseModules.length:0,dataLevel:String(app.supabaseModulesDataLevel??""),hasLoadedSupabaseModules:Boolean(app.hasLoadedSupabaseModules),protocolFlowCount:Object.keys(app.protocol?.flowsById??{}).length},ts:Date.now()})}).catch(()=>{});
-    // #endregion
     return app.supabaseModules;
   })();
 
@@ -5528,6 +5516,108 @@ function getViewerModuleIdentity(module) {
   return { icon: "💪", label: "Reabilitacao", accent: "emerald" };
 }
 
+function normalizeRuntimeJourneyText(value = "") {
+  return String(value ?? "")
+    .replace(/\s+/g, " ")
+    .replace(/^(Pergunta\s*\d*:|Orientação:|Orientacao:|Interpretação:|Interpretacao:)\s*/i, "")
+    .trim();
+}
+
+function ensureRuntimeJourneyElements() {
+  const runtimeActionsWrap = $("btnBack")?.closest?.(".runtime-actions") ?? null;
+  const screenNode = $("screenNode");
+  if (!runtimeActionsWrap || !screenNode) return null;
+
+  let wrap = $("runtimeJourney");
+  if (!wrap) {
+    wrap = document.createElement("section");
+    wrap.id = "runtimeJourney";
+    wrap.className = "hidden";
+
+    const title = document.createElement("div");
+    title.id = "runtimeJourneyTitle";
+    wrap.appendChild(title);
+
+    const content = document.createElement("div");
+    content.id = "runtimeJourneyContent";
+    wrap.appendChild(content);
+  }
+
+  if (runtimeActionsWrap.nextElementSibling !== wrap) {
+    runtimeActionsWrap.insertAdjacentElement("afterend", wrap);
+  }
+
+  return {
+    wrap,
+    title: $("runtimeJourneyTitle"),
+    content: $("runtimeJourneyContent")
+  };
+}
+
+function renderRuntimeJourneyReference(pathSteps, options = {}) {
+  const elements = ensureRuntimeJourneyElements();
+  if (!elements) return;
+
+  const { wrap, title, content } = elements;
+  const visible = options.visible === true;
+  const isCompact = options.compact === true;
+  const steps = Array.isArray(pathSteps) ? pathSteps : [];
+
+  wrap.classList.toggle("hidden", !visible || steps.length === 0);
+  if (!visible || steps.length === 0) {
+    if (content) content.innerHTML = "";
+    return;
+  }
+
+  wrap.style.marginTop = isCompact ? "10px" : "14px";
+  wrap.style.marginBottom = isCompact ? "16px" : "20px";
+  wrap.style.padding = isCompact ? "0 4px 2px" : "0 6px 4px";
+
+  if (title) {
+    title.textContent = "Caminho percorrido";
+    title.style.fontSize = isCompact ? "11px" : "12px";
+    title.style.fontWeight = "800";
+    title.style.letterSpacing = "0.08em";
+    title.style.textTransform = "uppercase";
+    title.style.color = "rgba(15, 23, 42, 0.56)";
+    title.style.marginBottom = isCompact ? "6px" : "8px";
+  }
+
+  if (!content) return;
+  content.innerHTML = "";
+  content.style.display = "flex";
+  content.style.flexDirection = "column";
+  content.style.gap = isCompact ? "6px" : "8px";
+
+  steps.forEach((step, index) => {
+    const questionText = normalizeRuntimeJourneyText(step?.nodeTitle ?? "");
+    const answerText = normalizeRuntimeJourneyText(step?.chosenLabel ?? "");
+    if (!questionText && !answerText) return;
+
+    const line = document.createElement("div");
+    line.style.fontSize = isCompact ? "11px" : "12px";
+    line.style.lineHeight = isCompact ? "1.35" : "1.45";
+    line.style.color = "rgba(15, 23, 42, 0.72)";
+    line.style.textAlign = "left";
+    line.style.padding = isCompact ? "0" : "0";
+    line.style.wordBreak = "break-word";
+
+    const questionSpan = document.createElement("span");
+    questionSpan.textContent = `${index + 1}. ${questionText || "Etapa"}`;
+
+    const answerSpan = document.createElement("span");
+    answerSpan.textContent = answerText ? ` ${answerText}` : " Sem resposta";
+    answerSpan.style.fontStyle = "italic";
+    answerSpan.style.fontWeight = "700";
+    answerSpan.style.color = "#0f766e";
+
+    line.appendChild(questionSpan);
+    line.appendChild(document.createTextNode(": "));
+    line.appendChild(answerSpan);
+    content.appendChild(line);
+  });
+}
+
 function buildViewerModuleCoverMarkup(module) {
   const isCompactCoverViewport = isCompactViewport();
   const compactCoverStyle = isCompactCoverViewport
@@ -5952,18 +6042,10 @@ function getModulesForView(app) {
 
   if (app.authSession && app.hasLoadedSupabaseModules) {
     const filtered = filterModulesForCurrentProfile(app, mergedModules);
-    if (isFisioPacienteRole(app.currentProfile?.role)) {
-      // #region debug-point C:viewer-modules-ready
-      fetch("http://192.168.15.123:7777/event",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:"viewer-loading-delay",runId:"pre-fix",hypothesisId:"C",location:"app.js:5875",msg:"[DEBUG] getModulesForView using loaded supabase modules",data:{supabaseRows:supabaseModules.length,localRows:localModules.length,mergedRows:mergedModules.length,filteredRows:filtered.length,placeholderRows:filtered.filter((module)=>module.source==="allowed-placeholder").length},ts:Date.now()})}).catch(()=>{});
-      // #endregion
-    }
     return filtered;
   }
   if (app.authSession && isFisioPacienteRole(app.currentProfile?.role)) {
     const placeholders = getAllowedModulePlaceholderModules(app, []);
-    // #region debug-point C:viewer-modules-placeholders
-    fetch("http://192.168.15.123:7777/event",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:"viewer-loading-delay",runId:"pre-fix",hypothesisId:"C",location:"app.js:5879",msg:"[DEBUG] getModulesForView using placeholders",data:{placeholderRows:placeholders.length,hasLoadedSupabaseModules:Boolean(app.hasLoadedSupabaseModules),supabaseRows:supabaseModules.length},ts:Date.now()})}).catch(()=>{});
-    // #endregion
     return placeholders;
   }
   if (shouldUseManagedModulesLoadingState(app)) return [];
@@ -6007,11 +6089,6 @@ function renderModulesList(app) {
   const modules = getModulesForView(app);
   const canEdit = canEditModules(app.currentProfile?.role);
   const isManagedModulesLoading = shouldUseManagedModulesLoadingState(app);
-  if (!canEdit) {
-    // #region debug-point D:viewer-render-modules
-    fetch("http://192.168.15.123:7777/event",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:"viewer-loading-delay",runId:"pre-fix",hypothesisId:"D",location:"app.js:5920",msg:"[DEBUG] render modules list for viewer",data:{moduleRows:modules.length,placeholderRows:modules.filter((module)=>module.source==="allowed-placeholder").length,hasLoadedSupabaseModules:Boolean(app.hasLoadedSupabaseModules),dataLevel:String(app.supabaseModulesDataLevel??""),view:String(app.view??"")},ts:Date.now()})}).catch(()=>{});
-    // #endregion
-  }
   modules.sort((a, b) => String(a.name).localeCompare(String(b.name)));
   const publishedCount = modules.filter((module) => module.status === "published").length;
   const totalSteps = modules.reduce((sum, module) => sum + Number(module.nodeCount ?? 0), 0);
@@ -7137,11 +7214,6 @@ function renderState(app) {
       renderState(app);
       return;
     }
-    if (isFisioPacienteRole(app.currentProfile?.role)) {
-      // #region debug-point E:viewer-render-state
-      fetch("http://192.168.15.123:7777/event",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:"viewer-loading-delay",runId:"pre-fix",hypothesisId:"E",location:"app.js:7046",msg:"[DEBUG] renderState landed on viewer modules",data:{hasLoadedSupabaseModules:Boolean(app.hasLoadedSupabaseModules),cachedRows:Array.isArray(app.supabaseModules)?app.supabaseModules.length:0,dataLevel:String(app.supabaseModulesDataLevel??""),selectedView:String(app.view??"")},ts:Date.now()})}).catch(()=>{});
-      // #endregion
-    }
     setVisualEditorFullscreen(false);
     if (screenAdminModulos) screenAdminModulos.classList.remove("hidden");
     renderModulesList(app);
@@ -7436,25 +7508,7 @@ function renderState(app) {
   if (finalizerView) finalizerView.classList.toggle("hidden", !isFinalizerNode);
   if (finalizerPath) {
     finalizerPath.innerHTML = "";
-    if (isFinalizerNode) {
-      session.path.forEach((step, index) => {
-        const card = document.createElement("div");
-        card.className = "finalizer-step";
-        const questionTitle = escapeHtml(String(step.nodeTitle ?? "")).replace(/\n/g, "<br>");
-        const answerLabel = String(step.chosenLabel ?? "");
-        card.innerHTML = `
-          <div class="finalizer-step__question">
-            <strong>${index + 1}. Pergunta</strong>
-            <span>${questionTitle}</span>
-          </div>
-          <div class="finalizer-step__answer">
-            <strong>Resposta</strong>
-            <span>${escapeHtml(answerLabel)}</span>
-          </div>
-        `;
-        finalizerPath.appendChild(card);
-      });
-    }
+    finalizerPath.classList.add("hidden");
   }
 
   const diagnosisView = $("diagnosisView");
@@ -7497,46 +7551,7 @@ function renderState(app) {
   }
   if (diagnosisPath) {
     diagnosisPath.innerHTML = "";
-    if (isDiagnosisNode) {
-      if (isFinalDiagnosisNode && partialResults.length > 0) {
-        partialResults.forEach((result, index) => {
-          const card = document.createElement("div");
-          card.className = "finalizer-step";
-          const questionTitle = escapeHtml(result.sourceQuestionTitle).replace(/\n/g, "<br>");
-          const answerLabel = escapeHtml(result.chosenLabel).replace(/\n/g, "<br>");
-          const resultTitle = escapeHtml(result.title).replace(/\n/g, "<br>");
-          const resultBody = escapeHtml(result.body).replace(/\n/g, "<br>");
-          card.innerHTML = `
-            <div class="finalizer-step__question">
-              <strong>${index + 1}. Resultado parcial</strong>
-              <span>${resultTitle}</span>
-            </div>
-            ${resultBody ? `<div class="finalizer-step__answer"><strong>Achado</strong><span>${resultBody}</span></div>` : ""}
-            ${questionTitle ? `<div class="finalizer-step__answer"><strong>Teste</strong><span>${questionTitle}</span></div>` : ""}
-            ${answerLabel ? `<div class="finalizer-step__answer"><strong>Resposta</strong><span>${answerLabel}</span></div>` : ""}
-          `;
-          diagnosisPath.appendChild(card);
-        });
-      } else {
-        session.path.forEach((step, index) => {
-          const card = document.createElement("div");
-          card.className = "finalizer-step";
-          const questionTitle = escapeHtml(String(step.nodeTitle ?? "")).replace(/\n/g, "<br>");
-          const answerLabel = String(step.chosenLabel ?? "");
-          card.innerHTML = `
-            <div class="finalizer-step__question">
-              <strong>${index + 1}. Pergunta</strong>
-              <span>${questionTitle}</span>
-            </div>
-            <div class="finalizer-step__answer">
-              <strong>Resposta</strong>
-              <span>${escapeHtml(answerLabel)}</span>
-            </div>
-          `;
-          diagnosisPath.appendChild(card);
-        });
-      }
-    }
+    diagnosisPath.classList.add("hidden");
   }
   if (diagnosisActions) diagnosisActions.innerHTML = "";
 
@@ -7570,6 +7585,10 @@ function renderState(app) {
     runtimeActionsWrap.style.marginTop = isCompactQuestionViewport ? "6px" : "";
     runtimeActionsWrap.style.gap = isCompactQuestionViewport ? "8px" : "";
   }
+  renderRuntimeJourneyReference(session.path, {
+    visible: isFinalizerNode || isDiagnosisNode,
+    compact: isCompactViewport()
+  });
 
   const checkpointList = $("checkpointList");
   if (checkpointList) {
