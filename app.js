@@ -7206,31 +7206,32 @@ function renderState(app) {
     nodeBodyEl.style.wordBreak = "break-word";
     nodeBodyEl.style.textAlign = "center";
   }
+  const isCompactQuestionViewport = isQuestionNode && showNodeImage && isCompactViewport();
   const nodeImageEl = $("nodeImage");
   if (nodeImageEl) {
     nodeImageEl.src = imageUrl;
     nodeImageEl.classList.toggle("hidden", !showNodeImage);
     nodeImageEl.style.display = showNodeImage ? "block" : "";
     nodeImageEl.style.width = isQuestionNode && showNodeImage ? "100%" : "";
-    nodeImageEl.style.maxWidth = isQuestionNode && showNodeImage ? "780px" : "";
-    nodeImageEl.style.maxHeight = isQuestionNode && showNodeImage ? "460px" : "";
+    nodeImageEl.style.maxWidth = isQuestionNode && showNodeImage ? (isCompactQuestionViewport ? "320px" : "780px") : "";
+    nodeImageEl.style.maxHeight = isQuestionNode && showNodeImage ? (isCompactQuestionViewport ? "300px" : "460px") : "";
     nodeImageEl.style.objectFit = isQuestionNode && showNodeImage ? "contain" : "";
     nodeImageEl.style.padding = isQuestionNode && showNodeImage ? "0" : "";
     nodeImageEl.style.border = isQuestionNode && showNodeImage ? "none" : "";
     nodeImageEl.style.background = isQuestionNode && showNodeImage ? "transparent" : "";
-    nodeImageEl.style.borderRadius = isQuestionNode && showNodeImage ? "28px" : "";
-    nodeImageEl.style.margin = isQuestionNode && showNodeImage ? "10px 0 18px" : "";
+    nodeImageEl.style.borderRadius = isQuestionNode && showNodeImage ? (isCompactQuestionViewport ? "20px" : "28px") : "";
+    nodeImageEl.style.margin = isQuestionNode && showNodeImage ? (isCompactQuestionViewport ? "8px 0 12px" : "10px 0 18px") : "";
   }
   if (nodeCard) {
-    nodeCard.style.borderRadius = isQuestionNode && showNodeImage ? "56px" : "";
-    nodeCard.style.padding = isQuestionNode && showNodeImage ? "18px 22px 24px" : "";
+    nodeCard.style.borderRadius = isQuestionNode && showNodeImage ? (isCompactQuestionViewport ? "36px" : "56px") : "";
+    nodeCard.style.padding = isQuestionNode && showNodeImage ? (isCompactQuestionViewport ? "14px 16px 18px" : "18px 22px 24px") : "";
     nodeCard.style.minWidth = "0";
   }
   if (nodeTitleEl) {
     nodeTitleEl.style.textAlign = "center";
   }
   if (nodeBodyEl) {
-    nodeBodyEl.style.marginTop = cleanBody ? "10px" : "";
+    nodeBodyEl.style.marginTop = cleanBody ? (isCompactQuestionViewport ? "6px" : "10px") : "";
   }
 
   const finalizerView = $("finalizerView");
