@@ -2286,9 +2286,10 @@ async function loadSupabaseModuleRows(app, options = {}) {
   const summaryOnly = options.summaryOnly === true;
   const role = String(app?.currentProfile?.role ?? "").trim().toLowerCase();
   const ownerId = String(app?.currentUser?.id ?? "").trim();
+  const allowedModuleSlugs = isFisioPacienteRole(role) ? getAllowedModuleQuerySlugs(app?.currentProfile) : [];
   // #region debug-point D:modules-query-start
   window.__dbgDashboardLoad = { ...(window.__dbgDashboardLoad ?? {}), modulesQueryStartedAt: Date.now() };
-  fetch("http://127.0.0.1:7777/event",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:"dashboard-instant-load",runId:"baseline",hypothesisId:"D",location:"app.js:2204",msg:"[DEBUG] modules query started",data:{traceId:String(window.__dbgDashboardLoad?.traceId??""),summaryOnly:Boolean(summaryOnly),role:String(role??""),hasOwnerFilter:Boolean(isFisioAdminRole(role)&&ownerId)},ts:Date.now()})}).catch(()=>{});
+  fetch("http://127.0.0.1:7777/event",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:"dashboard-instant-load",runId:"baseline",hypothesisId:"D",location:"app.js:2204",msg:"[DEBUG] modules query started",data:{traceId:String(window.__dbgDashboardLoad?.traceId??""),summaryOnly:Boolean(summaryOnly),role:String(role??""),hasOwnerFilter:Boolean(isFisioAdminRole(role)&&ownerId),allowedModuleCount:Number(allowedModuleSlugs.length)},ts:Date.now()})}).catch(()=>{});
   // #endregion
   const selectFields = summaryOnly
     ? "id, owner_id, slug, name, status"
@@ -2300,6 +2301,10 @@ async function loadSupabaseModuleRows(app, options = {}) {
   if (isFisioAdminRole(role) && ownerId) {
     query = query.eq("owner_id", ownerId);
   }
+  if (isFisioPacienteRole(role)) {
+    if (allowedModuleSlugs.length === 0) return [];
+    query = query.in("slug", allowedModuleSlugs);
+  }
 
   const orderedQuery = summaryOnly
     ? query
@@ -2309,7 +2314,7 @@ async function loadSupabaseModuleRows(app, options = {}) {
 
   if (error) throw error;
   // #region debug-point D:modules-query-finished
-  fetch("http://127.0.0.1:7777/event",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:"dashboard-instant-load",runId:"baseline",hypothesisId:"D",location:"app.js:2211",msg:"[DEBUG] modules query finished",data:{traceId:String(window.__dbgDashboardLoad?.traceId??""),summaryOnly:Boolean(summaryOnly),role:String(role??""),hasOwnerFilter:Boolean(isFisioAdminRole(role)&&ownerId),rows:Array.isArray(data)?data.length:0,elapsedMs:Date.now()-Number(window.__dbgDashboardLoad?.modulesQueryStartedAt??Date.now())},ts:Date.now()})}).catch(()=>{});
+  fetch("http://127.0.0.1:7777/event",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:"dashboard-instant-load",runId:"baseline",hypothesisId:"D",location:"app.js:2211",msg:"[DEBUG] modules query finished",data:{traceId:String(window.__dbgDashboardLoad?.traceId??""),summaryOnly:Boolean(summaryOnly),role:String(role??""),hasOwnerFilter:Boolean(isFisioAdminRole(role)&&ownerId),allowedModuleCount:Number(allowedModuleSlugs.length),rows:Array.isArray(data)?data.length:0,elapsedMs:Date.now()-Number(window.__dbgDashboardLoad?.modulesQueryStartedAt??Date.now())},ts:Date.now()})}).catch(()=>{});
   // #endregion
   return Array.isArray(data) ? data : [];
 }
@@ -5255,6 +5260,21 @@ function getAllowedModulePlaceholderModules(app, existingModules = []) {
     .filter(Boolean);
 }
 
+function getAllowedModuleQuerySlugs(profile) {
+  const allowed = Array.isArray(profile?.allowed_modules) ? profile.allowed_modules : [];
+  const values = new Set();
+
+  for (const entry of allowed) {
+    const raw = String(entry ?? "").trim();
+    if (!raw) continue;
+    values.add(raw);
+    const normalizedSlug = slugifyText(raw);
+    if (normalizedSlug) values.add(normalizedSlug);
+  }
+
+  return Array.from(values).filter(Boolean);
+}
+
 function buildModuleIdentityKeySet(modules) {
   return new Set(
     (Array.isArray(modules) ? modules : []).flatMap((module) => ([
@@ -5378,17 +5398,24 @@ function getViewerModuleIdentity(module) {
 }
 
 function buildViewerModuleCoverMarkup(module) {
+  const isCompactCoverViewport = isCompactViewport();
+  const compactCoverStyle = isCompactCoverViewport
+    ? ' style="width:120px;min-width:120px;height:120px;border-radius:24px;"'
+    : "";
+  const compactImageStyle = isCompactCoverViewport
+    ? ' style="width:100%;height:100%;object-fit:cover;object-position:center;"'
+    : "";
   const coverImageUrl = String(module?.coverImageUrl ?? "").trim();
   if (coverImageUrl) {
     return `
-      <div class="viewer-module-card__cover viewer-module-card__cover--image">
-        <img class="viewer-module-card__cover-img" src="${escapeHtml(coverImageUrl)}" alt="${escapeHtml(String(module?.name ?? "Capa do modulo"))}" loading="lazy" />
+      <div class="viewer-module-card__cover viewer-module-card__cover--image"${compactCoverStyle}>
+        <img class="viewer-module-card__cover-img" src="${escapeHtml(coverImageUrl)}" alt="${escapeHtml(String(module?.name ?? "Capa do modulo"))}" loading="lazy"${compactImageStyle} />
       </div>
     `;
   }
   const identity = getViewerModuleIdentity(module);
   return `
-    <div class="viewer-module-card__cover viewer-module-card__cover--fallback viewer-module-card__cover--${identity.accent}">
+    <div class="viewer-module-card__cover viewer-module-card__cover--fallback viewer-module-card__cover--${identity.accent}"${compactCoverStyle}>
       <span class="viewer-module-card__cover-icon">${identity.icon}</span>
       <span class="viewer-module-card__cover-label">${identity.label}</span>
     </div>
@@ -5778,6 +5805,9 @@ function getModulesForView(app) {
 
   if (app.authSession && app.hasLoadedSupabaseModules) {
     return filterModulesForCurrentProfile(app, mergedModules);
+  }
+  if (app.authSession && isFisioPacienteRole(app.currentProfile?.role)) {
+    return getAllowedModulePlaceholderModules(app, []);
   }
   if (shouldUseManagedModulesLoadingState(app)) return [];
   if (mergedModules.length > 0) return filterModulesForCurrentProfile(app, mergedModules);
@@ -7213,25 +7243,25 @@ function renderState(app) {
     nodeImageEl.classList.toggle("hidden", !showNodeImage);
     nodeImageEl.style.display = showNodeImage ? "block" : "";
     nodeImageEl.style.width = isQuestionNode && showNodeImage ? "100%" : "";
-    nodeImageEl.style.maxWidth = isQuestionNode && showNodeImage ? (isCompactQuestionViewport ? "320px" : "780px") : "";
-    nodeImageEl.style.maxHeight = isQuestionNode && showNodeImage ? (isCompactQuestionViewport ? "300px" : "460px") : "";
+    nodeImageEl.style.maxWidth = isQuestionNode && showNodeImage ? (isCompactQuestionViewport ? "280px" : "780px") : "";
+    nodeImageEl.style.maxHeight = isQuestionNode && showNodeImage ? (isCompactQuestionViewport ? "240px" : "460px") : "";
     nodeImageEl.style.objectFit = isQuestionNode && showNodeImage ? "contain" : "";
     nodeImageEl.style.padding = isQuestionNode && showNodeImage ? "0" : "";
     nodeImageEl.style.border = isQuestionNode && showNodeImage ? "none" : "";
     nodeImageEl.style.background = isQuestionNode && showNodeImage ? "transparent" : "";
-    nodeImageEl.style.borderRadius = isQuestionNode && showNodeImage ? (isCompactQuestionViewport ? "20px" : "28px") : "";
-    nodeImageEl.style.margin = isQuestionNode && showNodeImage ? (isCompactQuestionViewport ? "8px 0 12px" : "10px 0 18px") : "";
+    nodeImageEl.style.borderRadius = isQuestionNode && showNodeImage ? (isCompactQuestionViewport ? "18px" : "28px") : "";
+    nodeImageEl.style.margin = isQuestionNode && showNodeImage ? (isCompactQuestionViewport ? "6px 0 8px" : "10px 0 18px") : "";
   }
   if (nodeCard) {
-    nodeCard.style.borderRadius = isQuestionNode && showNodeImage ? (isCompactQuestionViewport ? "36px" : "56px") : "";
-    nodeCard.style.padding = isQuestionNode && showNodeImage ? (isCompactQuestionViewport ? "14px 16px 18px" : "18px 22px 24px") : "";
+    nodeCard.style.borderRadius = isQuestionNode && showNodeImage ? (isCompactQuestionViewport ? "32px" : "56px") : "";
+    nodeCard.style.padding = isQuestionNode && showNodeImage ? (isCompactQuestionViewport ? "12px 14px 14px" : "18px 22px 24px") : "";
     nodeCard.style.minWidth = "0";
   }
   if (nodeTitleEl) {
     nodeTitleEl.style.textAlign = "center";
   }
   if (nodeBodyEl) {
-    nodeBodyEl.style.marginTop = cleanBody ? (isCompactQuestionViewport ? "6px" : "10px") : "";
+    nodeBodyEl.style.marginTop = cleanBody ? (isCompactQuestionViewport ? "4px" : "10px") : "";
   }
 
   const finalizerView = $("finalizerView");
@@ -7354,9 +7384,12 @@ function renderState(app) {
   const optionsWrap = $("options");
   const areaOptionsWrap = $("areaOptions");
   const actionsWrap = $("primaryActions");
+  const runtimeActionsWrap = $("btnBack")?.closest?.(".runtime-actions") ?? null;
   if (optionsWrap) {
     optionsWrap.innerHTML = "";
     optionsWrap.classList.toggle("hidden", isTriggerQuestionNode);
+    optionsWrap.style.marginTop = isCompactQuestionViewport ? "8px" : "";
+    optionsWrap.style.marginBottom = isCompactQuestionViewport ? "8px" : "";
   }
   if (areaOptionsWrap) {
     areaOptionsWrap.innerHTML = "";
@@ -7365,6 +7398,10 @@ function renderState(app) {
   if (actionsWrap) {
     actionsWrap.innerHTML = "";
     actionsWrap.classList.toggle("hidden", isTriggerQuestionNode);
+  }
+  if (runtimeActionsWrap) {
+    runtimeActionsWrap.style.marginTop = isCompactQuestionViewport ? "6px" : "";
+    runtimeActionsWrap.style.gap = isCompactQuestionViewport ? "8px" : "";
   }
 
   const checkpointList = $("checkpointList");
