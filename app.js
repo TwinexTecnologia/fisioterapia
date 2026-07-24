@@ -2282,6 +2282,34 @@ function mergeProtocolWithSupabaseModules(baseProtocol, rows, options = {}) {
   });
 }
 
+function isLegacySupabaseModulesSelectError(error) {
+  const rawMessage = [
+    String(error?.message ?? "").trim(),
+    String(error?.details ?? "").trim(),
+    String(error?.hint ?? "").trim(),
+    String(error?.code ?? "").trim()
+  ].filter(Boolean).join(" ");
+  if (!rawMessage) return false;
+  return /column .* does not exist|42703|schema cache/i.test(rawMessage)
+    && /(blueprint_json|cover_image_url)/i.test(rawMessage);
+}
+
+function buildSupabaseModulesQuery(selectFields, role, ownerId, allowedModuleSlugs) {
+  let query = supabase
+    .from("modules")
+    .select(selectFields);
+
+  if (isFisioAdminRole(role) && ownerId) {
+    query = query.eq("owner_id", ownerId);
+  }
+  if (isFisioPacienteRole(role)) {
+    if (allowedModuleSlugs.length === 0) return null;
+    query = query.in("slug", allowedModuleSlugs);
+  }
+
+  return query;
+}
+
 async function loadSupabaseModuleRows(app, options = {}) {
   const summaryOnly = options.summaryOnly === true;
   const role = String(app?.currentProfile?.role ?? "").trim().toLowerCase();
@@ -2294,23 +2322,21 @@ async function loadSupabaseModuleRows(app, options = {}) {
   const selectFields = summaryOnly
     ? "id, owner_id, slug, name, status"
     : "id, owner_id, slug, name, description, status, protocol_json, blueprint_json, cover_image_url, created_at, updated_at";
-  let query = supabase
-    .from("modules")
-    .select(selectFields);
+  const legacyFullSelectFields = "id, owner_id, slug, name, description, status, protocol_json, created_at, updated_at";
+  const query = buildSupabaseModulesQuery(selectFields, role, ownerId, allowedModuleSlugs);
+  if (!query) return [];
+  const orderedQuery = summaryOnly ? query : query.order("created_at", { ascending: true });
 
-  if (isFisioAdminRole(role) && ownerId) {
-    query = query.eq("owner_id", ownerId);
+  let { data, error } = await orderedQuery;
+
+  if (error && !summaryOnly && isLegacySupabaseModulesSelectError(error)) {
+    const legacyQuery = buildSupabaseModulesQuery(legacyFullSelectFields, role, ownerId, allowedModuleSlugs);
+    if (!legacyQuery) return [];
+    const legacyOrderedQuery = legacyQuery.order("created_at", { ascending: true });
+    const legacyResult = await legacyOrderedQuery;
+    data = legacyResult.data;
+    error = legacyResult.error;
   }
-  if (isFisioPacienteRole(role)) {
-    if (allowedModuleSlugs.length === 0) return [];
-    query = query.in("slug", allowedModuleSlugs);
-  }
-
-  const orderedQuery = summaryOnly
-    ? query
-    : query.order("created_at", { ascending: true });
-
-  const { data, error } = await orderedQuery;
 
   if (error) throw error;
   // #region debug-point D:modules-query-finished
@@ -5400,10 +5426,13 @@ function getViewerModuleIdentity(module) {
 function buildViewerModuleCoverMarkup(module) {
   const isCompactCoverViewport = isCompactViewport();
   const compactCoverStyle = isCompactCoverViewport
-    ? ' style="width:120px;min-width:120px;height:120px;border-radius:24px;"'
+    ? ' style="width:120px;min-width:120px;height:120px;border-radius:24px;padding:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;overflow:hidden;"'
     : "";
   const compactImageStyle = isCompactCoverViewport
     ? ' style="width:100%;height:100%;object-fit:cover;object-position:center;"'
+    : "";
+  const compactFallbackLabelStyle = isCompactCoverViewport
+    ? ' style="display:block;max-width:84px;text-align:center;white-space:normal;word-break:break-word;overflow-wrap:anywhere;line-height:1.05;"'
     : "";
   const coverImageUrl = String(module?.coverImageUrl ?? "").trim();
   if (coverImageUrl) {
@@ -5417,7 +5446,7 @@ function buildViewerModuleCoverMarkup(module) {
   return `
     <div class="viewer-module-card__cover viewer-module-card__cover--fallback viewer-module-card__cover--${identity.accent}"${compactCoverStyle}>
       <span class="viewer-module-card__cover-icon">${identity.icon}</span>
-      <span class="viewer-module-card__cover-label">${identity.label}</span>
+      <span class="viewer-module-card__cover-label"${compactFallbackLabelStyle}>${identity.label}</span>
     </div>
   `;
 }
@@ -5454,6 +5483,16 @@ function renderViewerModulesHome(app, modules) {
 
   const readyModules = visibleModules.filter((module) => module.source !== "allowed-placeholder");
   const loadingModules = visibleModules.length - readyModules.length;
+  const isCompactViewerViewport = isCompactViewport();
+  const compactContentStyle = isCompactViewerViewport
+    ? ' style="min-width:0;width:100%;"'
+    : "";
+  const compactTitleStyle = isCompactViewerViewport
+    ? ' style="overflow-wrap:anywhere;word-break:break-word;line-height:1.15;"'
+    : "";
+  const compactDescStyle = isCompactViewerViewport
+    ? ' style="overflow-wrap:anywhere;word-break:break-word;max-width:100%;"'
+    : "";
   list.classList.add("viewer-modules-grid");
   if (screen) screen.classList.add("viewer-screen-mode");
   if (header) header.classList.add("viewer-home-header");
@@ -5495,10 +5534,10 @@ function renderViewerModulesHome(app, modules) {
       <span class="viewer-module-card__status viewer-module-card__status--ready">Autorizado</span>
       <div class="viewer-module-card__layout">
         ${buildViewerModuleCoverMarkup(module)}
-        <div class="viewer-module-card__content">
+        <div class="viewer-module-card__content"${compactContentStyle}>
           <div class="viewer-module-card__eyebrow">Protocolo clinico</div>
-          <h3 class="viewer-module-card__title">${escapeHtml(module.name)}</h3>
-          <p class="viewer-module-card__desc">${escapeHtml(module.description || "Roteiro clinico liberado para o seu perfil.")}</p>
+          <h3 class="viewer-module-card__title"${compactTitleStyle}>${escapeHtml(module.name)}</h3>
+          <p class="viewer-module-card__desc"${compactDescStyle}>${escapeHtml(module.description || "Roteiro clinico liberado para o seu perfil.")}</p>
           <div class="viewer-module-card__meta">
             <span class="viewer-module-card__pill">Individual</span>
             <span class="viewer-module-card__pill">Autorizado</span>
