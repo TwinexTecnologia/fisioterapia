@@ -110,12 +110,30 @@ function getSupabaseModulesCacheStorageKey(app) {
   return `${STORAGE.supabaseModulesCache}:${userId}:${role}`;
 }
 
+function inferSupabaseModulesDataLevel(rows, fallbackLevel = "summary") {
+  const list = Array.isArray(rows) ? rows : [];
+  if (list.length === 0) return fallbackLevel;
+  const hasFullShape = list.every((row) => row && typeof row === "object" && Object.prototype.hasOwnProperty.call(row, "protocol_json"));
+  return hasFullShape ? "full" : "summary";
+}
+
+function doesSupabaseModulesDataLevelSatisfy(currentLevel, requestedLevel) {
+  const current = String(currentLevel ?? "").trim().toLowerCase();
+  const requested = String(requestedLevel ?? "").trim().toLowerCase() || "full";
+  if (requested === "summary") {
+    return current === "summary" || current === "full";
+  }
+  return current === "full";
+}
+
 function persistSupabaseModulesCache(app, rows = app?.supabaseModules) {
   const key = getSupabaseModulesCacheStorageKey(app);
   if (!key) return;
+  const normalizedRows = Array.isArray(rows) ? rows : [];
   const payload = {
     cachedAt: now(),
-    rows: Array.isArray(rows) ? rows : []
+    dataLevel: String(app?.supabaseModulesDataLevel ?? inferSupabaseModulesDataLevel(normalizedRows, "summary")),
+    rows: normalizedRows
   };
   try {
     localStorage.setItem(key, JSON.stringify(payload));
@@ -132,10 +150,14 @@ function restoreSupabaseModulesCache(app, options = {}) {
     const cachedAt = Number(parsed.value.cachedAt ?? 0);
     if (!cachedAt || (now() - cachedAt) > maxAgeMs) return [];
     const rows = Array.isArray(parsed.value.rows) ? parsed.value.rows : [];
+    const dataLevel = inferSupabaseModulesDataLevel(rows, String(parsed.value.dataLevel ?? "summary"));
     app.supabaseModules = filterModulesForCurrentProfile(app, rows);
+    app.supabaseModulesDataLevel = dataLevel;
     app.hasLoadedSupabaseModules = true;
     app.lastModulesRefreshAt = cachedAt;
-    app.protocol = mergeProtocolWithSupabaseModules(app.protocol, app.supabaseModules);
+    if (dataLevel === "full") {
+      app.protocol = mergeProtocolWithSupabaseModules(app.protocol, app.supabaseModules);
+    }
     return app.supabaseModules;
   } catch {
     return [];
@@ -1293,6 +1315,7 @@ async function deleteModule(app, module) {
       const rowSlug = String(row?.slug ?? row?.protocol_json?.id ?? "").trim();
       return rowId !== moduleId && rowSlug !== moduleSlug;
     });
+    app.supabaseModulesDataLevel = inferSupabaseModulesDataLevel(app.supabaseModules, app.supabaseModulesDataLevel);
   }
 
   const flowsById = { ...(app.protocol?.flowsById ?? {}) };
@@ -1451,6 +1474,7 @@ function mergeSavedModuleIntoLocalState(app, row, previousSlug = "") {
 
   filtered.push(savedRow);
   app.supabaseModules = filterModulesForCurrentProfile(app, filtered);
+  app.supabaseModulesDataLevel = inferSupabaseModulesDataLevel(app.supabaseModules, app.supabaseModulesDataLevel);
   app.hasLoadedSupabaseModules = true;
   app.protocol = mergeProtocolWithSupabaseModules(app.protocol, app.supabaseModules);
   persistSupabaseModulesCache(app);
@@ -1894,7 +1918,7 @@ async function refreshViewDataInBackground(app, targetView, options = {}) {
 
   if (view === "dashboard") {
     const dashboardCoreResults = await Promise.allSettled([
-      refreshSupabaseModules(app, { force }),
+      refreshSupabaseModules(app, { force, summaryOnly: true }),
       loadManagedProfiles(app, { force })
     ]);
     const labels = [
@@ -1929,7 +1953,7 @@ async function refreshViewDataInBackground(app, targetView, options = {}) {
     }
   } else if (view === "modulos") {
     try {
-      await refreshSupabaseModules(app, { force });
+      await refreshSupabaseModules(app, { force, summaryOnly: false });
     } catch (error) {
       console.error("Erro ao atualizar módulos do Supabase", error);
       return;
@@ -2012,14 +2036,16 @@ async function hydrateAuthenticatedApp(app) {
   fetch("http://127.0.0.1:7777/event",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:"dashboard-load-delay",runId:"pre-fix",hypothesisId:"C",location:"app.js:2004",msg:"[DEBUG] dashboard hydration started",data:{traceId:String(window.__dbgDashboardLoad?.traceId??""),view:String(app.view??""),role:String(app.currentProfile?.role??"")},ts:Date.now()})}).catch(()=>{});
   // #endregion
 
+  const shouldLoadSummaryModules = String(app.view ?? "") === "dashboard";
   const criticalResults = await Promise.allSettled([
-    refreshSupabaseModules(app, { seedStarterForAdmin: true }),
+    refreshSupabaseModules(app, { seedStarterForAdmin: true, summaryOnly: shouldLoadSummaryModules }),
     loadManagedProfiles(app)
   ]);
 
   if (criticalResults[0]?.status === "rejected") {
     console.error("Erro ao carregar modulos apos autenticar", criticalResults[0].reason);
     app.supabaseModules = [];
+    app.supabaseModulesDataLevel = "none";
     app.hasLoadedSupabaseModules = false;
     app.lastModulesRefreshAt = 0;
   }
@@ -2215,19 +2241,23 @@ function mergeProtocolWithSupabaseModules(baseProtocol, rows, options = {}) {
   });
 }
 
-async function loadSupabaseModuleRows() {
+async function loadSupabaseModuleRows(options = {}) {
+  const summaryOnly = options.summaryOnly === true;
   // #region debug-point D:modules-query-start
   window.__dbgDashboardLoad = { ...(window.__dbgDashboardLoad ?? {}), modulesQueryStartedAt: Date.now() };
-  fetch("http://127.0.0.1:7777/event",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:"dashboard-load-delay",runId:"pre-fix",hypothesisId:"D",location:"app.js:2204",msg:"[DEBUG] modules query started",data:{traceId:String(window.__dbgDashboardLoad?.traceId??"")},ts:Date.now()})}).catch(()=>{});
+  fetch("http://127.0.0.1:7777/event",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:"dashboard-load-delay",runId:"pre-fix",hypothesisId:"D",location:"app.js:2204",msg:"[DEBUG] modules query started",data:{traceId:String(window.__dbgDashboardLoad?.traceId??""),summaryOnly:Boolean(summaryOnly)},ts:Date.now()})}).catch(()=>{});
   // #endregion
+  const selectFields = summaryOnly
+    ? "id, owner_id, slug, name, description, status, cover_image_url, created_at, updated_at"
+    : "id, owner_id, slug, name, description, status, protocol_json, blueprint_json, cover_image_url, created_at, updated_at";
   const { data, error } = await supabase
     .from("modules")
-    .select("id, owner_id, slug, name, description, status, protocol_json, blueprint_json, cover_image_url, created_at, updated_at")
+    .select(selectFields)
     .order("created_at", { ascending: true });
 
   if (error) throw error;
   // #region debug-point D:modules-query-finished
-  fetch("http://127.0.0.1:7777/event",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:"dashboard-load-delay",runId:"pre-fix",hypothesisId:"D",location:"app.js:2211",msg:"[DEBUG] modules query finished",data:{traceId:String(window.__dbgDashboardLoad?.traceId??""),rows:Array.isArray(data)?data.length:0,elapsedMs:Date.now()-Number(window.__dbgDashboardLoad?.modulesQueryStartedAt??Date.now())},ts:Date.now()})}).catch(()=>{});
+  fetch("http://127.0.0.1:7777/event",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:"dashboard-load-delay",runId:"pre-fix",hypothesisId:"D",location:"app.js:2211",msg:"[DEBUG] modules query finished",data:{traceId:String(window.__dbgDashboardLoad?.traceId??""),summaryOnly:Boolean(summaryOnly),rows:Array.isArray(data)?data.length:0,elapsedMs:Date.now()-Number(window.__dbgDashboardLoad?.modulesQueryStartedAt??Date.now())},ts:Date.now()})}).catch(()=>{});
   // #endregion
   return Array.isArray(data) ? data : [];
 }
@@ -2286,8 +2316,10 @@ async function refreshSupabaseModules(app, options = {}) {
 
   const refreshJob = (async () => {
     const force = Boolean(options.force);
+    const requestedDataLevel = options.summaryOnly === true ? "summary" : "full";
     const shouldUseCache = !force
       && app.hasLoadedSupabaseModules
+      && doesSupabaseModulesDataLevelSatisfy(app.supabaseModulesDataLevel, requestedDataLevel)
       && (now() - Number(app.lastModulesRefreshAt ?? 0)) < MODULES_REFRESH_TTL_MS;
 
     if (shouldUseCache) {
@@ -2297,13 +2329,13 @@ async function refreshSupabaseModules(app, options = {}) {
     if (options.forceProfileRefresh) app.forceProfileRefresh = true;
     await refreshCurrentProfile(app);
 
-    let rows = await loadSupabaseModuleRows();
+    let rows = await loadSupabaseModuleRows({ summaryOnly: requestedDataLevel === "summary" });
     const shouldSeedStarter = Boolean(options.seedStarterForAdmin) && isFisioAdminRole(app.currentProfile?.role);
     const hasStarter = rows.some((row) => String(row?.slug ?? "") === "roteiro_thompsom");
 
     if (shouldSeedStarter && !hasStarter && app.protocol?.flowsById?.roteiro_thompsom) {
       await upsertSupabaseModule(app, app.protocol.flowsById.roteiro_thompsom, getModuleBlueprint(app.protocol, "roteiro_thompsom"));
-      rows = await loadSupabaseModuleRows();
+      rows = await loadSupabaseModuleRows({ summaryOnly: requestedDataLevel === "summary" });
     }
 
     app.supabaseModules = filterModulesForCurrentProfile(
@@ -2314,10 +2346,13 @@ async function refreshSupabaseModules(app, options = {}) {
         startFlowId: String(row?.protocol_json?.id ?? row?.slug ?? row?.id ?? "")
       }))
     ).map(({ flowId, startFlowId, ...row }) => row);
+    app.supabaseModulesDataLevel = inferSupabaseModulesDataLevel(app.supabaseModules, requestedDataLevel);
     app.hasLoadedSupabaseModules = true;
     app.lastModulesRefreshAt = now();
-    app.protocol = mergeProtocolWithSupabaseModules(app.protocol, app.supabaseModules);
-    if (app.protocol) saveProtocolToStorage(app.protocol);
+    if (app.supabaseModulesDataLevel === "full") {
+      app.protocol = mergeProtocolWithSupabaseModules(app.protocol, app.supabaseModules);
+      if (app.protocol) saveProtocolToStorage(app.protocol);
+    }
     persistSupabaseModulesCache(app);
     return app.supabaseModules;
   })();
@@ -7572,6 +7607,7 @@ async function mount() {
       currentUser: null,
       currentProfile: null,
       supabaseModules: [],
+      supabaseModulesDataLevel: "none",
       hasLoadedSupabaseModules: false,
       lastModulesRefreshAt: 0,
       modulesRefreshPromise: null,
@@ -7789,6 +7825,7 @@ async function mount() {
       app.currentUser = null;
       app.currentProfile = null;
       app.supabaseModules = [];
+      app.supabaseModulesDataLevel = "none";
       app.hasLoadedSupabaseModules = false;
       app.lastModulesRefreshAt = 0;
       app.managedProfiles = [];
