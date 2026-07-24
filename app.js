@@ -5290,6 +5290,12 @@ function canEditModules(role) {
   return isFisioAdminRole(role);
 }
 
+function shouldUseManagedModulesLoadingState(app) {
+  return Boolean(app?.authSession)
+    && canEditModules(app?.currentProfile?.role)
+    && !app?.hasLoadedSupabaseModules;
+}
+
 function buildAllowedModuleLookup(profile) {
   const values = new Set();
   const allowed = Array.isArray(profile?.allowed_modules) ? profile.allowed_modules : [];
@@ -5773,6 +5779,7 @@ function getModulesForView(app) {
   if (app.authSession && app.hasLoadedSupabaseModules) {
     return filterModulesForCurrentProfile(app, mergedModules);
   }
+  if (shouldUseManagedModulesLoadingState(app)) return [];
   if (mergedModules.length > 0) return filterModulesForCurrentProfile(app, mergedModules);
   const filteredLocalModules = filterModulesForCurrentProfile(app, localModules);
   const placeholderModules = getAllowedModulePlaceholderModules(app, filteredLocalModules);
@@ -5812,6 +5819,7 @@ function renderModulesList(app) {
   const createWrap = $("modulesCreateWrap");
   const modules = getModulesForView(app);
   const canEdit = canEditModules(app.currentProfile?.role);
+  const isManagedModulesLoading = shouldUseManagedModulesLoadingState(app);
   modules.sort((a, b) => String(a.name).localeCompare(String(b.name)));
   const publishedCount = modules.filter((module) => module.status === "published").length;
   const totalSteps = modules.reduce((sum, module) => sum + Number(module.nodeCount ?? 0), 0);
@@ -5834,13 +5842,20 @@ function renderModulesList(app) {
   }
 
   if (subtitle) {
-    subtitle.textContent = modules.some((module) => module.source === "supabase")
+    subtitle.textContent = isManagedModulesLoading
+      ? "Estamos carregando os módulos criados no seu ambiente."
+      : modules.some((module) => module.source === "supabase")
       ? "Sua biblioteca clinica mostra os módulos cadastrados, com status e estrutura atualizados."
       : "Crie ou edite os roteiros clínicos que serão disponibilizados aos fisioterapeutas.";
   }
-  if (statTotal) statTotal.textContent = String(modules.length);
-  if (statPublished) statPublished.textContent = String(publishedCount);
-  if (statSteps) statSteps.textContent = String(totalSteps);
+  if (statTotal) statTotal.textContent = isManagedModulesLoading ? "..." : String(modules.length);
+  if (statPublished) statPublished.textContent = isManagedModulesLoading ? "..." : String(publishedCount);
+  if (statSteps) statSteps.textContent = isManagedModulesLoading ? "..." : String(totalSteps);
+
+  if (isManagedModulesLoading) {
+    list.innerHTML = `<div class="dashboard-empty">Carregando modulos criados...</div>`;
+    return;
+  }
 
   if (modules.length === 0) {
     list.innerHTML = `<div class="dashboard-empty">Nenhum módulo encontrado ainda. Clique em "Criar Passo a Passo" para começar.</div>`;
@@ -6352,6 +6367,7 @@ function renderDashboard(app) {
   const activeProfiles = profiles.filter((profile) => isManagedProfileActive(profile));
   const inactiveProfiles = profiles.filter((profile) => !isManagedProfileActive(profile));
   const moduleRows = getModulesForView(app);
+  const isManagedModulesLoading = shouldUseManagedModulesLoadingState(app);
   const totalAssignments = profiles.reduce((total, profile) => total + getManagedProfileModules(profile).length, 0);
   const moduleUsage = new Map();
 
@@ -6402,8 +6418,10 @@ function renderDashboard(app) {
     statValue1.textContent = String(activeProfiles.length);
     statMeta1.textContent = "Fisio pacientes com login ativo e acesso liberado.";
     statLabel2.textContent = "Módulos Criados";
-    statValue2.textContent = String(moduleRows.length);
-    statMeta2.textContent = "Módulos publicados no seu ambiente e disponíveis para gestão.";
+    statValue2.textContent = isManagedModulesLoading ? "..." : String(moduleRows.length);
+    statMeta2.textContent = isManagedModulesLoading
+      ? "Carregando os módulos criados no seu ambiente."
+      : "Módulos publicados no seu ambiente e disponíveis para gestão.";
     statLabel3.textContent = "Liberações Ativas";
     statValue3.textContent = String(totalAssignments);
     statMeta3.textContent = "Total de liberações de módulos vinculadas aos seus fisio pacientes.";
