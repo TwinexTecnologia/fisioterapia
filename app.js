@@ -1887,21 +1887,30 @@ async function refreshViewDataInBackground(app, targetView, options = {}) {
   const renderAfterRefresh = options.renderAfterRefresh !== false;
 
   if (view === "dashboard") {
-    const results = await Promise.allSettled([
+    const dashboardCoreResults = await Promise.allSettled([
       refreshSupabaseModules(app, { force }),
-      loadManagedProfiles(app, { force }),
-      loadAdminSecurityNotifications(app, { force })
+      loadManagedProfiles(app, { force })
     ]);
     const labels = [
       "modulos do dashboard",
-      "perfis gerenciados do dashboard",
-      "notificacoes do dashboard"
+      "perfis gerenciados do dashboard"
     ];
-    results.forEach((result, index) => {
+    dashboardCoreResults.forEach((result, index) => {
       if (result.status === "rejected") {
         console.error(`Erro ao atualizar ${labels[index]}`, result.reason);
       }
     });
+
+    if (renderAfterRefresh && app.view === view) {
+      renderState(app);
+    } else {
+      applyAuthUi(app);
+    }
+
+    void loadAdminSecurityNotifications(app, { force }).catch((error) => {
+      console.error("Erro ao atualizar notificacoes do dashboard", error);
+    });
+    return;
   } else if (view === "fisios") {
     try {
       await loadManagedProfiles(app, { force });
@@ -1992,36 +2001,36 @@ async function ensurePatientDeviceAccess(authContext) {
 async function hydrateAuthenticatedApp(app) {
   if (!app?.authSession) return;
 
-  const results = await Promise.allSettled([
+  const criticalResults = await Promise.allSettled([
     refreshSupabaseModules(app, { seedStarterForAdmin: true }),
-    loadManagedProfiles(app),
-    loadAdminSecurityNotifications(app)
+    loadManagedProfiles(app)
   ]);
 
-  if (results[0]?.status === "rejected") {
-    console.error("Erro ao carregar modulos apos autenticar", results[0].reason);
+  if (criticalResults[0]?.status === "rejected") {
+    console.error("Erro ao carregar modulos apos autenticar", criticalResults[0].reason);
     app.supabaseModules = [];
     app.hasLoadedSupabaseModules = false;
     app.lastModulesRefreshAt = 0;
   }
 
-  if (results[1]?.status === "rejected") {
-    console.error("Erro ao carregar perfis gerenciados apos autenticar", results[1].reason);
+  if (criticalResults[1]?.status === "rejected") {
+    console.error("Erro ao carregar perfis gerenciados apos autenticar", criticalResults[1].reason);
     app.managedProfiles = [];
     app.hasLoadedManagedProfiles = false;
     app.lastManagedProfilesRefreshAt = 0;
   }
 
-  if (results[2]?.status === "rejected") {
-    console.error("Erro ao carregar notificacoes de seguranca", results[2].reason);
-    app.adminSecurityNotifications = [];
-    app.hasLoadedAdminSecurityNotifications = false;
-    app.lastAdminSecurityNotificationsRefreshAt = 0;
-  }
-
   if (app.authSession && String(app.view ?? "") !== "login") {
     renderState(app);
   }
+
+  void loadAdminSecurityNotifications(app).catch((error) => {
+    console.error("Erro ao carregar notificacoes de seguranca", error);
+    app.adminSecurityNotifications = [];
+    app.hasLoadedAdminSecurityNotifications = false;
+    app.lastAdminSecurityNotificationsRefreshAt = 0;
+    applyAuthUi(app);
+  });
 }
 
 function buildModuleDescription(flowId) {
