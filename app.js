@@ -1870,7 +1870,7 @@ async function loadAuthContextFromSession(session) {
   }
   const profile = await loadProfileForAuthUser(session.user.id);
   // #region debug-point A:auth-context-loaded
-  fetch("http://127.0.0.1:7777/event",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:"dashboard-load-delay",runId:"pre-fix",hypothesisId:"A",location:"app.js:1807",msg:"[DEBUG] auth context loaded",data:{traceId:String(window.__dbgDashboardLoad?.traceId??""),userId:String(session?.user?.id??""),role:String(profile?.role??""),elapsedMs:Date.now()-Number(window.__dbgDashboardLoad?.loginStartedAt??Date.now())},ts:Date.now()})}).catch(()=>{});
+  fetch("http://127.0.0.1:7777/event",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:"dashboard-instant-load",runId:"baseline",hypothesisId:"A",location:"app.js:1807",msg:"[DEBUG] auth context loaded",data:{traceId:String(window.__dbgDashboardLoad?.traceId??""),userId:String(session?.user?.id??""),role:String(profile?.role??""),elapsedMs:Date.now()-Number(window.__dbgDashboardLoad?.loginStartedAt??Date.now())},ts:Date.now()})}).catch(()=>{});
   // #endregion
   return { session, user: session.user, profile };
 }
@@ -1941,7 +1941,7 @@ function applyAuthenticatedContext(app, authContext, options = {}) {
   restoreManagedProfilesCache(app);
   app.view = getDefaultViewForRole(authContext.profile.role);
   // #region debug-point B:apply-authenticated-context
-  fetch("http://127.0.0.1:7777/event",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:"dashboard-load-delay",runId:"pre-fix",hypothesisId:"B",location:"app.js:1876",msg:"[DEBUG] authenticated context applied",data:{traceId:String(window.__dbgDashboardLoad?.traceId??""),role:String(authContext?.profile?.role??""),view:String(app.view??""),cachedModules:Array.isArray(app.supabaseModules)?app.supabaseModules.length:0,elapsedMs:Date.now()-Number(window.__dbgDashboardLoad?.loginStartedAt??Date.now())},ts:Date.now()})}).catch(()=>{});
+  fetch("http://127.0.0.1:7777/event",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:"dashboard-instant-load",runId:"baseline",hypothesisId:"B",location:"app.js:1876",msg:"[DEBUG] authenticated context applied",data:{traceId:String(window.__dbgDashboardLoad?.traceId??""),role:String(authContext?.profile?.role??""),view:String(app.view??""),cachedModules:Array.isArray(app.supabaseModules)?app.supabaseModules.length:0,cachedProfiles:Array.isArray(app.managedProfiles)?app.managedProfiles.length:0,modulesDataLevel:String(app.supabaseModulesDataLevel??""),elapsedMs:Date.now()-Number(window.__dbgDashboardLoad?.loginStartedAt??Date.now())},ts:Date.now()})}).catch(()=>{});
   // #endregion
   if (options.render !== false) {
     renderState(app);
@@ -2074,7 +2074,7 @@ async function hydrateAuthenticatedApp(app) {
 
   // #region debug-point C:hydrate-start
   window.__dbgDashboardLoad = { ...(window.__dbgDashboardLoad ?? {}), hydrateStartedAt: Date.now() };
-  fetch("http://127.0.0.1:7777/event",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:"dashboard-load-delay",runId:"pre-fix",hypothesisId:"C",location:"app.js:2004",msg:"[DEBUG] dashboard hydration started",data:{traceId:String(window.__dbgDashboardLoad?.traceId??""),view:String(app.view??""),role:String(app.currentProfile?.role??"")},ts:Date.now()})}).catch(()=>{});
+  fetch("http://127.0.0.1:7777/event",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:"dashboard-instant-load",runId:"baseline",hypothesisId:"C",location:"app.js:2004",msg:"[DEBUG] dashboard hydration started",data:{traceId:String(window.__dbgDashboardLoad?.traceId??""),view:String(app.view??""),role:String(app.currentProfile?.role??"")},ts:Date.now()})}).catch(()=>{});
   // #endregion
 
   const shouldLoadSummaryModules = String(app.view ?? "") === "dashboard";
@@ -2103,7 +2103,7 @@ async function hydrateAuthenticatedApp(app) {
   }
 
   // #region debug-point C:hydrate-finished
-  fetch("http://127.0.0.1:7777/event",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:"dashboard-load-delay",runId:"pre-fix",hypothesisId:"C",location:"app.js:2027",msg:"[DEBUG] dashboard hydration finished",data:{traceId:String(window.__dbgDashboardLoad?.traceId??""),modulesStatus:String(criticalResults?.[0]?.status??""),profilesStatus:String(criticalResults?.[1]?.status??""),moduleCount:Array.isArray(app.supabaseModules)?app.supabaseModules.length:0,profileCount:Array.isArray(app.managedProfiles)?app.managedProfiles.length:0,elapsedMs:Date.now()-Number(window.__dbgDashboardLoad?.hydrateStartedAt??Date.now()),totalElapsedMs:Date.now()-Number(window.__dbgDashboardLoad?.loginStartedAt??Date.now())},ts:Date.now()})}).catch(()=>{});
+  fetch("http://127.0.0.1:7777/event",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:"dashboard-instant-load",runId:"baseline",hypothesisId:"C",location:"app.js:2027",msg:"[DEBUG] dashboard hydration finished",data:{traceId:String(window.__dbgDashboardLoad?.traceId??""),modulesStatus:String(criticalResults?.[0]?.status??""),profilesStatus:String(criticalResults?.[1]?.status??""),moduleCount:Array.isArray(app.supabaseModules)?app.supabaseModules.length:0,profileCount:Array.isArray(app.managedProfiles)?app.managedProfiles.length:0,elapsedMs:Date.now()-Number(window.__dbgDashboardLoad?.hydrateStartedAt??Date.now()),totalElapsedMs:Date.now()-Number(window.__dbgDashboardLoad?.loginStartedAt??Date.now())},ts:Date.now()})}).catch(()=>{});
   // #endregion
 
   void loadAdminSecurityNotifications(app).catch((error) => {
@@ -2282,23 +2282,34 @@ function mergeProtocolWithSupabaseModules(baseProtocol, rows, options = {}) {
   });
 }
 
-async function loadSupabaseModuleRows(options = {}) {
+async function loadSupabaseModuleRows(app, options = {}) {
   const summaryOnly = options.summaryOnly === true;
+  const role = String(app?.currentProfile?.role ?? "").trim().toLowerCase();
+  const ownerId = String(app?.currentUser?.id ?? "").trim();
   // #region debug-point D:modules-query-start
   window.__dbgDashboardLoad = { ...(window.__dbgDashboardLoad ?? {}), modulesQueryStartedAt: Date.now() };
-  fetch("http://127.0.0.1:7777/event",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:"dashboard-load-delay",runId:"pre-fix",hypothesisId:"D",location:"app.js:2204",msg:"[DEBUG] modules query started",data:{traceId:String(window.__dbgDashboardLoad?.traceId??""),summaryOnly:Boolean(summaryOnly)},ts:Date.now()})}).catch(()=>{});
+  fetch("http://127.0.0.1:7777/event",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:"dashboard-instant-load",runId:"baseline",hypothesisId:"D",location:"app.js:2204",msg:"[DEBUG] modules query started",data:{traceId:String(window.__dbgDashboardLoad?.traceId??""),summaryOnly:Boolean(summaryOnly),role:String(role??""),hasOwnerFilter:Boolean(isFisioAdminRole(role)&&ownerId)},ts:Date.now()})}).catch(()=>{});
   // #endregion
   const selectFields = summaryOnly
-    ? "id, owner_id, slug, name, description, status, cover_image_url, created_at, updated_at"
+    ? "id, owner_id, slug, name, status"
     : "id, owner_id, slug, name, description, status, protocol_json, blueprint_json, cover_image_url, created_at, updated_at";
-  const { data, error } = await supabase
+  let query = supabase
     .from("modules")
-    .select(selectFields)
-    .order("created_at", { ascending: true });
+    .select(selectFields);
+
+  if (isFisioAdminRole(role) && ownerId) {
+    query = query.eq("owner_id", ownerId);
+  }
+
+  const orderedQuery = summaryOnly
+    ? query
+    : query.order("created_at", { ascending: true });
+
+  const { data, error } = await orderedQuery;
 
   if (error) throw error;
   // #region debug-point D:modules-query-finished
-  fetch("http://127.0.0.1:7777/event",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:"dashboard-load-delay",runId:"pre-fix",hypothesisId:"D",location:"app.js:2211",msg:"[DEBUG] modules query finished",data:{traceId:String(window.__dbgDashboardLoad?.traceId??""),summaryOnly:Boolean(summaryOnly),rows:Array.isArray(data)?data.length:0,elapsedMs:Date.now()-Number(window.__dbgDashboardLoad?.modulesQueryStartedAt??Date.now())},ts:Date.now()})}).catch(()=>{});
+  fetch("http://127.0.0.1:7777/event",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:"dashboard-instant-load",runId:"baseline",hypothesisId:"D",location:"app.js:2211",msg:"[DEBUG] modules query finished",data:{traceId:String(window.__dbgDashboardLoad?.traceId??""),summaryOnly:Boolean(summaryOnly),role:String(role??""),hasOwnerFilter:Boolean(isFisioAdminRole(role)&&ownerId),rows:Array.isArray(data)?data.length:0,elapsedMs:Date.now()-Number(window.__dbgDashboardLoad?.modulesQueryStartedAt??Date.now())},ts:Date.now()})}).catch(()=>{});
   // #endregion
   return Array.isArray(data) ? data : [];
 }
@@ -2370,13 +2381,13 @@ async function refreshSupabaseModules(app, options = {}) {
     if (options.forceProfileRefresh) app.forceProfileRefresh = true;
     await refreshCurrentProfile(app);
 
-    let rows = await loadSupabaseModuleRows({ summaryOnly: requestedDataLevel === "summary" });
+    let rows = await loadSupabaseModuleRows(app, { summaryOnly: requestedDataLevel === "summary" });
     const shouldSeedStarter = Boolean(options.seedStarterForAdmin) && isFisioAdminRole(app.currentProfile?.role);
     const hasStarter = rows.some((row) => String(row?.slug ?? "") === "roteiro_thompsom");
 
     if (shouldSeedStarter && !hasStarter && app.protocol?.flowsById?.roteiro_thompsom) {
       await upsertSupabaseModule(app, app.protocol.flowsById.roteiro_thompsom, getModuleBlueprint(app.protocol, "roteiro_thompsom"));
-      rows = await loadSupabaseModuleRows({ summaryOnly: requestedDataLevel === "summary" });
+      rows = await loadSupabaseModuleRows(app, { summaryOnly: requestedDataLevel === "summary" });
     }
 
     app.supabaseModules = filterModulesForCurrentProfile(
@@ -5861,7 +5872,7 @@ async function loadManagedProfiles(app, options = {}) {
 
     // #region debug-point E:profiles-load-start
     window.__dbgDashboardLoad = { ...(window.__dbgDashboardLoad ?? {}), managedProfilesStartedAt: Date.now() };
-    fetch("http://127.0.0.1:7777/event",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:"dashboard-load-delay",runId:"pre-fix",hypothesisId:"E",location:"app.js:5764",msg:"[DEBUG] managed profiles load started",data:{traceId:String(window.__dbgDashboardLoad?.traceId??""),force:Boolean(force),shouldUseCache:Boolean(shouldUseCache),role:String(app.currentProfile?.role??"")},ts:Date.now()})}).catch(()=>{});
+    fetch("http://127.0.0.1:7777/event",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:"dashboard-instant-load",runId:"baseline",hypothesisId:"E",location:"app.js:5764",msg:"[DEBUG] managed profiles load started",data:{traceId:String(window.__dbgDashboardLoad?.traceId??""),force:Boolean(force),shouldUseCache:Boolean(shouldUseCache),role:String(app.currentProfile?.role??"")},ts:Date.now()})}).catch(()=>{});
     // #endregion
 
     if (shouldUseCache) {
@@ -5903,7 +5914,7 @@ async function loadManagedProfiles(app, options = {}) {
     app.lastManagedProfilesRefreshAt = now();
     persistManagedProfilesCache(app);
     // #region debug-point E:profiles-load-finished
-    fetch("http://127.0.0.1:7777/event",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:"dashboard-load-delay",runId:"pre-fix",hypothesisId:"E",location:"app.js:5804",msg:"[DEBUG] managed profiles load finished",data:{traceId:String(window.__dbgDashboardLoad?.traceId??""),rows:Array.isArray(app.managedProfiles)?app.managedProfiles.length:0,elapsedMs:Date.now()-Number(window.__dbgDashboardLoad?.managedProfilesStartedAt??Date.now())},ts:Date.now()})}).catch(()=>{});
+    fetch("http://127.0.0.1:7777/event",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:"dashboard-instant-load",runId:"baseline",hypothesisId:"E",location:"app.js:5804",msg:"[DEBUG] managed profiles load finished",data:{traceId:String(window.__dbgDashboardLoad?.traceId??""),rows:Array.isArray(app.managedProfiles)?app.managedProfiles.length:0,elapsedMs:Date.now()-Number(window.__dbgDashboardLoad?.managedProfilesStartedAt??Date.now())},ts:Date.now()})}).catch(()=>{});
     // #endregion
     return app.managedProfiles;
   })();
@@ -6334,7 +6345,11 @@ function renderDashboard(app) {
   const uniqueModules = moduleUsage.size;
 
   // #region debug-point F:dashboard-render
-  fetch("http://127.0.0.1:7777/event",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:"dashboard-load-delay",runId:"pre-fix",hypothesisId:"F",location:"app.js:6229",msg:"[DEBUG] dashboard rendered",data:{traceId:String(window.__dbgDashboardLoad?.traceId??""),role:String(role??""),profileCount:Number(totalProfiles),moduleCount:Number(moduleRows.length),assignments:Number(totalAssignments),totalElapsedMs:Date.now()-Number(window.__dbgDashboardLoad?.loginStartedAt??Date.now())},ts:Date.now()})}).catch(()=>{});
+  window.__dbgDashboardLoad = { ...(window.__dbgDashboardLoad ?? {}), dashboardRenderedAt: Date.now() };
+  fetch("http://127.0.0.1:7777/event",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:"dashboard-instant-load",runId:"baseline",hypothesisId:"F",location:"app.js:6229",msg:"[DEBUG] dashboard rendered",data:{traceId:String(window.__dbgDashboardLoad?.traceId??""),role:String(role??""),profileCount:Number(totalProfiles),moduleCount:Number(moduleRows.length),assignments:Number(totalAssignments),totalElapsedMs:Date.now()-Number(window.__dbgDashboardLoad?.loginStartedAt??Date.now())},ts:Date.now()})}).catch(()=>{});
+  requestAnimationFrame(() => {
+    fetch("http://127.0.0.1:7777/event",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:"dashboard-instant-load",runId:"baseline",hypothesisId:"F",location:"app.js:6230",msg:"[DEBUG] dashboard paint",data:{traceId:String(window.__dbgDashboardLoad?.traceId??""),paintElapsedMs:Date.now()-Number(window.__dbgDashboardLoad?.dashboardRenderedAt??Date.now()),totalElapsedMs:Date.now()-Number(window.__dbgDashboardLoad?.loginStartedAt??Date.now())},ts:Date.now()})}).catch(()=>{});
+  });
   // #endregion
 
   if (isOwnerRole(role)) {
@@ -6787,6 +6802,10 @@ async function sendManagedProfilePasswordReset(profile) {
 function renderState(app) {
   try {
     const { protocol, session, view } = app;
+    // #region debug-point G:render-state-start
+    window.__dbgDashboardLoad = { ...(window.__dbgDashboardLoad ?? {}), renderStateStartedAt: Date.now() };
+    fetch("http://127.0.0.1:7777/event",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:"dashboard-instant-load",runId:"baseline",hypothesisId:"G",location:"app.js:6787",msg:"[DEBUG] render state started",data:{traceId:String(window.__dbgDashboardLoad?.traceId??""),view:String(view??""),hasModules:Boolean(Array.isArray(app?.supabaseModules)&&app.supabaseModules.length>0),hasProfiles:Boolean(Array.isArray(app?.managedProfiles)&&app.managedProfiles.length>0),totalElapsedMs:Date.now()-Number(window.__dbgDashboardLoad?.loginStartedAt??Date.now())},ts:Date.now()})}).catch(()=>{});
+    // #endregion
   
   // Elementos de tela
   const screenLogin = $("screenLogin");
@@ -7789,12 +7808,12 @@ async function mount() {
         if (submitButton) submitButton.disabled = true;
         // #region debug-point A:login-submit-start
         window.__dbgDashboardLoad = { traceId: `login-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, loginStartedAt: Date.now(), emailDomain: String(email.split("@")[1] ?? "").trim().toLowerCase() };
-        fetch("http://127.0.0.1:7777/event",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:"dashboard-load-delay",runId:"pre-fix",hypothesisId:"A",location:"app.js:7678",msg:"[DEBUG] login submit started",data:{traceId:String(window.__dbgDashboardLoad?.traceId??""),emailDomain:String(window.__dbgDashboardLoad?.emailDomain??"")},ts:Date.now()})}).catch(()=>{});
+        fetch("http://127.0.0.1:7777/event",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:"dashboard-instant-load",runId:"baseline",hypothesisId:"A",location:"app.js:7678",msg:"[DEBUG] login submit started",data:{traceId:String(window.__dbgDashboardLoad?.traceId??""),emailDomain:String(window.__dbgDashboardLoad?.emailDomain??"")},ts:Date.now()})}).catch(()=>{});
         // #endregion
         const { data, error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
         // #region debug-point A:login-submit-finished
-        fetch("http://127.0.0.1:7777/event",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:"dashboard-load-delay",runId:"pre-fix",hypothesisId:"A",location:"app.js:7682",msg:"[DEBUG] login submit finished",data:{traceId:String(window.__dbgDashboardLoad?.traceId??""),userId:String(data?.session?.user?.id??""),elapsedMs:Date.now()-Number(window.__dbgDashboardLoad?.loginStartedAt??Date.now())},ts:Date.now()})}).catch(()=>{});
+        fetch("http://127.0.0.1:7777/event",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:"dashboard-instant-load",runId:"baseline",hypothesisId:"A",location:"app.js:7682",msg:"[DEBUG] login submit finished",data:{traceId:String(window.__dbgDashboardLoad?.traceId??""),userId:String(data?.session?.user?.id??""),elapsedMs:Date.now()-Number(window.__dbgDashboardLoad?.loginStartedAt??Date.now())},ts:Date.now()})}).catch(()=>{});
         // #endregion
 
         const authContext = await ensurePatientDeviceAccess(
