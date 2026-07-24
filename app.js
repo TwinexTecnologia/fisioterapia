@@ -5255,6 +5255,37 @@ function getAllowedModulePlaceholderModules(app, existingModules = []) {
     .filter(Boolean);
 }
 
+function buildModuleIdentityKeySet(modules) {
+  return new Set(
+    (Array.isArray(modules) ? modules : []).flatMap((module) => ([
+      String(module?.id ?? "").trim(),
+      String(module?.slug ?? "").trim(),
+      String(module?.flowId ?? "").trim(),
+      String(module?.startFlowId ?? "").trim(),
+      normalizeDashboardModuleName(module?.name ?? ""),
+      slugifyText(module?.name ?? ""),
+      slugifyText(module?.slug ?? ""),
+      slugifyText(module?.flowId ?? ""),
+      slugifyText(module?.startFlowId ?? "")
+    ])).filter(Boolean)
+  );
+}
+
+function mergeModuleCollections(primaryModules, fallbackModules) {
+  const merged = Array.isArray(primaryModules) ? [...primaryModules] : [];
+  const knownKeys = buildModuleIdentityKeySet(merged);
+
+  for (const module of Array.isArray(fallbackModules) ? fallbackModules : []) {
+    const moduleKeys = buildModuleIdentityKeySet([module]);
+    const alreadyIncluded = Array.from(moduleKeys).some((key) => knownKeys.has(key));
+    if (alreadyIncluded) continue;
+    merged.push(module);
+    moduleKeys.forEach((key) => knownKeys.add(key));
+  }
+
+  return merged;
+}
+
 function canEditModules(role) {
   return isFisioAdminRole(role);
 }
@@ -5728,10 +5759,6 @@ function syncViewerNotificationBadge(app) {
 
 function getModulesForView(app) {
   const supabaseModules = getSupabaseBackedModules(app);
-  if (app.authSession && app.hasLoadedSupabaseModules) {
-    return filterModulesForCurrentProfile(app, supabaseModules);
-  }
-  if (supabaseModules.length > 0) return filterModulesForCurrentProfile(app, supabaseModules);
   const localModules = getProtocolModules(app.protocol).map((module) => ({
     ...module,
     source: "local",
@@ -5741,6 +5768,12 @@ function getModulesForView(app) {
     slug: module.id,
     ownerId: String(app.currentUser?.id ?? "")
   }));
+  const mergedModules = mergeModuleCollections(supabaseModules, localModules);
+
+  if (app.authSession && app.hasLoadedSupabaseModules) {
+    return filterModulesForCurrentProfile(app, mergedModules);
+  }
+  if (mergedModules.length > 0) return filterModulesForCurrentProfile(app, mergedModules);
   const filteredLocalModules = filterModulesForCurrentProfile(app, localModules);
   const placeholderModules = getAllowedModulePlaceholderModules(app, filteredLocalModules);
   return filteredLocalModules.concat(placeholderModules);
@@ -6318,7 +6351,7 @@ function renderDashboard(app) {
   const profiles = Array.isArray(app.managedProfiles) ? app.managedProfiles : [];
   const activeProfiles = profiles.filter((profile) => isManagedProfileActive(profile));
   const inactiveProfiles = profiles.filter((profile) => !isManagedProfileActive(profile));
-  const moduleRows = Array.isArray(app.supabaseModules) ? app.supabaseModules : [];
+  const moduleRows = getModulesForView(app);
   const totalAssignments = profiles.reduce((total, profile) => total + getManagedProfileModules(profile).length, 0);
   const moduleUsage = new Map();
 
