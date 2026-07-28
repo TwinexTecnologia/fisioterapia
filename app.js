@@ -1928,6 +1928,12 @@ function scheduleAuthenticatedHydration(app, options = {}) {
   return app.authHydrationPromise;
 }
 
+function shouldDelayAuthenticatedFirstPaint(app) {
+  if (!app?.authSession) return false;
+  if (!canManageProfiles(app?.currentProfile?.role)) return false;
+  return !app?.hasLoadedSupabaseModules || !app?.hasLoadedManagedProfiles;
+}
+
 function applyAuthenticatedContext(app, authContext, options = {}) {
   app.authSession = authContext?.session ?? null;
   app.currentUser = authContext?.user ?? null;
@@ -1943,7 +1949,7 @@ function applyAuthenticatedContext(app, authContext, options = {}) {
   // #region debug-point B:apply-authenticated-context
   fetch("http://127.0.0.1:7777/event",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:"dashboard-instant-load",runId:"baseline",hypothesisId:"B",location:"app.js:1876",msg:"[DEBUG] authenticated context applied",data:{traceId:String(window.__dbgDashboardLoad?.traceId??""),role:String(authContext?.profile?.role??""),view:String(app.view??""),cachedModules:Array.isArray(app.supabaseModules)?app.supabaseModules.length:0,cachedProfiles:Array.isArray(app.managedProfiles)?app.managedProfiles.length:0,modulesDataLevel:String(app.supabaseModulesDataLevel??""),elapsedMs:Date.now()-Number(window.__dbgDashboardLoad?.loginStartedAt??Date.now())},ts:Date.now()})}).catch(()=>{});
   // #endregion
-  if (options.render !== false) {
+  if (options.render !== false && !shouldDelayAuthenticatedFirstPaint(app)) {
     renderState(app);
   }
   if (options.hydrate !== false) {
@@ -2128,15 +2134,16 @@ function buildModuleDescription(flowId) {
 
 function buildSupabaseModulePayload(app, flow, blueprint) {
   const normalizedBlueprint = normalizeModuleBlueprint(blueprint);
+  const normalizedName = String(flow?.name ?? flow?.id ?? "Modulo").trim() || "Modulo";
   return {
     owner_id: app.currentUser.id,
     slug: flow.id,
-    name: flow.name,
+    name: normalizedName,
     description: buildModuleDescription(flow.id),
     status: "published",
     protocol_json: {
       id: flow.id,
-      name: flow.name,
+      name: normalizedName,
       startNodeId: flow.startNodeId,
       nodesById: flow.nodesById
     },
@@ -2177,19 +2184,18 @@ function buildSupabaseModuleSaveOperation(app, flow, blueprint) {
   const protocolChanged = !areSerializedJsonValuesEqual(existingRow?.protocol_json, fullPayload.protocol_json);
   const blueprintChanged = !areSerializedJsonValuesEqual(existingRow?.blueprint_json, fullPayload.blueprint_json);
   const coverChanged = String(existingRow?.cover_image_url ?? "") !== String(fullPayload.cover_image_url ?? "");
-  const nameChanged = String(existingRow?.name ?? "") !== String(fullPayload.name ?? "");
   const descriptionChanged = String(existingRow?.description ?? "") !== String(fullPayload.description ?? "");
   const statusChanged = String(existingRow?.status ?? "") !== String(fullPayload.status ?? "");
 
   const payload = {
     owner_id: fullPayload.owner_id,
-    slug: fullPayload.slug
+    slug: fullPayload.slug,
+    name: String(fullPayload.name ?? existingRow?.name ?? fullPayload.slug ?? "Modulo").trim() || "Modulo"
   };
 
   if (protocolChanged) payload.protocol_json = fullPayload.protocol_json;
   if (blueprintChanged) payload.blueprint_json = fullPayload.blueprint_json;
   if (coverChanged) payload.cover_image_url = fullPayload.cover_image_url;
-  if (nameChanged) payload.name = fullPayload.name;
   if (descriptionChanged) payload.description = fullPayload.description;
   if (statusChanged) payload.status = fullPayload.status;
 
@@ -8063,7 +8069,9 @@ async function mount() {
     setLoginRecoveryMode(false);
     setLoginError(getReadableAuthError(authError));
   }
-  renderState(app);
+  if (!app.authSession || !shouldDelayAuthenticatedFirstPaint(app)) {
+    renderState(app);
+  }
 
   const formLogin = $("formLogin");
   if (formLogin) {
